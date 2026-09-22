@@ -24,8 +24,7 @@ export default async function OwnerDashboard() {
     <main className="min-h-screen bg-[#050507] text-white">
       <div className="flex min-h-screen">
         <aside className="hidden w-[270px] shrink-0 border-r border-white/5 bg-[#08080b] p-4 lg:flex lg:flex-col">
-          <Link href="/" className="flex items-center gap-3 px-2 py-2">
-            <BrandMark size={34} />
+          <Link href="/" className="flex items-center gap-3 px-2 py-2"><BrandMark size={34} />
             <span className="font-semibold tracking-tight">ZenixMind</span>
           </Link>
           <div className="mt-8 rounded-2xl border border-white/8 bg-black/[.45] p-4">
@@ -60,8 +59,8 @@ export default async function OwnerDashboard() {
           <div className="mx-auto max-w-6xl px-5 py-9 sm:px-8 sm:py-12">
             <div>
               <p className="text-xs font-medium uppercase tracking-[.16em] text-zinc-600">ZenixMind control center</p>
-              <h1 className="mt-3 text-3xl font-semibold tracking-[-.035em] sm:text-4xl">Welcome, Daniel.</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">This is the private owner area for managing the ZenixMind platform. Core data controls will be connected as each product system is built.</p>
+              <h1 className="mt-3 text-3xl font-semibold tracking-[-.035em] sm:text-4xl">Welcome to ZenixMind.</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">Private control center for the ZenixMind platform, infrastructure and connected product systems.</p>
             </div>
 
             <div className="mt-9 grid gap-3 sm:grid-cols-3">
