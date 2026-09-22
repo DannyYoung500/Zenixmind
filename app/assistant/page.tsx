@@ -43,6 +43,10 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
   if (name === "trash") return <svg {...common}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>;
   if (name === "upload") return <svg {...common}><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>;
   if (name === "back") return <svg {...common}><path d="m15 18-6-6 6-6"/></svg>;
+  if (name === "close") return <svg {...common}><path d="M6 6l12 12M18 6 6 18"/></svg>;
+  if (name === "user") return <svg {...common}><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.4 3.2-5 7-5s6.2 1.6 7 5"/></svg>;
+  if (name === "data") return <svg {...common}><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>;
+  if (name === "settings") return <svg {...common}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5v.2h-2.6v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H4.3v-2.6h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5v-.2H13v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2V14h-.2a1.7 1.7 0 0 0-1.5 1Z"/></svg>;
   if (name === "chevron") return <svg {...common}><path d="m6 9 6 6 6-6"/></svg>;
   return <svg {...common}><circle cx="12" cy="12" r="9"/></svg>;
 }
@@ -81,32 +85,57 @@ const templates = [
   { title: "Illustration", prompt: "Create a polished editorial illustration with expressive shapes, controlled texture, and a sophisticated visual system.", tone: "from-zinc-700/30 via-zinc-900/20 to-black" },
 ];
 
-function Sidebar({ view, conversations, conversationId, loading, onNewChat, onClose }: {
-  view: string; conversations: Conversation[]; conversationId: string | null; loading: boolean; onNewChat: () => void; onClose: () => void;
+function Sidebar({ view, conversations, conversationId, loading, onNewChat, onClose, onSettings }: {
+  view: string; conversations: Conversation[]; conversationId: string | null; loading: boolean; onNewChat: () => void; onClose: () => void; onSettings: () => void;
 }) {
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState("");
+  const filtered = conversations.filter((chat) => chat.title.toLowerCase().includes(query.trim().toLowerCase()));
+
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 flex h-full w-[270px] shrink-0 flex-col border-r border-white/[.055] bg-[#080809] px-3 py-4 lg:relative lg:z-auto lg:flex">
+    <aside className="fixed inset-y-0 left-0 z-50 flex h-full w-[286px] shrink-0 flex-col border-r border-white/[.055] bg-[#0d0d0e] px-3 py-3 lg:relative lg:z-auto lg:flex">
       <div className="flex items-center justify-between px-2 pb-4">
-        <Link href="/assistant" onClick={onNewChat} className="flex items-center gap-2.5"><BrandMark size={31}/><span className="text-[15px] font-semibold tracking-[-.02em]">ZenixMind</span></Link>
-        <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-600 hover:bg-[#111113] hover:text-zinc-200 lg:hidden"><Icon name="menu" size={18}/></button>
+        <Link href="/assistant" onClick={onNewChat} className="flex items-center gap-2.5">
+          <BrandMark size={31}/><span className="text-[15px] font-semibold tracking-[-.02em]">ZenixMind</span>
+        </Link>
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => setSearching((v) => !v)} className="grid h-9 w-9 place-items-center rounded-lg text-zinc-500 hover:bg-[#171719] hover:text-zinc-100" title="Search chats"><Icon name="search" size={19}/></button>
+          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-zinc-600 hover:bg-[#171719] hover:text-zinc-200 lg:hidden"><Icon name="menu" size={18}/></button>
+        </div>
       </div>
-      <button onClick={onNewChat} className="flex h-11 items-center gap-3 rounded-xl bg-[#111113] px-3.5 text-sm font-medium ring-1 ring-white/[.06] hover:bg-[#171719]"><Icon name="plus"/> New chat</button>
-      <div className="mt-4 space-y-0.5">
-        <Link href="/assistant" className={(view === "chat" ? "bg-[#111113] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm hover:bg-[#101012] hover:text-zinc-200"}><Icon name="chat" size={17}/> Chat</Link>
-        <Link href="/assistant?view=images" className={(view === "images" ? "bg-[#111113] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm hover:bg-[#101012] hover:text-zinc-200"}><Icon name="image" size={17}/> Images</Link>
-        <Link href="/assistant?view=library" className={(view === "library" ? "bg-[#111113] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm hover:bg-[#101012] hover:text-zinc-200"}><Icon name="file" size={17}/> Library</Link>
-      </div>
-      {view === "chat" && <div className="mt-6 min-h-0 flex-1 overflow-y-auto">
-        <div className="px-3 text-[10px] font-semibold uppercase tracking-[.18em] text-zinc-700">Your conversations</div>
-        <div className="mt-2 space-y-0.5">
-          {conversations.map((chat) => <Link key={chat.id} href={"/assistant?conversation=" + chat.id} className={(conversationId === chat.id ? "bg-[#111113] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-[#101012] hover:text-zinc-200"}><Icon name="chat" size={16}/><span className="min-w-0 flex-1 truncate text-[12px]">{chat.title || "New conversation"}</span><span className="shrink-0 text-[9px] text-zinc-700">{formatTime(chat.updated_at)}</span></Link>)}
-          {!conversations.length && !loading && <p className="px-3 py-4 text-xs leading-5 text-zinc-700">No conversations yet. Start your first chat below.</p>}
+
+      {searching && <div className="mb-2 px-1">
+        <div className="flex h-10 items-center gap-2 rounded-xl bg-[#181819] px-3 ring-1 ring-white/[.06]">
+          <Icon name="search" size={16}/>
+          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search chats" className="min-w-0 flex-1 bg-transparent text-xs text-zinc-200 outline-none placeholder:text-zinc-600"/>
         </div>
       </div>}
-      {view !== "chat" && <div className="flex-1" />}
-      <div className="border-t border-white/[.055] pt-3">
-        <Link href="/dashboard" className="block rounded-xl px-3 py-2.5 text-xs text-zinc-600 hover:bg-[#101012] hover:text-zinc-200">Workspace</Link>
-        <Link href="/owner" className="mt-1 block rounded-xl border border-white/[.05] bg-[#0d0d0f] px-3 py-2.5 text-xs text-zinc-400 hover:bg-[#121214] hover:text-white">Owner console</Link>
+
+      <button onClick={onNewChat} className="flex h-11 items-center gap-3 rounded-xl bg-[#1a1a1b] px-3.5 text-sm font-medium ring-1 ring-white/[.055] hover:bg-[#222223]"><Icon name="plus"/> New chat</button>
+
+      <div className="mt-3 space-y-0.5">
+        <Link href="/assistant" className={(view === "chat" ? "bg-[#1b1b1c] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm hover:bg-[#171718] hover:text-zinc-200"}><Icon name="chat" size={18}/> Chat</Link>
+        <Link href="/assistant?view=images" className={(view === "images" ? "bg-[#1b1b1c] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm hover:bg-[#171718] hover:text-zinc-200"}><Icon name="image" size={18}/> Images</Link>
+        <Link href="/assistant?view=library" className={(view === "library" ? "bg-[#1b1b1c] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm hover:bg-[#171718] hover:text-zinc-200"}><Icon name="file" size={18}/> Library</Link>
+      </div>
+
+      <div className="mt-6 min-h-0 flex-1 overflow-y-auto">
+        <div className="flex items-center justify-between px-3">
+          <span className="text-[11px] font-medium text-zinc-600">Chats</span>
+          <span className="text-[10px] text-zinc-700">{filtered.length}</span>
+        </div>
+        <div className="mt-2 space-y-0.5">
+          {view === "chat" && filtered.map((chat) => <Link key={chat.id} href={"/assistant?conversation=" + chat.id} className={(conversationId === chat.id ? "bg-[#1b1b1c] text-zinc-100 " : "text-zinc-400 ") + "flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-[#171718] hover:text-zinc-100"}><Icon name="chat" size={16}/><span className="min-w-0 flex-1 truncate text-[12px]">{chat.title || "New conversation"}</span></Link>)}
+          {view === "chat" && !filtered.length && !loading && <p className="px-3 py-4 text-xs leading-5 text-zinc-700">{query ? "No matching chats." : "No chats yet."}</p>}
+          {view === "chat" && filtered.length > 0 && <button type="button" className="px-3 pt-3 text-xs text-zinc-600 hover:text-zinc-300">See all</button>}
+        </div>
+      </div>
+
+      <div className="border-t border-white/[.055] pt-2">
+        <button type="button" onClick={onSettings} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-[#171718]">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-[#29292b] text-sm font-semibold text-zinc-300">Z</span>
+          <span className="min-w-0 flex-1"><span className="block truncate text-sm text-zinc-200">ZenixMind</span><span className="block text-[10px] text-zinc-600">Profile & settings</span></span>
+        </button>
       </div>
     </aside>
   );
@@ -256,6 +285,92 @@ function LibraryView() {
   );
 }
 
+function SettingsPanel({ onClose, onNewChat }: { onClose: () => void; onNewChat: () => void }) {
+  const [tab, setTab] = useState<"profile" | "data">("data");
+  const [improve, setImprove] = useState(true);
+  const [email, setEmail] = useState("");
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    setImprove(localStorage.getItem("zenixmind-improve-service") !== "off");
+    void (async () => {
+      const supabase = getSupabase();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) setEmail(user.email);
+    })();
+  }, []);
+
+  function toggleImprove() {
+    const next = !improve;
+    setImprove(next);
+    localStorage.setItem("zenixmind-improve-service", next ? "on" : "off");
+  }
+
+  async function exportData() {
+    setNotice("Preparing your export…");
+    const response = await fetch("/api/chat?export=1", { cache: "no-store" });
+    if (!response.ok) { setNotice("Unable to export your data."); return; }
+    const data = await response.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "zenixmind-data-export.json"; a.click(); URL.revokeObjectURL(url);
+    setNotice("Export downloaded.");
+  }
+
+  async function deleteAll() {
+    if (!window.confirm("Delete all of your chats and messages? This cannot be undone.")) return;
+    setNotice("Deleting chats…");
+    const response = await fetch("/api/chat", { method: "DELETE" });
+    if (!response.ok) { setNotice("Unable to delete chats."); return; }
+    setNotice("All chats deleted.");
+    onNewChat();
+  }
+
+  async function signOut() {
+    await getSupabase().auth.signOut();
+    window.location.href = "/login";
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-0 backdrop-blur-sm sm:p-5">
+      <section className="flex h-full w-full flex-col overflow-hidden bg-[#2b2b2e] text-zinc-100 sm:h-[min(720px,calc(100vh-40px))] sm:max-w-[760px] sm:rounded-[24px] sm:border sm:border-white/[.08] sm:shadow-2xl">
+        <header className="flex items-center justify-between px-5 pb-5 pt-6 sm:px-7">
+          <h2 className="text-[27px] font-medium tracking-[-.03em]">Settings</h2>
+          <button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full text-zinc-300 hover:bg-white/[.07]"><Icon name="close" size={25}/></button>
+        </header>
+
+        <div className="flex items-center gap-2 overflow-x-auto px-5 sm:px-7">
+          <button onClick={() => setTab("profile")} className={"flex min-w-[145px] items-center justify-center gap-3 rounded-2xl px-5 py-4 text-lg " + (tab === "profile" ? "bg-[#3a3a3d] text-zinc-100" : "text-zinc-300 hover:bg-white/[.04]")}><Icon name="user" size={24}/> Profile</button>
+          <button onClick={() => setTab("data")} className={"flex min-w-[145px] items-center justify-center gap-3 rounded-2xl px-5 py-4 text-lg " + (tab === "data" ? "bg-[#3a3a3d] text-zinc-100" : "text-zinc-300 hover:bg-white/[.04]")}><Icon name="data" size={24}/> Data</button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-10 pt-8 sm:px-7">
+          {tab === "data" ? <div className="max-w-2xl">
+            <section className="border-b border-white/[.09] pb-7">
+              <h3 className="text-[20px] font-medium">Improve ZenixMind</h3>
+              <p className="mt-2 max-w-xl text-[15px] leading-6 text-zinc-400">Allow anonymized usage data to be used to improve ZenixMind and its services.</p>
+              <button onClick={toggleImprove} aria-pressed={improve} className={"mt-5 h-9 w-[62px] rounded-full p-1 transition " + (improve ? "bg-[#6b8cff]" : "bg-[#555559]")}><span className={"block h-7 w-7 rounded-full bg-white shadow transition " + (improve ? "translate-x-7" : "")}/></button>
+            </section>
+            <section className="border-b border-white/[.09] py-7">
+              <div className="flex items-center justify-between gap-5"><div><h3 className="text-[18px] font-medium">Shared links</h3><p className="mt-1 text-sm text-zinc-500">No shared links yet.</p></div><button disabled className="rounded-full border border-white/[.12] px-5 py-2.5 text-sm text-zinc-500">Manage</button></div>
+            </section>
+            <section className="border-b border-white/[.09] py-7">
+              <div className="flex items-center justify-between gap-5"><div><h3 className="text-[18px] font-medium">Export data</h3><p className="mt-1 max-w-xl text-sm leading-6 text-zinc-500">Download your account conversation data as a JSON file.</p></div><button onClick={() => void exportData()} className="rounded-full border border-white/[.12] px-5 py-2.5 text-sm text-zinc-200 hover:bg-white/[.05]">Export</button></div>
+            </section>
+            <section className="py-7">
+              <div className="flex items-center justify-between gap-5"><div><h3 className="text-[18px] font-medium">Delete all chats</h3><p className="mt-1 text-sm text-zinc-500">Permanently delete every conversation and message in your account.</p></div><button onClick={() => void deleteAll()} className="rounded-full border border-red-400/80 px-5 py-2.5 text-sm text-red-300 hover:bg-red-400/10">Delete all</button></div>
+            </section>
+            {notice && <p className="text-xs text-zinc-400">{notice}</p>}
+          </div> : <div className="max-w-2xl">
+            <section className="border-b border-white/[.09] pb-7"><h3 className="text-[20px] font-medium">Profile</h3><p className="mt-2 text-sm text-zinc-500">Your ZenixMind account.</p><div className="mt-6 rounded-2xl bg-[#353538] p-4"><p className="text-xs text-zinc-500">Email</p><p className="mt-1 text-sm text-zinc-100">{email || "Loading…"}</p></div></section>
+            <section className="border-b border-white/[.09] py-7"><button onClick={signOut} className="rounded-full border border-white/[.12] px-5 py-2.5 text-sm text-zinc-200 hover:bg-white/[.05]">Sign out</button></section>
+          </div>}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function AssistantPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -265,6 +380,7 @@ export default function AssistantPage() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [dictating, setDictating] = useState(false);
   const [dictationNotice, setDictationNotice] = useState("");
   const [view, setView] = useState("chat");
@@ -333,7 +449,7 @@ export default function AssistantPage() {
     <main className="h-[100dvh] overflow-hidden bg-[#050506] text-zinc-100">
       <div className="flex h-full">
         {sidebarOpen && <button aria-label="Close sidebar" onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/70 lg:hidden"/>}
-        <div className={(sidebarOpen ? "fixed inset-y-0 left-0 z-50 flex " : "hidden ") + "lg:relative lg:flex"}><Sidebar view={view} conversations={conversations} conversationId={conversationId} loading={loading} onNewChat={newChat} onClose={() => setSidebarOpen(false)}/></div>
+        <div className={(sidebarOpen ? "fixed inset-y-0 left-0 z-50 flex " : "hidden ") + "lg:relative lg:flex"}><Sidebar view={view} conversations={conversations} conversationId={conversationId} loading={loading} onNewChat={newChat} onClose={() => setSidebarOpen(false)} onSettings={() => { setSettingsOpen(true); setSidebarOpen(false); }}/></div>
         <section className="relative flex min-w-0 flex-1 flex-col">
           <header className="flex h-[70px] shrink-0 items-center justify-between px-4 sm:px-7">
             <div className="flex items-center gap-3">
@@ -374,6 +490,7 @@ export default function AssistantPage() {
           </div>}
         </section>
       </div>
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} onNewChat={() => { newChat(); setSettingsOpen(false); }} />}
     </main>
   );
 }

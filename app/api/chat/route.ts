@@ -98,7 +98,15 @@ export async function GET(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Sign in to view conversations." }, { status: 401 });
 
-    const id = new URL(request.url).searchParams.get("conversation_id");
+    const searchParams = new URL(request.url).searchParams;
+    if (searchParams.get("export") === "1") {
+      const { data: conversations, error: conversationError } = await supabase.from("conversations").select("id,title,model,created_at,updated_at").eq("user_id", user.id).order("created_at", { ascending: true });
+      if (conversationError) throw conversationError;
+      const { data: messages, error: messageError } = await supabase.from("messages").select("conversation_id,role,content,created_at").eq("user_id", user.id).order("created_at", { ascending: true });
+      if (messageError) throw messageError;
+      return NextResponse.json({ exportedAt: new Date().toISOString(), conversations: conversations || [], messages: messages || [] });
+    }
+    const id = searchParams.get("conversation_id");
     if (!id) {
       const { data, error } = await supabase.from("conversations").select("id,title,model,created_at,updated_at")
         .eq("user_id", user.id).order("updated_at", { ascending: false }).limit(50);
@@ -117,5 +125,23 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("Conversation route error:", error);
     return NextResponse.json({ error: "Unable to load conversations." }, { status: 500 });
+  }
+}
+
+
+export async function DELETE() {
+  try {
+    const supabase = await getSupabaseServer();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Sign in to delete chats." }, { status: 401 });
+
+    const { error: messageError } = await supabase.from("messages").delete().eq("user_id", user.id);
+    if (messageError) throw messageError;
+    const { error: conversationError } = await supabase.from("conversations").delete().eq("user_id", user.id);
+    if (conversationError) throw conversationError;
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Delete chats error:", error);
+    return NextResponse.json({ error: "Unable to delete chats." }, { status: 500 });
   }
 }
