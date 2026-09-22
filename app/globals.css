@@ -16,15 +16,26 @@ body {
 a { color: inherit; text-decoration: none; }
 button, input, textarea, select { font: inherit; }
 ::selection { background: rgba(255,255,255,.12); color: #fff; }
-::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar { width: 7px; height: 7px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,.06); border-radius: 999px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.055); border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.1); }
 
 /* Keep the interface compact, light and refined instead of oversized or heavy. */
 .font-bold { font-weight: 400 !important; }
 .font-semibold { font-weight: 400 !important; }
 .font-medium { font-weight: 300 !important; }
+
+/* Compact the larger display sizes used across the product. */
+.text-3xl { font-size: 1.75rem !important; line-height: 1.12 !important; }
+.text-4xl { font-size: 2.1rem !important; line-height: 1.06 !important; }
+.text-5xl { font-size: 2.55rem !important; line-height: 1.02 !important; }
+.text-6xl { font-size: 3.25rem !important; line-height: .98 !important; }
+@media (max-width: 640px) {
+  .text-4xl { font-size: 1.8rem !important; }
+  .text-5xl { font-size: 2.2rem !important; }
+  .text-6xl { font-size: 2.65rem !important; }
+}
 
 .zenix-ambient {
   background:
