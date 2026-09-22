@@ -157,12 +157,7 @@ export default function AssistantPage() {
               <Link href="/assistant" onClick={newChat} className="lg:hidden"><BrandMark size={27}/></Link>
               <div className="hidden items-center gap-2 lg:flex"><BrandMark size={25}/><span className="text-sm font-semibold">ZenixMind</span></div>
             </div>
-            <div className="relative">
-              <select value={model} onChange={(e) => setModel(e.target.value)} aria-label="Choose AI model" className="appearance-none rounded-xl border border-white/[.07] bg-[#0d0d0f] py-2 pl-3 pr-8 text-xs text-zinc-400 outline-none hover:bg-[#121214]">
-                <option value="default">Default model</option><option value="fast">Fast model</option><option value="reasoning">Reasoning model</option>
-              </select>
-              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600"><Icon name="chevron" size={14}/></span>
-            </div>
+
           </header>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -192,11 +187,10 @@ export default function AssistantPage() {
                   <div className="flex items-center gap-2">
                     <input ref={fileRef} type="file" className="hidden"/>
                     <button type="button" onClick={() => fileRef.current?.click()} className="grid h-10 w-10 place-items-center rounded-full bg-[#222225] text-zinc-300 hover:bg-[#2a2a2e]" title="Attach file"><Icon name="plus" size={21}/></button>
-                    <Link href="/assistant/voice" className="flex h-10 items-center gap-2 rounded-full bg-[#222225] px-4 text-sm font-medium text-amber-200 hover:bg-[#2a2a2e]" title="Speak — AI voice conversation"><Icon name="wave" size={17}/> Speak</Link>
                   </div>
                   <div className="flex items-center gap-2">
                     <button type="button" onClick={startDictation} className={(dictating ? "bg-amber-300/10 text-amber-200 ring-1 ring-amber-300/20 " : "bg-[#222225] text-zinc-300 ") + "grid h-10 w-10 place-items-center rounded-full hover:bg-[#2a2a2e]"} title="Microphone — dictation only" aria-label="Microphone dictation"><Icon name="mic" size={19}/></button>
-                    {input.trim() ? <button type="submit" disabled={busy} className="grid h-10 w-10 place-items-center rounded-full bg-zinc-100 text-black hover:bg-zinc-200 disabled:opacity-40" title="Send"><Icon name="send" size={17}/></button> : <Link href="/assistant/voice" className="flex h-10 items-center gap-2 rounded-full bg-zinc-100 px-4 text-sm font-medium text-black hover:bg-zinc-200" title="Speak — AI voice conversation"><Icon name="wave" size={17}/> Speak</Link>}
+                    {input.trim() ? <button type="submit" disabled={busy} className="grid h-10 w-10 place-items-center rounded-full bg-[#222225] text-zinc-100 hover:bg-[#2a2a2e] disabled:opacity-40" title="Send"><Icon name="send" size={17}/></button> : <Link href="/assistant/voice" className="flex h-10 items-center gap-2 rounded-full bg-[#222225] px-4 text-sm font-medium text-zinc-100 hover:bg-[#2a2a2e]" title="Speak — AI voice conversation"><Icon name="wave" size={17}/> Speak</Link>}
                   </div>
                 </div>
                 {dictationNotice && <p className="px-3 pb-1 text-[10px] text-zinc-600">{dictationNotice}</p>}
