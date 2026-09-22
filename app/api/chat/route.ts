@@ -13,6 +13,7 @@ export async function POST(request: Request) {
       messages?: ChatMessage[];
       conversationId?: string | null;
       model?: string;
+      preferences?: { memory?: boolean; personality?: string; responseLength?: string; language?: string; customInstructions?: string };
     };
     const messages = Array.isArray(body.messages) ? body.messages : [];
     const userMessage = [...messages].reverse().find((m) => m.role === "user" && m.content?.trim());
@@ -54,6 +55,11 @@ export async function POST(request: Request) {
 
     const providerMessages = [
       { role: "system", content: "You are ZenixMind, a helpful AI assistant. Be accurate, clear and practical. Never claim to have used tools or sources you did not use." },
+      ...(body.preferences?.memory === false ? [] : []),
+      ...(body.preferences?.personality ? [{ role: "system" as const, content: `Default response style: ${body.preferences.personality}.` }] : []),
+      ...(body.preferences?.responseLength ? [{ role: "system" as const, content: `Preferred response length: ${body.preferences.responseLength}.` }] : []),
+      ...(body.preferences?.language ? [{ role: "system" as const, content: `Preferred response language: ${body.preferences.language}.` }] : []),
+      ...(body.preferences?.customInstructions?.trim() ? [{ role: "system" as const, content: `User preferences: ${body.preferences.customInstructions.trim().slice(0, 2000)}` }] : []),
       ...((history || []) as ChatMessage[]),
       { role: "user" as const, content: userMessage.content.trim() },
     ];

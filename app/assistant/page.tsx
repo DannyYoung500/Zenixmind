@@ -46,6 +46,11 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
   if (name === "close") return <svg {...common}><path d="M6 6l12 12M18 6 6 18"/></svg>;
   if (name === "user") return <svg {...common}><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.4 3.2-5 7-5s6.2 1.6 7 5"/></svg>;
   if (name === "data") return <svg {...common}><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>;
+  if (name === "spark") return <svg {...common}><path d="m12 3 1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3Z"/><path d="m19 16 .7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7L19 16Z"/></svg>;
+  if (name === "bell") return <svg {...common}><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></svg>;
+  if (name === "shield") return <svg {...common}><path d="M12 3 20 6v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3Z"/><path d="m9 12 2 2 4-4"/></svg>;
+  if (name === "lock") return <svg {...common}><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>;
+  if (name === "info") return <svg {...common}><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/></svg>;
   if (name === "settings") return <svg {...common}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5v.2h-2.6v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H4.3v-2.6h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5v-.2H13v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2V14h-.2a1.7 1.7 0 0 0-1.5 1Z"/></svg>;
   if (name === "chevron") return <svg {...common}><path d="m6 9 6 6 6-6"/></svg>;
   return <svg {...common}><circle cx="12" cy="12" r="9"/></svg>;
@@ -286,28 +291,53 @@ function LibraryView() {
 }
 
 function SettingsPanel({ onClose, onNewChat }: { onClose: () => void; onNewChat: () => void }) {
-  const [tab, setTab] = useState<"profile" | "data">("data");
-  const [improve, setImprove] = useState(true);
+  type Section = "account" | "general" | "personalization" | "voice" | "notifications" | "privacy" | "security" | "about";
+  const [section, setSection] = useState<Section>("account");
   const [email, setEmail] = useState("");
+  const [improve, setImprove] = useState(true);
+  const [memory, setMemory] = useState(true);
+  const [temporary, setTemporary] = useState(false);
+  const [voiceAutoStart, setVoiceAutoStart] = useState(false);
+  const [voiceRate, setVoiceRate] = useState("0.96");
+  const [language, setLanguage] = useState("English");
+  const [personality, setPersonality] = useState("Balanced");
+  const [responseLength, setResponseLength] = useState("Adaptive");
+  const [customInstructions, setCustomInstructions] = useState("");
+  const [notifyProduct, setNotifyProduct] = useState(true);
+  const [notifySecurity, setNotifySecurity] = useState(true);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
     setImprove(localStorage.getItem("zenixmind-improve-service") !== "off");
+    setMemory(localStorage.getItem("zenixmind-memory") !== "off");
+    setTemporary(localStorage.getItem("zenixmind-temporary-chat") === "on");
+    setVoiceAutoStart(localStorage.getItem("zenixmind-voice-auto") === "on");
+    setVoiceRate(localStorage.getItem("zenixmind-voice-rate") || "0.96");
+    setLanguage(localStorage.getItem("zenixmind-language") || "English");
+    setPersonality(localStorage.getItem("zenixmind-personality") || "Balanced");
+    setResponseLength(localStorage.getItem("zenixmind-response-length") || "Adaptive");
+    setCustomInstructions(localStorage.getItem("zenixmind-custom-instructions") || "");
+    setNotifyProduct(localStorage.getItem("zenixmind-notify-product") !== "off");
+    setNotifySecurity(localStorage.getItem("zenixmind-notify-security") !== "off");
     void (async () => {
-      const supabase = getSupabase();
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSupabase().auth.getUser();
       if (user?.email) setEmail(user.email);
     })();
   }, []);
 
-  function toggleImprove() {
-    const next = !improve;
-    setImprove(next);
-    localStorage.setItem("zenixmind-improve-service", next ? "on" : "off");
+  function save(key: string, value: string) {
+    localStorage.setItem(key, value);
+    setNotice("Saved");
+    window.setTimeout(() => setNotice(""), 1200);
+  }
+
+  function toggle(key: string, value: boolean, setter: (v: boolean) => void) {
+    setter(value);
+    save(key, value ? "on" : "off");
   }
 
   async function exportData() {
-    setNotice("Preparing your export…");
+    setNotice("Preparing export…");
     const response = await fetch("/api/chat?export=1", { cache: "no-store" });
     if (!response.ok) { setNotice("Unable to export your data."); return; }
     const data = await response.json();
@@ -331,44 +361,98 @@ function SettingsPanel({ onClose, onNewChat }: { onClose: () => void; onNewChat:
     window.location.href = "/login";
   }
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-0 backdrop-blur-sm sm:p-5">
-      <section className="flex h-full w-full flex-col overflow-hidden bg-[#2b2b2e] text-zinc-100 sm:h-[min(720px,calc(100vh-40px))] sm:max-w-[760px] sm:rounded-[24px] sm:border sm:border-white/[.08] sm:shadow-2xl">
-        <header className="flex items-center justify-between px-5 pb-5 pt-6 sm:px-7">
-          <h2 className="text-[27px] font-medium tracking-[-.03em]">Settings</h2>
-          <button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full text-zinc-300 hover:bg-white/[.07]"><Icon name="close" size={25}/></button>
+  const sections: { id: Section; label: string; icon: string; group: string }[] = [
+    { id: "account", label: "Account", icon: "user", group: "Account" },
+    { id: "general", label: "General", icon: "settings", group: "Preferences" },
+    { id: "personalization", label: "Personalization", icon: "spark", group: "Preferences" },
+    { id: "voice", label: "Voice", icon: "wave", group: "Preferences" },
+    { id: "notifications", label: "Notifications", icon: "bell", group: "Preferences" },
+    { id: "privacy", label: "Privacy & data", icon: "shield", group: "Privacy" },
+    { id: "security", label: "Security", icon: "lock", group: "Privacy" },
+    { id: "about", label: "About & help", icon: "info", group: "Support" },
+  ];
+
+  function Switch({ value, onChange }: { value: boolean; onChange: (value: boolean) => void }) {
+    return <button type="button" aria-pressed={value} onClick={() => onChange(!value)} className={"relative h-7 w-12 rounded-full transition " + (value ? "bg-zinc-200" : "bg-zinc-700")}><span className={"absolute top-1 h-5 w-5 rounded-full bg-[#111113] shadow transition " + (value ? "left-6" : "left-1")}/></button>;
+  }
+
+  function Row({ title, description, children, onClick }: { title: string; description?: string; children?: React.ReactNode; onClick?: () => void }) {
+    return <div onClick={onClick} className={"flex items-center justify-between gap-5 border-b border-white/[.07] py-5 " + (onClick ? "cursor-pointer hover:bg-white/[.02]" : "")}><div className="min-w-0"><p className="text-[15px] font-medium text-zinc-100">{title}</p>{description && <p className="mt-1 max-w-xl text-[12px] leading-5 text-zinc-500">{description}</p>}</div><div className="shrink-0">{children}</div></div>;
+  }
+
+  function Select({ value, options, onChange }: { value: string; options: string[]; onChange: (value: string) => void }) {
+    return <select value={value} onChange={(e) => onChange(e.target.value)} className="rounded-xl border border-white/[.09] bg-[#151517] px-3 py-2 text-xs text-zinc-200 outline-none">{options.map((option) => <option key={option}>{option}</option>)}</select>;
+  }
+
+  const content = {
+    account: <div>
+      <div className="mb-7"><h3 className="text-[24px] font-medium tracking-[-.025em]">Account</h3><p className="mt-1 text-sm text-zinc-500">Manage your ZenixMind account.</p></div>
+      <div className="rounded-2xl border border-white/[.07] bg-[#111113] p-4"><div className="grid h-12 w-12 place-items-center rounded-full bg-[#242426] text-lg text-zinc-300">Z</div><p className="mt-4 text-sm font-medium text-zinc-100">ZenixMind account</p><p className="mt-1 text-xs text-zinc-500">{email || "Loading…"}</p></div>
+      <Row title="Plan" description="Your current ZenixMind plan and usage will appear here as billing is connected."><span className="rounded-full bg-[#18181a] px-3 py-1.5 text-xs text-zinc-500">Free</span></Row>
+      <Row title="Sign out" description="Sign out of this device."><button onClick={() => void signOut()} className="rounded-xl border border-white/[.1] px-4 py-2 text-xs text-zinc-200 hover:bg-white/[.05]">Sign out</button></Row>
+    </div>,
+    general: <div>
+      <div className="mb-7"><h3 className="text-[24px] font-medium tracking-[-.025em]">General</h3><p className="mt-1 text-sm text-zinc-500">Control the way ZenixMind looks and behaves on this device.</p></div>
+      <Row title="Appearance" description="ZenixMind is currently optimized for a dark interface."><span className="rounded-xl border border-white/[.09] bg-[#151517] px-3 py-2 text-xs text-zinc-300">Dark</span></Row>
+      <Row title="Language" description="Language used for the interface and preferred responses."><Select value={language} options={["English", "French", "Spanish", "Portuguese", "Arabic"]} onChange={(v) => { setLanguage(v); save("zenixmind-language", v); }}/></Row>
+      <Row title="Response length" description="Choose how much detail ZenixMind normally uses."><Select value={responseLength} options={["Adaptive", "Concise", "Detailed", "Thorough"]} onChange={(v) => { setResponseLength(v); save("zenixmind-response-length", v); }}/></Row>
+    </div>,
+    personalization: <div>
+      <div className="mb-7"><h3 className="text-[24px] font-medium tracking-[-.025em]">Personalization</h3><p className="mt-1 text-sm text-zinc-500">Tell ZenixMind how you want your conversations to feel.</p></div>
+      <Row title="Response style" description="Sets the default tone of ZenixMind responses."><Select value={personality} options={["Balanced", "Professional", "Friendly", "Direct", "Creative"]} onChange={(v) => { setPersonality(v); save("zenixmind-personality", v); }}/></Row>
+      <div className="border-b border-white/[.07] py-5"><p className="text-[15px] font-medium text-zinc-100">Custom instructions</p><p className="mt-1 text-xs leading-5 text-zinc-500">Add preferences ZenixMind should consider when responding.</p><textarea value={customInstructions} onChange={(e) => setCustomInstructions(e.target.value)} onBlur={() => save("zenixmind-custom-instructions", customInstructions)} placeholder="For example: Keep technical explanations practical and show examples." rows={5} className="mt-4 w-full resize-none rounded-2xl border border-white/[.08] bg-[#111113] px-4 py-3 text-sm text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-white/[.16]"/></div>
+      <Row title="Memory" description="Use information you explicitly choose to keep for future conversations."><Switch value={memory} onChange={(v) => toggle("zenixmind-memory", v, setMemory)}/></Row>
+    </div>,
+    voice: <div>
+      <div className="mb-7"><h3 className="text-[24px] font-medium tracking-[-.025em]">Voice</h3><p className="mt-1 text-sm text-zinc-500">Control ZenixMind's voice conversation behavior.</p></div>
+      <Row title="Start voice automatically" description="Open the dedicated Voice experience and begin listening immediately."><Switch value={voiceAutoStart} onChange={(v) => toggle("zenixmind-voice-auto", v, setVoiceAutoStart)}/></Row>
+      <Row title="Speech rate" description="Playback speed for browser voice output."><Select value={voiceRate} options={["0.85", "0.96", "1.05", "1.15"]} onChange={(v) => { setVoiceRate(v); save("zenixmind-voice-rate", v); }}/></Row>
+      <Row title="Voice language" description="Preferred language for speech recognition."><Select value={language} options={["English", "French", "Spanish", "Portuguese"]} onChange={(v) => { setLanguage(v); save("zenixmind-language", v); }}/></Row>
+    </div>,
+    notifications: <div>
+      <div className="mb-7"><h3 className="text-[24px] font-medium tracking-[-.025em]">Notifications</h3><p className="mt-1 text-sm text-zinc-500">Choose which ZenixMind notifications you want on this device.</p></div>
+      <Row title="Product updates" description="News about new ZenixMind features and improvements."><Switch value={notifyProduct} onChange={(v) => toggle("zenixmind-notify-product", v, setNotifyProduct)}/></Row>
+      <Row title="Security alerts" description="Important account and security notices."><Switch value={notifySecurity} onChange={(v) => toggle("zenixmind-notify-security", v, setNotifySecurity)}/></Row>
+    </div>,
+    privacy: <div>
+      <div className="mb-7"><h3 className="text-[24px] font-medium tracking-[-.025em]">Privacy & data</h3><p className="mt-1 text-sm text-zinc-500">Control how your ZenixMind activity is stored and used.</p></div>
+      <Row title="Improve ZenixMind" description="Allow anonymized usage data to help improve the service."><Switch value={improve} onChange={(v) => toggle("zenixmind-improve-service", v, setImprove)}/></Row>
+      <Row title="Temporary chats" description="Keep a conversation out of your normal chat history when this is enabled for a new chat."><Switch value={temporary} onChange={(v) => toggle("zenixmind-temporary-chat", v, setTemporary)}/></Row>
+      <Row title="Export data" description="Download your conversations and account data as JSON."><button onClick={() => void exportData()} className="rounded-xl border border-white/[.1] px-4 py-2 text-xs text-zinc-200 hover:bg-white/[.05]">Export</button></Row>
+      <Row title="Delete all chats" description="Permanently delete every conversation and message in your account."><button onClick={() => void deleteAll()} className="rounded-xl border border-red-400/70 px-4 py-2 text-xs text-red-300 hover:bg-red-400/10">Delete all</button></Row>
+    </div>,
+    security: <div>
+      <div className="mb-7"><h3 className="text-[24px] font-medium tracking-[-.025em]">Security</h3><p className="mt-1 text-sm text-zinc-500">Protect access to your ZenixMind account.</p></div>
+      <Row title="Current session" description="This browser is signed in to your ZenixMind account."><span className="rounded-full bg-[#171719] px-3 py-1.5 text-xs text-zinc-500">Active</span></Row>
+      <Row title="Sign out" description="End this session on the current device."><button onClick={() => void signOut()} className="rounded-xl border border-white/[.1] px-4 py-2 text-xs text-zinc-200 hover:bg-white/[.05]">Sign out</button></Row>
+    </div>,
+    about: <div>
+      <div className="mb-7"><h3 className="text-[24px] font-medium tracking-[-.025em]">About & help</h3><p className="mt-1 text-sm text-zinc-500">Information and support for ZenixMind.</p></div>
+      <Row title="ZenixMind" description="Your AI assistant for thinking, creating, researching and getting things done."><span className="text-xs text-zinc-600">2026</span></Row>
+      <Row title="AI provider" description="Configured by the ZenixMind service. Provider details are not exposed as a user setting."><span className="text-xs text-zinc-600">Managed</span></Row>
+      <Row title="Help & support" description="Support links will be added when the support system is connected."><span className="text-xs text-zinc-700">Coming later</span></Row>
+    </div>,
+  }[section];
+
+  return <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm sm:p-5">
+    <section className="mx-auto flex h-full w-full max-w-[1040px] overflow-hidden bg-[#111113] text-zinc-100 sm:h-[min(760px,calc(100vh-40px))] sm:rounded-[24px] sm:border sm:border-white/[.08] sm:shadow-2xl">
+      <aside className="hidden w-[245px] shrink-0 border-r border-white/[.07] bg-[#0d0d0f] p-3 sm:block">
+        <div className="flex items-center justify-between px-2 pb-5 pt-1"><p className="text-sm font-medium text-zinc-100">Settings</p><button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 hover:bg-white/[.05] hover:text-zinc-100"><Icon name="close" size={18}/></button></div>
+        <nav className="space-y-5 overflow-y-auto">
+          {["Account", "Preferences", "Privacy", "Support"].map((group) => <div key={group}><p className="px-2 pb-1 text-[10px] font-medium uppercase tracking-[.14em] text-zinc-700">{group}</p>{sections.filter((item) => item.group === group).map((item) => <button key={item.id} onClick={() => setSection(item.id)} className={"flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs " + (section === item.id ? "bg-[#1c1c1f] text-zinc-100" : "text-zinc-500 hover:bg-[#151517] hover:text-zinc-200")}><Icon name={item.icon} size={17}/><span>{item.label}</span></button>)}</div>)}
+        </nav>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-between border-b border-white/[.07] px-5 py-4 sm:px-8">
+          <div className="flex items-center gap-3"><button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-zinc-500 hover:bg-white/[.05] sm:hidden"><Icon name="close" size={20}/></button><h2 className="text-[18px] font-medium tracking-[-.02em]">{sections.find((item) => item.id === section)?.label}</h2></div>
+          <div className="hidden text-[11px] text-zinc-600 sm:block">ZenixMind Settings</div>
         </header>
-
-        <div className="flex items-center gap-2 overflow-x-auto px-5 sm:px-7">
-          <button onClick={() => setTab("profile")} className={"flex min-w-[145px] items-center justify-center gap-3 rounded-2xl px-5 py-4 text-lg " + (tab === "profile" ? "bg-[#3a3a3d] text-zinc-100" : "text-zinc-300 hover:bg-white/[.04]")}><Icon name="user" size={24}/> Profile</button>
-          <button onClick={() => setTab("data")} className={"flex min-w-[145px] items-center justify-center gap-3 rounded-2xl px-5 py-4 text-lg " + (tab === "data" ? "bg-[#3a3a3d] text-zinc-100" : "text-zinc-300 hover:bg-white/[.04]")}><Icon name="data" size={24}/> Data</button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-10 pt-8 sm:px-7">
-          {tab === "data" ? <div className="max-w-2xl">
-            <section className="border-b border-white/[.09] pb-7">
-              <h3 className="text-[20px] font-medium">Improve ZenixMind</h3>
-              <p className="mt-2 max-w-xl text-[15px] leading-6 text-zinc-400">Allow anonymized usage data to be used to improve ZenixMind and its services.</p>
-              <button onClick={toggleImprove} aria-pressed={improve} className={"mt-5 h-9 w-[62px] rounded-full p-1 transition " + (improve ? "bg-[#6b8cff]" : "bg-[#555559]")}><span className={"block h-7 w-7 rounded-full bg-white shadow transition " + (improve ? "translate-x-7" : "")}/></button>
-            </section>
-            <section className="border-b border-white/[.09] py-7">
-              <div className="flex items-center justify-between gap-5"><div><h3 className="text-[18px] font-medium">Shared links</h3><p className="mt-1 text-sm text-zinc-500">No shared links yet.</p></div><button disabled className="rounded-full border border-white/[.12] px-5 py-2.5 text-sm text-zinc-500">Manage</button></div>
-            </section>
-            <section className="border-b border-white/[.09] py-7">
-              <div className="flex items-center justify-between gap-5"><div><h3 className="text-[18px] font-medium">Export data</h3><p className="mt-1 max-w-xl text-sm leading-6 text-zinc-500">Download your account conversation data as a JSON file.</p></div><button onClick={() => void exportData()} className="rounded-full border border-white/[.12] px-5 py-2.5 text-sm text-zinc-200 hover:bg-white/[.05]">Export</button></div>
-            </section>
-            <section className="py-7">
-              <div className="flex items-center justify-between gap-5"><div><h3 className="text-[18px] font-medium">Delete all chats</h3><p className="mt-1 text-sm text-zinc-500">Permanently delete every conversation and message in your account.</p></div><button onClick={() => void deleteAll()} className="rounded-full border border-red-400/80 px-5 py-2.5 text-sm text-red-300 hover:bg-red-400/10">Delete all</button></div>
-            </section>
-            {notice && <p className="text-xs text-zinc-400">{notice}</p>}
-          </div> : <div className="max-w-2xl">
-            <section className="border-b border-white/[.09] pb-7"><h3 className="text-[20px] font-medium">Profile</h3><p className="mt-2 text-sm text-zinc-500">Your ZenixMind account.</p><div className="mt-6 rounded-2xl bg-[#353538] p-4"><p className="text-xs text-zinc-500">Email</p><p className="mt-1 text-sm text-zinc-100">{email || "Loading…"}</p></div></section>
-            <section className="border-b border-white/[.09] py-7"><button onClick={signOut} className="rounded-full border border-white/[.12] px-5 py-2.5 text-sm text-zinc-200 hover:bg-white/[.05]">Sign out</button></section>
-          </div>}
-        </div>
-      </section>
-    </div>
-  );
+        <div className="border-b border-white/[.07] px-4 py-3 sm:hidden"><select value={section} onChange={(e) => setSection(e.target.value as Section)} className="w-full rounded-xl border border-white/[.08] bg-[#18181a] px-3 py-2.5 text-sm text-zinc-200 outline-none">{sections.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>
+        <div className="min-h-0 flex-1 overflow-y-auto"><div className="mx-auto max-w-[680px] px-5 py-7 sm:px-9 sm:py-9">{content}</div></div>
+        {notice && <div className="border-t border-white/[.06] px-5 py-2 text-center text-[10px] text-zinc-500">{notice}</div>}
+      </div>
+    </section>
+  </div>;
 }
 
 export default function AssistantPage() {
@@ -433,7 +517,7 @@ export default function AssistantPage() {
     stopDictation(); const next = [...messages, { role: "user" as const, content: text }];
     setMessages(next); setInput(""); setBusy(true);
     try {
-      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next, model, conversationId }) });
+      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next, model, conversationId, preferences: { memory: localStorage.getItem("zenixmind-memory") !== "off", personality: localStorage.getItem("zenixmind-personality") || "Balanced", responseLength: localStorage.getItem("zenixmind-response-length") || "Adaptive", language: localStorage.getItem("zenixmind-language") || "English", customInstructions: localStorage.getItem("zenixmind-custom-instructions") || "" } }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || "Chat request failed.");
       if (data.conversationId) { setConversationId(data.conversationId); window.history.replaceState({}, "", "/assistant?conversation=" + data.conversationId); }
       setMessages((current) => [...current, { role: "assistant", content: data.message }]); void loadConversations();
