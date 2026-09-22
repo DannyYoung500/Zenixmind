@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
+import { WorkspaceShell } from "@/components/workspace-shell";
 
 type VoiceState = "listening" | "thinking" | "speaking" | "muted" | "error";
 type RecognitionResult = { isFinal: boolean; 0: { transcript: string } };
@@ -139,7 +140,8 @@ export default function VoicePage() {
   const stateLabel = state === "error" ? notice : state === "muted" ? "Muted" : notice;
 
   return (
-    <main className="min-h-[100dvh] overflow-hidden bg-[#050506] text-zinc-100">
+    <WorkspaceShell active="chat" title="Voice">
+    <main className="min-h-[calc(100vh-64px)] overflow-hidden bg-[#050506] text-zinc-100">
       <style>{'@keyframes zenixVoicePulse { 0%,100% { transform:scale(.98); opacity:.78 } 50% { transform:scale(1.035); opacity:1 } } @keyframes zenixVoiceRotate { from { transform:rotate(0deg) scale(.99) } to { transform:rotate(360deg) scale(1.01) } } @keyframes zenixVoiceSpeak { 0%,100% { transform:scale(.98); filter:brightness(1) } 50% { transform:scale(1.06); filter:brightness(1.28) } } .voice-orb-listening { animation:zenixVoicePulse 3.8s ease-in-out infinite } .voice-orb-thinking { animation:zenixVoiceRotate 5.5s linear infinite } .voice-orb-speaking { animation:zenixVoiceSpeak 1.65s ease-in-out infinite } .voice-orb-muted { opacity:.42; filter:saturate(.45) brightness(.72) } @media (prefers-reduced-motion:reduce) { .voice-orb-listening,.voice-orb-thinking,.voice-orb-speaking { animation:none } }'}</style>
       <div className="relative flex min-h-[100dvh] flex-col">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(245,170,36,.07),transparent_31%),radial-gradient(circle_at_50%_50%,rgba(255,255,255,.025),transparent_48%)]" />
@@ -165,5 +167,6 @@ export default function VoicePage() {
         </div>
       </div>
     </main>
+    </WorkspaceShell>
   );
 }
