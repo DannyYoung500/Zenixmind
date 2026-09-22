@@ -15,7 +15,6 @@ type DictationRecognition = {
 };
 type DictationConstructor = new () => DictationRecognition;
 
-declare global { interface Window { SpeechRecognition?: DictationConstructor; webkitSpeechRecognition?: DictationConstructor; } }
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -40,7 +39,8 @@ function formatTime(value: string) {
 
 function makeDictationRecognition() {
   if (typeof window === "undefined") return null;
-  const Constructor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const browserWindow = window as Window & { SpeechRecognition?: DictationConstructor; webkitSpeechRecognition?: DictationConstructor };
+  const Constructor = browserWindow.SpeechRecognition || browserWindow.webkitSpeechRecognition;
   if (!Constructor) return null;
   const recognition = new Constructor();
   recognition.continuous = false; recognition.interimResults = true; recognition.maxAlternatives = 1; recognition.lang = "en-US";
