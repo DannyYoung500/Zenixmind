@@ -492,6 +492,7 @@ export default function AssistantPage() {
     const id = params.get("conversation");
     const requestedView = params.get("view");
     setView(requestedView === "images" || requestedView === "library" ? requestedView : "chat");
+    if (params.get("settings") === "1") setSettingsOpen(true);
     void loadConversations();
     if (id) void loadConversation(id); else setLoading(false);
   }, []);
