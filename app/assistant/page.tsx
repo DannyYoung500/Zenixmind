@@ -179,7 +179,8 @@ function LibraryView() {
   const [busy, setBusy] = useState(true);
   const [notice, setNotice] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
-  const supabase = getSupabase();
+  const supabaseRef = useRef(getSupabase());
+  const supabase = supabaseRef.current;
 
   const load = useCallback(async () => {
     setBusy(true);
