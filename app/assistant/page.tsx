@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { BrandMark } from "@/components/brand-mark";
 
 type Message = { role: "user" | "assistant"; content: string };
@@ -14,7 +13,6 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
   if (name === "plus") return <svg {...common}><path d="M12 5v14M5 12h14"/></svg>;
   if (name === "search") return <svg {...common}><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>;
   if (name === "chat") return <svg {...common}><path d="M5 5h14v10H8l-3 3V5Z"/></svg>;
-  if (name === "file") return <svg {...common}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>;
   if (name === "mic") return <svg {...common}><rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>;
   if (name === "send") return <svg {...common}><path d="m4 4 16 8-16 8 3-8-3-8Z"/><path d="M7 12h13"/></svg>;
   if (name === "chevron") return <svg {...common}><path d="m6 9 6 6 6-6"/></svg>;
@@ -31,11 +29,9 @@ function formatTime(value: string) {
 }
 
 export default function AssistantPage() {
-  const searchParams = useSearchParams();
-  const requestedConversation = searchParams.get("conversation");
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(requestedConversation);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [model, setModel] = useState("default");
   const [busy, setBusy] = useState(false);
@@ -67,10 +63,14 @@ export default function AssistantPage() {
   }
 
   useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("conversation");
     void loadConversations();
-    if (requestedConversation) void loadConversation(requestedConversation);
-    else setLoading(false);
-  }, [requestedConversation]);
+    if (id) {
+      void loadConversation(id);
+    } else {
+      setLoading(false);
+    }
+  }, []);
 
   async function sendMessage(event?: FormEvent) {
     event?.preventDefault();
@@ -120,24 +120,19 @@ export default function AssistantPage() {
             <Link href="/assistant" onClick={newChat} className="flex items-center gap-2.5"><BrandMark size={31}/><span className="text-[15px] font-semibold tracking-[-.02em]">ZenixMind</span></Link>
             <button onClick={() => setSidebarOpen(false)} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-600 hover:bg-[#111113] hover:text-zinc-200 lg:hidden"><Icon name="menu" size={18}/></button>
           </div>
-
           <button onClick={newChat} className="flex h-11 items-center gap-3 rounded-xl bg-[#111113] px-3.5 text-sm font-medium ring-1 ring-white/[.06] hover:bg-[#171719]"><Icon name="plus"/> New chat</button>
           <button className="mt-2 flex h-10 w-full items-center gap-3 rounded-xl px-3.5 text-sm text-zinc-500 hover:bg-[#101012] hover:text-zinc-200"><Icon name="search"/> Search chats</button>
-
           <div className="mt-6 min-h-0 flex-1 overflow-y-auto">
             <div className="px-3 text-[10px] font-semibold uppercase tracking-[.18em] text-zinc-700">Your conversations</div>
             <div className="mt-2 space-y-0.5">
               {conversations.map((chat) => (
                 <Link key={chat.id} href={"/assistant?conversation=" + chat.id} onClick={() => setSidebarOpen(false)} className={(conversationId === chat.id ? "bg-[#111113] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-[#101012] hover:text-zinc-200"}>
-                  <Icon name="chat" size={16}/>
-                  <span className="min-w-0 flex-1 truncate text-[12px]">{chat.title || "New conversation"}</span>
-                  <span className="shrink-0 text-[9px] text-zinc-700">{formatTime(chat.updated_at)}</span>
+                  <Icon name="chat" size={16}/><span className="min-w-0 flex-1 truncate text-[12px]">{chat.title || "New conversation"}</span><span className="shrink-0 text-[9px] text-zinc-700">{formatTime(chat.updated_at)}</span>
                 </Link>
               ))}
               {!conversations.length && !loading && <p className="px-3 py-4 text-xs leading-5 text-zinc-700">No conversations yet. Start your first chat below.</p>}
             </div>
           </div>
-
           <div className="border-t border-white/[.055] pt-3">
             <Link href="/dashboard" className="block rounded-xl px-3 py-2.5 text-xs text-zinc-600 hover:bg-[#101012] hover:text-zinc-200">Workspace</Link>
             <Link href="/owner" className="block rounded-xl px-3 py-2.5 text-xs text-zinc-600 hover:bg-[#101012] hover:text-zinc-200">Owner console</Link>
@@ -161,26 +156,17 @@ export default function AssistantPage() {
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="mx-auto flex min-h-full w-full max-w-[900px] flex-col px-4 pb-48 sm:px-7">
-              {loading ? (
-                <div className="flex flex-1 items-center justify-center"><BrandMark size={38} className="animate-pulse opacity-40"/></div>
-              ) : empty ? (
+              {loading ? <div className="flex flex-1 items-center justify-center"><BrandMark size={38} className="animate-pulse opacity-40"/></div> : empty ? (
                 <div className="flex flex-1 flex-col items-center justify-center pb-8 text-center">
-                  <BrandMark size={54}/>
-                  <h1 className="mt-7 text-3xl font-semibold tracking-[-.045em] sm:text-[38px]">How can I help?</h1>
+                  <BrandMark size={54}/><h1 className="mt-7 text-3xl font-semibold tracking-[-.045em] sm:text-[38px]">How can I help?</h1>
                   <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-600">Ask ZenixMind anything. Your conversations are saved to your account.</p>
                   <div className="mt-8 grid w-full max-w-2xl grid-cols-2 gap-2">
-                    {["Help me plan a project", "Explain something simply", "Write something for me", "Help me research"].map((starter) => (
-                      <button key={starter} onClick={() => setInput(starter)} className="rounded-2xl border border-white/[.06] bg-[#09090b] px-4 py-3 text-left text-xs text-zinc-500 hover:border-white/[.11] hover:bg-[#0d0d0f] hover:text-zinc-200">{starter}</button>
-                    ))}
+                    {["Help me plan a project", "Explain something simply", "Write something for me", "Help me research"].map((starter) => <button key={starter} onClick={() => setInput(starter)} className="rounded-2xl border border-white/[.06] bg-[#09090b] px-4 py-3 text-left text-xs text-zinc-500 hover:border-white/[.11] hover:bg-[#0d0d0f] hover:text-zinc-200">{starter}</button>)}
                   </div>
                 </div>
               ) : (
                 <div className="space-y-8 py-8">
-                  {messages.map((message, index) => (
-                    <div key={index} className={message.role === "user" ? "flex justify-end" : "flex justify-start"}>
-                      {message.role === "user" ? <div className="max-w-[85%] rounded-[22px] rounded-br-md bg-[#171719] px-5 py-3.5 text-sm leading-6 text-zinc-100 ring-1 ring-white/[.05]">{message.content}</div> : <div className="flex max-w-[90%] gap-3"><BrandMark size={27} className="mt-1 shrink-0"/><div className="whitespace-pre-wrap pt-1 text-sm leading-7 text-zinc-300">{message.content}</div></div>}
-                    </div>
-                  ))}
+                  {messages.map((message, index) => <div key={index} className={message.role === "user" ? "flex justify-end" : "flex justify-start"}>{message.role === "user" ? <div className="max-w-[85%] rounded-[22px] rounded-br-md bg-[#171719] px-5 py-3.5 text-sm leading-6 text-zinc-100 ring-1 ring-white/[.05]">{message.content}</div> : <div className="flex max-w-[90%] gap-3"><BrandMark size={27} className="mt-1 shrink-0"/><div className="whitespace-pre-wrap pt-1 text-sm leading-7 text-zinc-300">{message.content}</div></div>}</div>)}
                   {busy && <div className="flex gap-3"><BrandMark size={27} className="mt-1"/><div className="flex gap-1 pt-3"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-zinc-500"/><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-zinc-500 [animation-delay:150ms]"/><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-zinc-500 [animation-delay:300ms]"/></div></div>}
                 </div>
               )}
