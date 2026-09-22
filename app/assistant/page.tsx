@@ -71,7 +71,7 @@ export default function AssistantPage() {
             <BrandMark size={32} />
             <span className="font-semibold tracking-tight">ZenixMind</span>
           </Link>
-          <button onClick={() => setMessages([])} className="mt-7 flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-zinc-200">
+          <button onClick={() => setMessages([])} className="mt-7 flex items-center justify-center gap-2 rounded-xl bg-[#171717] px-4 py-3 text-sm font-semibold text-black hover:bg-[#222]">
             <Icon name="plus" size={17} /> New chat
           </button>
           <div className="mt-8 px-2">
@@ -79,8 +79,8 @@ export default function AssistantPage() {
             <p className="mt-3 text-sm leading-6 text-zinc-500">Your conversations, files and future connected tools will live here.</p>
           </div>
           <div className="mt-auto border-t border-white/5 pt-4">
-            <Link href="/dashboard" className="block rounded-xl px-3 py-3 text-sm text-zinc-500 hover:bg-white/[.05] hover:text-white">Dashboard</Link>
-            <Link href="/owner" className="block rounded-xl px-3 py-3 text-sm text-zinc-500 hover:bg-white/[.05] hover:text-white">Owner console</Link>
+            <Link href="/dashboard" className="block rounded-xl px-3 py-3 text-sm text-zinc-500 hover:bg-black/[.45] hover:text-white">Dashboard</Link>
+            <Link href="/owner" className="block rounded-xl px-3 py-3 text-sm text-zinc-500 hover:bg-black/[.45] hover:text-white">Owner console</Link>
           </div>
         </aside>
 
@@ -92,7 +92,7 @@ export default function AssistantPage() {
             </div>
             <div className="hidden text-sm text-zinc-400 lg:block">New conversation</div>
             <div className="relative">
-              <select value={model} onChange={(e) => setModel(e.target.value)} className="appearance-none rounded-xl border border-white/8 bg-white/[.03] py-2 pl-3 pr-9 text-xs text-zinc-300 outline-none hover:bg-white/[.05]">
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="appearance-none rounded-xl border border-white/8 bg-black/[.45] py-2 pl-3 pr-9 text-xs text-zinc-300 outline-none hover:bg-black/[.45]">
                 <option value="default">ZenixMind · Default</option>
                 <option value="fast">ZenixMind · Fast</option>
                 <option value="reasoning">ZenixMind · Reasoning</option>
@@ -110,7 +110,7 @@ export default function AssistantPage() {
                   <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-500">Ask ZenixMind anything. This workspace is ready for model connections, files, voice and creative tools.</p>
                   <div className="mt-8 grid w-full max-w-2xl gap-2 sm:grid-cols-2">
                     {starters.map((starter) => (
-                      <button key={starter} onClick={() => setInput(starter)} className="rounded-2xl border border-white/8 bg-white/[.025] px-4 py-3 text-left text-sm text-zinc-400 transition hover:border-white/15 hover:bg-white/[.045] hover:text-white">
+                      <button key={starter} onClick={() => setInput(starter)} className="rounded-2xl border border-white/8 bg-black/[.45] px-4 py-3 text-left text-sm text-zinc-400 transition hover:border-white/15 hover:bg-white/[.045] hover:text-white">
                         {starter}
                       </button>
                     ))}
@@ -121,7 +121,7 @@ export default function AssistantPage() {
                   {messages.map((message, index) => (
                     <div key={index} className={message.role === "user" ? "flex justify-end" : "flex justify-start"}>
                       {message.role === "user" ? (
-                        <div className="max-w-[85%] rounded-3xl rounded-br-lg bg-white px-5 py-3.5 text-sm leading-6 text-black">{message.content}</div>
+                        <div className="max-w-[85%] rounded-3xl rounded-br-lg bg-[#171717] px-5 py-3.5 text-sm leading-6 text-black">{message.content}</div>
                       ) : (
                         <div className="flex max-w-[90%] gap-3">
                           <BrandMark size={27} className="mt-1 shrink-0" />
@@ -142,10 +142,10 @@ export default function AssistantPage() {
                   <div className="flex items-center justify-between px-1 pb-1">
                     <div className="flex items-center gap-1">
                       <input ref={fileRef} type="file" className="hidden" onChange={() => fileRef.current?.blur()} />
-                      <button type="button" onClick={() => fileRef.current?.click()} className="grid h-9 w-9 place-items-center rounded-full text-zinc-500 hover:bg-white/[.06] hover:text-white" title="Attach file"><Icon name="file" size={18}/></button>
+                      <button type="button" onClick={() => fileRef.current?.click()} className="grid h-9 w-9 place-items-center rounded-full text-zinc-500 hover:bg-[#1a1a1a] hover:text-white" title="Attach file"><Icon name="file" size={18}/></button>
                       <button type="button" disabled className="grid h-9 w-9 place-items-center rounded-full text-zinc-700" title="Voice input coming soon"><Icon name="mic" size={18}/></button>
                     </div>
-                    <button type="submit" disabled={!input.trim() || busy} className="grid h-9 w-9 place-items-center rounded-full bg-white text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-30" title="Send"><Icon name="send" size={17}/></button>
+                    <button type="submit" disabled={!input.trim() || busy} className="grid h-9 w-9 place-items-center rounded-full bg-[#171717] text-zinc-200 border border-white/10 transition hover:bg-[#222] disabled:cursor-not-allowed disabled:opacity-30" title="Send"><Icon name="send" size={17}/></button>
                   </div>
                 </form>
                 <p className="mt-2 text-center text-[11px] text-zinc-700">ZenixMind can make mistakes. Check important information.</p>

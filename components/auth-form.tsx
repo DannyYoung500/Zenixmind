@@ -71,11 +71,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
           <div className="w-full max-w-md">
             <div className="mb-8 flex items-center gap-3 lg:hidden"><BrandMark size={40}/><span className="text-lg font-semibold">ZenixMind</span></div>
-            <div className="rounded-[28px] border border-white/10 bg-white/[.035] p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8">
+            <div className="rounded-[28px] border border-white/10 bg-black/[.45] p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8">
               <div className="mb-7"><h2 className="text-3xl font-semibold tracking-tight">{isSignup ? "Create your account" : "Welcome back"}</h2><p className="mt-2 text-sm leading-6 text-zinc-500">{isSignup ? "Start your ZenixMind journey." : "Log in to continue to your assistant."}</p></div>
               <div className="mb-7 grid grid-cols-2 rounded-xl border border-white/8 bg-black/20 p-1">
-                <Link href="/login" className={`rounded-lg px-4 py-2.5 text-center text-sm font-medium transition ${!isSignup ? "bg-white text-black" : "text-zinc-500 hover:text-white"}`}>Log in</Link>
-                <Link href="/signup" className={`rounded-lg px-4 py-2.5 text-center text-sm font-medium transition ${isSignup ? "bg-white text-black" : "text-zinc-500 hover:text-white"}`}>Sign up</Link>
+                <Link href="/login" className={`rounded-lg px-4 py-2.5 text-center text-sm font-medium transition ${!isSignup ? "bg-[#171717] text-zinc-200 border border-white/10" : "text-zinc-500 hover:text-white"}`}>Log in</Link>
+                <Link href="/signup" className={`rounded-lg px-4 py-2.5 text-center text-sm font-medium transition ${isSignup ? "bg-[#171717] text-zinc-200 border border-white/10" : "text-zinc-500 hover:text-white"}`}>Sign up</Link>
               </div>
               <form onSubmit={submit} className="space-y-4">
                 {isSignup && <label className="block"><span className="mb-2 block text-sm text-zinc-300">Name</span><input value={name} onChange={(e)=>setName(e.target.value)} autoComplete="name" required className="w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3.5 text-sm outline-none placeholder:text-zinc-700 focus:border-white/25" placeholder="Your name"/></label>}
@@ -83,7 +83,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 <label className="block"><span className="mb-2 block text-sm text-zinc-300">Password</span><input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} autoComplete={isSignup ? "new-password" : "current-password"} minLength={6} required className="w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3.5 text-sm outline-none placeholder:text-zinc-700 focus:border-white/25" placeholder={isSignup ? "At least 6 characters" : "Your password"}/></label>
                 {error && <div className="rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3 text-sm leading-6 text-red-300">{error}</div>}
                 {message && <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3 text-sm leading-6 text-emerald-300">{message}</div>}
-                <button type="submit" disabled={loading} className="w-full rounded-xl bg-white px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Please wait…" : isSignup ? "Create account" : "Log in"}</button>
+                <button type="submit" disabled={loading} className="w-full rounded-xl bg-[#171717] px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-[#222] disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Please wait…" : isSignup ? "Create account" : "Log in"}</button>
               </form>
               <p className="mt-6 text-center text-xs leading-5 text-zinc-600">By continuing, you agree to ZenixMind&apos;s terms and privacy policy.</p>
             </div>
