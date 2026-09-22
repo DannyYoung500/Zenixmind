@@ -6,6 +6,16 @@ import { BrandMark } from "@/components/brand-mark";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; updated_at: string };
+type DictationRecognition = {
+  continuous: boolean; interimResults: boolean; maxAlternatives: number; lang: string; processLocally?: boolean;
+  start: () => void; stop: () => void; abort: () => void;
+  onstart: (() => void) | null; onend: (() => void) | null;
+  onresult: ((event: { results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+};
+type DictationConstructor = new () => DictationRecognition;
+
+declare global { interface Window { SpeechRecognition?: DictationConstructor; webkitSpeechRecognition?: DictationConstructor; } }
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -14,18 +24,27 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
   if (name === "search") return <svg {...common}><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>;
   if (name === "chat") return <svg {...common}><path d="M5 5h14v10H8l-3 3V5Z"/></svg>;
   if (name === "mic") return <svg {...common}><rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>;
+  if (name === "wave") return <svg {...common}><path d="M4 12h2M8 8v8M12 5v14M16 8v8M20 12h-2"/></svg>;
   if (name === "send") return <svg {...common}><path d="m4 4 16 8-16 8 3-8-3-8Z"/><path d="M7 12h13"/></svg>;
   if (name === "chevron") return <svg {...common}><path d="m6 9 6 6 6-6"/></svg>;
   return <svg {...common}><circle cx="12" cy="12" r="9"/></svg>;
 }
 
 function formatTime(value: string) {
-  const date = new Date(value);
-  const diff = Date.now() - date.getTime();
+  const date = new Date(value), diff = Date.now() - date.getTime();
   if (diff < 60_000) return "now";
   if (diff < 3_600_000) return Math.floor(diff / 60_000) + "m";
   if (diff < 86_400_000) return Math.floor(diff / 3_600_000) + "h";
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function makeDictationRecognition() {
+  if (typeof window === "undefined") return null;
+  const Constructor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Constructor) return null;
+  const recognition = new Constructor();
+  recognition.continuous = false; recognition.interimResults = true; recognition.maxAlternatives = 1; recognition.lang = "en-US";
+  return recognition;
 }
 
 export default function AssistantPage() {
@@ -37,76 +56,72 @@ export default function AssistantPage() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [dictating, setDictating] = useState(false);
+  const [dictationNotice, setDictationNotice] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const dictationRef = useRef<DictationRecognition | null>(null);
+  const dictationBaseRef = useRef("");
 
   async function loadConversations() {
     const response = await fetch("/api/chat", { cache: "no-store" });
     if (!response.ok) return;
-    const data = await response.json();
-    setConversations(data.conversations || []);
+    const data = await response.json(); setConversations(data.conversations || []);
   }
 
   async function loadConversation(id: string) {
     setLoading(true);
     const response = await fetch("/api/chat?conversation_id=" + encodeURIComponent(id), { cache: "no-store" });
-    if (!response.ok) {
-      setConversationId(null);
-      setMessages([]);
-      setLoading(false);
-      return;
-    }
+    if (!response.ok) { setConversationId(null); setMessages([]); setLoading(false); return; }
     const data = await response.json();
-    setConversationId(data.conversation?.id || id);
-    setModel(data.conversation?.model || "default");
+    setConversationId(data.conversation?.id || id); setModel(data.conversation?.model || "default");
     setMessages((data.messages || []).filter((m: Message) => m.role === "user" || m.role === "assistant").map((m: Message) => ({ role: m.role, content: m.content })));
     setLoading(false);
   }
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("conversation");
-    void loadConversations();
-    if (id) {
-      void loadConversation(id);
-    } else {
-      setLoading(false);
-    }
+    void loadConversations(); if (id) void loadConversation(id); else setLoading(false);
   }, []);
 
+  function stopDictation() {
+    try { dictationRef.current?.stop(); } catch {}
+  }
+
+  function startDictation() {
+    if (dictating) { stopDictation(); return; }
+    const recognition = makeDictationRecognition();
+    if (!recognition) { setDictationNotice("Speech dictation is not supported in this browser."); return; }
+    dictationRef.current = recognition; dictationBaseRef.current = input.trim() ? input.trim() + " " : "";
+    recognition.onstart = () => { setDictating(true); setDictationNotice("Listening for dictation"); };
+    recognition.onresult = (event) => {
+      let transcript = "";
+      for (let i = 0; i < event.results.length; i += 1) transcript += event.results[i][0].transcript;
+      setInput(dictationBaseRef.current + transcript.trim());
+    };
+    recognition.onend = () => { setDictating(false); setDictationNotice(""); };
+    recognition.onerror = (event) => { setDictating(false); setDictationNotice(event.error === "not-allowed" ? "Microphone permission was denied." : "Dictation could not start."); };
+    try { if ("processLocally" in recognition) recognition.processLocally = true; recognition.start(); }
+    catch { try { recognition.abort(); recognition.start(); } catch { setDictating(false); setDictationNotice("Dictation could not start."); } }
+  }
+
+  useEffect(() => () => stopDictation(), []);
+
   async function sendMessage(event?: FormEvent) {
-    event?.preventDefault();
-    const text = input.trim();
-    if (!text || busy) return;
-    const next = [...messages, { role: "user" as const, content: text }];
-    setMessages(next);
-    setInput("");
-    setBusy(true);
+    event?.preventDefault(); const text = input.trim(); if (!text || busy) return;
+    stopDictation(); const next = [...messages, { role: "user" as const, content: text }];
+    setMessages(next); setInput(""); setBusy(true);
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next, model, conversationId }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Chat request failed.");
-      if (data.conversationId) {
-        setConversationId(data.conversationId);
-        window.history.replaceState({}, "", "/assistant?conversation=" + data.conversationId);
-      }
-      setMessages((current) => [...current, { role: "assistant", content: data.message }]);
-      void loadConversations();
+      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next, model, conversationId }) });
+      const data = await response.json(); if (!response.ok) throw new Error(data.error || "Chat request failed.");
+      if (data.conversationId) { setConversationId(data.conversationId); window.history.replaceState({}, "", "/assistant?conversation=" + data.conversationId); }
+      setMessages((current) => [...current, { role: "assistant", content: data.message }]); void loadConversations();
     } catch (error) {
       setMessages((current) => [...current, { role: "assistant", content: error instanceof Error ? error.message : "Unable to process the request." }]);
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
   function newChat() {
-    setConversationId(null);
-    setMessages([]);
-    setInput("");
-    window.history.replaceState({}, "", "/assistant");
-    setSidebarOpen(false);
+    stopDictation(); setConversationId(null); setMessages([]); setInput(""); window.history.replaceState({}, "", "/assistant"); setSidebarOpen(false);
   }
 
   const empty = messages.length === 0;
@@ -125,17 +140,13 @@ export default function AssistantPage() {
           <div className="mt-6 min-h-0 flex-1 overflow-y-auto">
             <div className="px-3 text-[10px] font-semibold uppercase tracking-[.18em] text-zinc-700">Your conversations</div>
             <div className="mt-2 space-y-0.5">
-              {conversations.map((chat) => (
-                <Link key={chat.id} href={"/assistant?conversation=" + chat.id} onClick={() => setSidebarOpen(false)} className={(conversationId === chat.id ? "bg-[#111113] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-[#101012] hover:text-zinc-200"}>
-                  <Icon name="chat" size={16}/><span className="min-w-0 flex-1 truncate text-[12px]">{chat.title || "New conversation"}</span><span className="shrink-0 text-[9px] text-zinc-700">{formatTime(chat.updated_at)}</span>
-                </Link>
-              ))}
+              {conversations.map((chat) => <Link key={chat.id} href={"/assistant?conversation=" + chat.id} onClick={() => setSidebarOpen(false)} className={(conversationId === chat.id ? "bg-[#111113] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-[#101012] hover:text-zinc-200"}><Icon name="chat" size={16}/><span className="min-w-0 flex-1 truncate text-[12px]">{chat.title || "New conversation"}</span><span className="shrink-0 text-[9px] text-zinc-700">{formatTime(chat.updated_at)}</span></Link>)}
               {!conversations.length && !loading && <p className="px-3 py-4 text-xs leading-5 text-zinc-700">No conversations yet. Start your first chat below.</p>}
             </div>
           </div>
           <div className="border-t border-white/[.055] pt-3">
             <Link href="/dashboard" className="block rounded-xl px-3 py-2.5 text-xs text-zinc-600 hover:bg-[#101012] hover:text-zinc-200">Workspace</Link>
-            <Link href="/owner" className="block rounded-xl px-3 py-2.5 text-xs text-zinc-600 hover:bg-[#101012] hover:text-zinc-200">Owner console</Link>
+            <Link href="/owner" className="mt-1 block rounded-xl border border-white/[.05] bg-[#0d0d0f] px-3 py-2.5 text-xs text-zinc-400 hover:bg-[#121214] hover:text-white">Owner console</Link>
           </div>
         </aside>
 
@@ -147,8 +158,8 @@ export default function AssistantPage() {
               <div className="hidden items-center gap-2 lg:flex"><BrandMark size={25}/><span className="text-sm font-semibold">ZenixMind</span></div>
             </div>
             <div className="relative">
-              <select value={model} onChange={(e) => setModel(e.target.value)} className="appearance-none rounded-xl border border-white/[.07] bg-[#0d0d0f] py-2 pl-3 pr-8 text-xs text-zinc-400 outline-none hover:bg-[#121214]">
-                <option value="default">Default</option><option value="fast">Fast</option><option value="reasoning">Reasoning</option>
+              <select value={model} onChange={(e) => setModel(e.target.value)} aria-label="Choose AI model" className="appearance-none rounded-xl border border-white/[.07] bg-[#0d0d0f] py-2 pl-3 pr-8 text-xs text-zinc-400 outline-none hover:bg-[#121214]">
+                <option value="default">Default model</option><option value="fast">Fast model</option><option value="reasoning">Reasoning model</option>
               </select>
               <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600"><Icon name="chevron" size={14}/></span>
             </div>
@@ -181,15 +192,16 @@ export default function AssistantPage() {
                   <div className="flex items-center gap-2">
                     <input ref={fileRef} type="file" className="hidden"/>
                     <button type="button" onClick={() => fileRef.current?.click()} className="grid h-10 w-10 place-items-center rounded-full bg-[#222225] text-zinc-300 hover:bg-[#2a2a2e]" title="Attach file"><Icon name="plus" size={21}/></button>
-                    <button type="button" onClick={() => setModel(model === "fast" ? "default" : "fast")} className="flex h-10 items-center gap-2 rounded-full bg-[#222225] px-4 text-sm font-medium text-zinc-200 hover:bg-[#2a2a2e]">{model === "fast" ? "Fast" : model === "reasoning" ? "Reasoning" : "Default"}<Icon name="chevron" size={15}/></button>
+                    <Link href="/assistant/voice" className="flex h-10 items-center gap-2 rounded-full bg-[#222225] px-4 text-sm font-medium text-amber-200 hover:bg-[#2a2a2e]" title="Speak — AI voice conversation"><Icon name="wave" size={17}/> Speak</Link>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button type="button" disabled className="grid h-10 w-10 place-items-center rounded-full bg-[#222225] text-zinc-600" title="Voice input will be connected next"><Icon name="mic" size={19}/></button>
+                    <button type="button" onClick={startDictation} className={(dictating ? "bg-amber-300/10 text-amber-200 ring-1 ring-amber-300/20 " : "bg-[#222225] text-zinc-300 ") + "grid h-10 w-10 place-items-center rounded-full hover:bg-[#2a2a2e]"} title="Microphone — dictation only" aria-label="Microphone dictation"><Icon name="mic" size={19}/></button>
                     <button type="submit" disabled={!input.trim() || busy} className="grid h-10 w-10 place-items-center rounded-full bg-zinc-100 text-black hover:bg-zinc-200 disabled:opacity-20" title="Send"><Icon name="send" size={17}/></button>
                   </div>
                 </div>
+                {dictationNotice && <p className="px-3 pb-1 text-[10px] text-zinc-600">{dictationNotice}</p>}
               </form>
-              <p className="mt-2 text-center text-[10px] text-zinc-700">ZenixMind can make mistakes. Check important information.</p>
+              <p className="mt-2 text-center text-[10px] text-zinc-700">Microphone adds words to the composer. Speak starts a separate AI voice conversation.</p>
             </div>
           </div>
         </section>
