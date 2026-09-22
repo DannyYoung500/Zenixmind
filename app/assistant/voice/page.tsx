@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
 
 type VoiceState = "listening" | "thinking" | "speaking" | "muted" | "error";
@@ -12,8 +12,7 @@ type RecognitionLike = {
   continuous: boolean; interimResults: boolean; maxAlternatives: number; lang: string; processLocally?: boolean;
   start: () => void; stop: () => void; abort: () => void;
   onstart: (() => void) | null; onend: (() => void) | null;
-  onresult: ((event: RecognitionEvent) => void) | null;
-  onerror: ((event: RecognitionErrorEvent) => void) | null;
+  onresult: ((event: RecognitionEvent) => void) | null; onerror: ((event: RecognitionErrorEvent) => void) | null;
 };
 type RecognitionConstructor = new () => RecognitionLike;
 
@@ -48,42 +47,44 @@ export default function VoicePage() {
   const [transcript, setTranscript] = useState("");
   const recognitionRef = useRef<RecognitionLike | null>(null);
   const stoppedRef = useRef(false);
+  const mutedRef = useRef(false);
   const processingRef = useRef(false);
   const speakingRef = useRef(false);
 
-  const stopRecognition = useCallback((abort = true) => {
-    const recognition = recognitionRef.current;
-    if (!recognition) return;
-    try { if (abort) recognition.abort(); else recognition.stop(); } catch {}
-  }, []);
+  function stopRecognition() {
+    try { recognitionRef.current?.abort(); } catch {}
+  }
 
-  const startListening = useCallback(() => {
-    if (stoppedRef.current || muted || processingRef.current || speakingRef.current) return;
+  function startListening(allowInterrupt = false) {
+    if (stoppedRef.current || mutedRef.current || processingRef.current || (speakingRef.current && !allowInterrupt)) return;
     const recognition = recognitionRef.current || makeRecognition();
     if (!recognition) { setState("error"); setNotice("Voice input is not supported by this browser"); return; }
     recognitionRef.current = recognition;
-    recognition.onstart = () => { setState("listening"); setNotice("Listening"); };
+    recognition.onstart = () => { setState(speakingRef.current ? "speaking" : "listening"); if (!speakingRef.current) setNotice("Listening"); };
     recognition.onresult = (event) => {
-      let finalText = "";
-      for (let i = 0; i < event.results.length; i += 1) if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
-      if (finalText.trim()) void sendVoiceMessage(finalText.trim());
+      let text = "";
+      for (let i = 0; i < event.results.length; i += 1) if (event.results[i].isFinal) text += event.results[i][0].transcript;
+      if (text.trim()) {
+        if (speakingRef.current) window.speechSynthesis?.cancel();
+        void sendVoiceMessage(text.trim());
+      }
     };
     recognition.onerror = (event) => {
-      if (stoppedRef.current || muted) return;
+      if (stoppedRef.current || mutedRef.current) return;
       if (event.error === "not-allowed" || event.error === "service-not-allowed") { setState("error"); setNotice("Microphone permission is required for Voice"); return; }
-      if (event.error === "no-speech") { window.setTimeout(() => startListening(), 120); return; }
+      if (event.error === "no-speech") { window.setTimeout(() => startListening(speakingRef.current), 150); return; }
       setState("error"); setNotice("Voice input could not start");
     };
     recognition.onend = () => {
-      if (!stoppedRef.current && !muted && !processingRef.current && !speakingRef.current) window.setTimeout(() => startListening(), 120);
+      if (!stoppedRef.current && !mutedRef.current && !processingRef.current) window.setTimeout(() => startListening(speakingRef.current), 150);
     };
     try { if ("processLocally" in recognition) recognition.processLocally = true; recognition.start(); }
     catch { try { recognition.abort(); recognition.start(); } catch { setState("error"); setNotice("Voice input could not start"); } }
-  }, [muted]);
+  }
 
-  const speak = useCallback((text: string) => {
+  function speak(text: string) {
     const clean = cleanForSpeech(text);
-    if (!clean || typeof window === "undefined" || !window.speechSynthesis) { setState("error"); setNotice("Voice output is unavailable on this browser"); return; }
+    if (!clean || !window.speechSynthesis) { setState("error"); setNotice("Voice output is unavailable on this browser"); return; }
     const synth = window.speechSynthesis;
     synth.cancel();
     const utterance = new SpeechSynthesisUtterance(clean);
@@ -91,36 +92,48 @@ export default function VoicePage() {
     const preferred = voices.find((voice) => /^en(-|_)/i.test(voice.lang) && /natural|enhanced|premium|google|microsoft/i.test(voice.name)) || voices.find((voice) => /^en(-|_)/i.test(voice.lang)) || voices[0];
     if (preferred) utterance.voice = preferred;
     utterance.lang = preferred?.lang || "en-US"; utterance.rate = 0.96; utterance.pitch = 1; utterance.volume = 1;
-    utterance.onstart = () => { speakingRef.current = true; setState("speaking"); setNotice("Speaking"); };
-    utterance.onend = () => { speakingRef.current = false; if (!stoppedRef.current && !muted) { setState("listening"); setNotice("Listening"); window.setTimeout(() => startListening(), 120); } };
-    utterance.onerror = () => { speakingRef.current = false; if (!stoppedRef.current && !muted) { setState("listening"); setNotice("Listening"); window.setTimeout(() => startListening(), 120); } };
+    utterance.onstart = () => {
+      speakingRef.current = true; setState("speaking"); setNotice("Speaking");
+      window.setTimeout(() => startListening(true), 250);
+    };
+    utterance.onend = () => {
+      speakingRef.current = false;
+      if (!stoppedRef.current && !mutedRef.current) { setState("listening"); setNotice("Listening"); window.setTimeout(() => startListening(false), 120); }
+    };
+    utterance.onerror = () => {
+      speakingRef.current = false;
+      if (!stoppedRef.current && !mutedRef.current) { setState("listening"); setNotice("Listening"); window.setTimeout(() => startListening(false), 120); }
+    };
     synth.speak(utterance);
-  }, [muted, startListening]);
+  }
 
-  const sendVoiceMessage = useCallback(async (text: string) => {
+  async function sendVoiceMessage(text: string) {
     if (!text.trim() || processingRef.current || stoppedRef.current) return;
-    processingRef.current = true; setTranscript(text.trim()); stopRecognition(true); setState("thinking"); setNotice("Thinking");
+    processingRef.current = true; stopRecognition(); setTranscript(text.trim()); setState("thinking"); setNotice("Thinking");
     try {
       const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: text.trim() }], model: "default", conversationId: null }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to reach ZenixMind.");
-      if (!stoppedRef.current) speak(data.message);
+      if (!stoppedRef.current && !mutedRef.current) speak(data.message);
     } catch (error) { setState("error"); setNotice(error instanceof Error ? error.message : "Voice conversation failed"); }
     finally { processingRef.current = false; }
-  }, [speak, stopRecognition]);
+  }
 
   useEffect(() => {
-    stoppedRef.current = false; startListening();
-    return () => { stoppedRef.current = true; stopRecognition(true); if (typeof window !== "undefined") window.speechSynthesis?.cancel(); };
-  }, [startListening, stopRecognition]);
+    stoppedRef.current = false;
+    startListening(false);
+    return () => { stoppedRef.current = true; stopRecognition(); window.speechSynthesis?.cancel(); };
+  }, []);
 
   function toggleMute() {
-    if (muted) { setMuted(false); setState("listening"); setNotice("Listening"); window.setTimeout(() => startListening(), 80); return; }
-    setMuted(true); stopRecognition(true); window.speechSynthesis?.cancel(); speakingRef.current = false; setState("muted"); setNotice("Muted");
+    if (mutedRef.current) {
+      mutedRef.current = false; setMuted(false); setState("listening"); setNotice("Listening"); window.setTimeout(() => startListening(false), 80); return;
+    }
+    mutedRef.current = true; setMuted(true); stopRecognition(); window.speechSynthesis?.cancel(); speakingRef.current = false; setState("muted"); setNotice("Muted");
   }
 
   function endVoice() {
-    stoppedRef.current = true; stopRecognition(true); window.speechSynthesis?.cancel(); window.location.href = "/assistant";
+    stoppedRef.current = true; stopRecognition(); window.speechSynthesis?.cancel(); window.location.href = "/assistant";
   }
 
   const stateLabel = state === "error" ? notice : state === "muted" ? "Muted" : notice;
@@ -140,7 +153,7 @@ export default function VoicePage() {
             <div className="absolute inset-[11%] rounded-full border border-amber-300/30" /><div className="absolute inset-[5%] rounded-full border border-amber-300/15" /><div className="absolute inset-0 rounded-full border border-amber-200/10" /><div className="absolute -inset-[12%] rounded-full border border-amber-300/10" /><div className="absolute -inset-[24%] rounded-full border border-amber-300/[.055]" /><div className="absolute h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_18px_rgba(255,255,255,.9)]" />
           </div>
           <p className="mt-16 text-lg font-light tracking-[-.01em] text-zinc-200 sm:text-xl">{stateLabel}</p>
-          <p className="mt-2 max-w-sm text-sm leading-6 text-zinc-600">{state === "listening" ? "I’m listening. Go ahead and speak." : state === "thinking" ? "Give me a moment." : state === "speaking" ? "You can speak at any time to interrupt." : state === "muted" ? "Your microphone is muted." : "Check microphone permission and try again."}</p>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-zinc-600">{state === "listening" ? "I’m listening. Go ahead and speak." : state === "thinking" ? "Give me a moment." : state === "speaking" ? "Speak to interrupt." : state === "muted" ? "Your microphone is muted." : "Check microphone permission and try again."}</p>
           {transcript && state !== "listening" && <p className="mt-5 max-w-xl text-xs leading-5 text-zinc-700">“{transcript}”</p>}
         </section>
         <div className="relative z-10 px-4 pb-7 sm:pb-8">
