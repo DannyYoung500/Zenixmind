@@ -470,6 +470,14 @@ export default function AssistantPage() {
   const [view, setView] = useState("chat");
   const dictationRef = useRef<DictationRecognition | null>(null);
   const dictationBaseRef = useRef("");
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+
+  function resizeComposer() {
+    const element = composerRef.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = Math.min(element.scrollHeight, 144) + "px";
+  }
 
   async function loadConversations() {
     const response = await fetch("/api/chat", { cache: "no-store" });
@@ -563,7 +571,7 @@ export default function AssistantPage() {
           {view === "chat" && <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#050506] via-[#050506]/95 to-transparent pt-14">
             <div className="mx-auto max-w-[900px] px-4 pb-4 sm:px-7">
               <form onSubmit={sendMessage} className="rounded-[26px] border border-white/[.09] bg-[#151517] p-2 shadow-[0_20px_80px_rgba(0,0,0,.5)]">
-                <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }} rows={1} placeholder="Ask anything" className="max-h-36 min-h-[58px] w-full resize-none bg-transparent px-3 py-2.5 text-[17px] text-zinc-100 outline-none placeholder:text-zinc-500"/>
+                <textarea value={input} ref={composerRef} onChange={(e) => { setInput(e.target.value); requestAnimationFrame(resizeComposer); }} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }} rows={1} placeholder="Ask anything" className="max-h-36 min-h-[52px] w-full resize-none overflow-y-auto bg-transparent px-3 py-2.5 text-[15px] text-zinc-100 outline-none placeholder:text-zinc-500"/>
                 <div className="flex items-center justify-between px-1 pb-1">
                   <div className="flex items-center gap-2"><Link href="/assistant?view=images" className="grid h-10 w-10 place-items-center rounded-full bg-[#222225] text-zinc-300 hover:bg-[#2a2a2e]" title="Images"><Icon name="image" size={19}/></Link></div>
                   <div className="flex items-center gap-2"><button type="button" onClick={startDictation} className={(dictating ? "bg-amber-300/10 text-amber-200 ring-1 ring-amber-300/20 " : "bg-[#222225] text-zinc-300 ") + "grid h-10 w-10 place-items-center rounded-full hover:bg-[#2a2a2e]"} title="Microphone — dictation only"><Icon name="mic" size={19}/></button>{input.trim() ? <button type="submit" disabled={busy} className="grid h-10 w-10 place-items-center rounded-full bg-[#222225] text-zinc-100 hover:bg-[#2a2a2e] disabled:opacity-40" title="Send"><Icon name="send" size={17}/></button> : <Link href="/assistant/voice" className="flex h-10 items-center gap-2 rounded-full bg-[#222225] px-4 text-sm font-medium text-zinc-100 hover:bg-[#2a2a2e]" title="Speak — AI voice conversation"><Icon name="wave" size={17}/> Speak</Link>}</div>
