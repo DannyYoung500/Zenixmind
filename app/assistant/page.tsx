@@ -1,11 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
+import { getSupabase } from "@/lib/supabase";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; updated_at: string };
+type LibraryItem = {
+  id: string;
+  file_name: string;
+  mime_type: string | null;
+  storage_path: string;
+  size_bytes: number | null;
+  source: "uploaded" | "generated";
+  prompt: string | null;
+  created_at: string;
+  url?: string;
+};
+
 type DictationRecognition = {
   continuous: boolean; interimResults: boolean; maxAlternatives: number; lang: string; processLocally?: boolean;
   start: () => void; stop: () => void; abort: () => void;
@@ -14,7 +27,6 @@ type DictationRecognition = {
   onerror: ((event: { error: string }) => void) | null;
 };
 type DictationConstructor = new () => DictationRecognition;
-
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -25,6 +37,12 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
   if (name === "mic") return <svg {...common}><rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>;
   if (name === "wave") return <svg {...common}><path d="M4 12h2M8 8v8M12 5v14M16 8v8M20 12h-2"/></svg>;
   if (name === "send") return <svg {...common}><path d="m4 4 16 8-16 8 3-8-3-8Z"/><path d="M7 12h13"/></svg>;
+  if (name === "image") return <svg {...common}><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5L5 20"/></svg>;
+  if (name === "file") return <svg {...common}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/></svg>;
+  if (name === "download") return <svg {...common}><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>;
+  if (name === "trash") return <svg {...common}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>;
+  if (name === "upload") return <svg {...common}><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>;
+  if (name === "back") return <svg {...common}><path d="m15 18-6-6 6-6"/></svg>;
   if (name === "chevron") return <svg {...common}><path d="m6 9 6 6 6-6"/></svg>;
   return <svg {...common}><circle cx="12" cy="12" r="9"/></svg>;
 }
@@ -37,6 +55,13 @@ function formatTime(value: string) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function formatSize(bytes: number | null) {
+  if (!bytes) return "—";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
 function makeDictationRecognition() {
   if (typeof window === "undefined") return null;
   const browserWindow = window as Window & { SpeechRecognition?: DictationConstructor; webkitSpeechRecognition?: DictationConstructor };
@@ -45,6 +70,189 @@ function makeDictationRecognition() {
   const recognition = new Constructor();
   recognition.continuous = false; recognition.interimResults = true; recognition.maxAlternatives = 1; recognition.lang = "en-US";
   return recognition;
+}
+
+const templates = [
+  { title: "Sketch", prompt: "Turn this idea into a clean hand-drawn sketch with simple lines and a white paper background.", tone: "from-zinc-700/30 via-zinc-500/10 to-zinc-900" },
+  { title: "Product photo", prompt: "Create a premium studio product photograph with soft directional lighting, realistic materials, and a clean background.", tone: "from-slate-600/30 via-zinc-700/10 to-black" },
+  { title: "Poster", prompt: "Create a polished modern poster with strong typography, clear hierarchy, cinematic lighting, and a refined editorial layout.", tone: "from-zinc-600/25 via-zinc-800/20 to-black" },
+  { title: "Portrait", prompt: "Create a natural editorial portrait with realistic skin, soft cinematic light, shallow depth of field, and premium photography.", tone: "from-neutral-600/25 via-zinc-800/20 to-black" },
+  { title: "Logo", prompt: "Create a minimal, memorable brand mark with a clean silhouette, balanced geometry, and a monochrome presentation.", tone: "from-zinc-500/20 via-zinc-900/30 to-black" },
+  { title: "Illustration", prompt: "Create a polished editorial illustration with expressive shapes, controlled texture, and a sophisticated visual system.", tone: "from-zinc-700/30 via-zinc-900/20 to-black" },
+];
+
+function Sidebar({ view, conversations, conversationId, loading, onNewChat, onClose }: {
+  view: string; conversations: Conversation[]; conversationId: string | null; loading: boolean; onNewChat: () => void; onClose: () => void;
+}) {
+  return (
+    <aside className="fixed inset-y-0 left-0 z-50 flex h-full w-[270px] shrink-0 flex-col border-r border-white/[.055] bg-[#080809] px-3 py-4 lg:relative lg:z-auto lg:flex">
+      <div className="flex items-center justify-between px-2 pb-4">
+        <Link href="/assistant" onClick={onNewChat} className="flex items-center gap-2.5"><BrandMark size={31}/><span className="text-[15px] font-semibold tracking-[-.02em]">ZenixMind</span></Link>
+        <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-600 hover:bg-[#111113] hover:text-zinc-200 lg:hidden"><Icon name="menu" size={18}/></button>
+      </div>
+      <button onClick={onNewChat} className="flex h-11 items-center gap-3 rounded-xl bg-[#111113] px-3.5 text-sm font-medium ring-1 ring-white/[.06] hover:bg-[#171719]"><Icon name="plus"/> New chat</button>
+      <div className="mt-4 space-y-0.5">
+        <Link href="/assistant" className={(view === "chat" ? "bg-[#111113] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm hover:bg-[#101012] hover:text-zinc-200"}><Icon name="chat" size={17}/> Chat</Link>
+        <Link href="/assistant?view=images" className={(view === "images" ? "bg-[#111113] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm hover:bg-[#101012] hover:text-zinc-200"}><Icon name="image" size={17}/> Images</Link>
+        <Link href="/assistant?view=library" className={(view === "library" ? "bg-[#111113] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm hover:bg-[#101012] hover:text-zinc-200"}><Icon name="file" size={17}/> Library</Link>
+      </div>
+      {view === "chat" && <div className="mt-6 min-h-0 flex-1 overflow-y-auto">
+        <div className="px-3 text-[10px] font-semibold uppercase tracking-[.18em] text-zinc-700">Your conversations</div>
+        <div className="mt-2 space-y-0.5">
+          {conversations.map((chat) => <Link key={chat.id} href={"/assistant?conversation=" + chat.id} className={(conversationId === chat.id ? "bg-[#111113] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-[#101012] hover:text-zinc-200"}><Icon name="chat" size={16}/><span className="min-w-0 flex-1 truncate text-[12px]">{chat.title || "New conversation"}</span><span className="shrink-0 text-[9px] text-zinc-700">{formatTime(chat.updated_at)}</span></Link>)}
+          {!conversations.length && !loading && <p className="px-3 py-4 text-xs leading-5 text-zinc-700">No conversations yet. Start your first chat below.</p>}
+        </div>
+      </div>}
+      {view !== "chat" && <div className="flex-1" />}
+      <div className="border-t border-white/[.055] pt-3">
+        <Link href="/dashboard" className="block rounded-xl px-3 py-2.5 text-xs text-zinc-600 hover:bg-[#101012] hover:text-zinc-200">Workspace</Link>
+        <Link href="/owner" className="mt-1 block rounded-xl border border-white/[.05] bg-[#0d0d0f] px-3 py-2.5 text-xs text-zinc-400 hover:bg-[#121214] hover:text-white">Owner console</Link>
+      </div>
+    </aside>
+  );
+}
+
+function ImagesView() {
+  const [tab, setTab] = useState<"trending" | "templates">("trending");
+  const [prompt, setPrompt] = useState("");
+  const [notice, setNotice] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const supabase = getSupabase();
+
+  async function uploadReference(file: File) {
+    setUploading(true); setNotice("");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setNotice("Sign in to save images to your Library."); setUploading(false); return; }
+    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+    const path = user.id + "/" + crypto.randomUUID() + "-" + safe;
+    const { error } = await supabase.storage.from("zenix-library").upload(path, file, { contentType: file.type, upsert: false });
+    if (error) { setNotice(error.message); setUploading(false); return; }
+    const { error: rowError } = await supabase.from("library_items").insert({ user_id: user.id, file_name: file.name, mime_type: file.type, storage_path: path, size_bytes: file.size, source: "uploaded" });
+    setNotice(rowError ? rowError.message : "Reference image saved to Library.");
+    setUploading(false);
+  }
+
+  function chooseTemplate(value: string) { setPrompt(value); setNotice(""); }
+
+  return (
+    <div className="min-h-full overflow-y-auto">
+      <div className="mx-auto w-full max-w-[1050px] px-4 pb-36 pt-7 sm:px-7">
+        <div className="flex items-center justify-between">
+          <div><h1 className="text-2xl font-semibold tracking-[-.04em] sm:text-3xl">Images</h1><p className="mt-1 text-xs text-zinc-600">Create, refine, and keep your visual work in one place.</p></div>
+          <Link href="/assistant?view=library" className="hidden rounded-xl border border-white/[.07] bg-[#0d0d0f] px-3.5 py-2 text-xs text-zinc-400 hover:bg-[#121214] hover:text-zinc-100 sm:block">Open Library</Link>
+        </div>
+        <div className="mt-7 rounded-[26px] border border-white/[.07] bg-[#0b0b0d] p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div><p className="text-sm font-medium">Create something new</p><p className="mt-1 text-xs leading-5 text-zinc-600">Describe the image you want, or start from a template.</p></div>
+            <button type="button" onClick={() => fileRef.current?.click()} className="grid h-10 w-10 place-items-center rounded-full bg-[#171719] text-zinc-400 hover:bg-[#202023] hover:text-zinc-100" title="Add reference image"><Icon name="image"/></button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) void uploadReference(file); e.currentTarget.value = ""; }}/>
+          </div>
+          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe an image..." rows={3} className="mt-5 w-full resize-none rounded-2xl border border-white/[.06] bg-[#070708] px-4 py-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-700 focus:border-white/[.12]"/>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className="text-[10px] text-zinc-700">{uploading ? "Saving reference..." : notice || "Reference uploads are saved to your Library."}</p>
+            <button type="button" onClick={() => { if (!prompt.trim()) { setNotice("Describe the image first."); return; } setNotice("Image generation provider is not connected yet. The prompt is ready to use when the image provider is connected."); }} className="rounded-full bg-[#222225] px-5 py-2.5 text-xs font-medium text-zinc-100 hover:bg-[#2a2a2e]">Create image</button>
+          </div>
+        </div>
+        <div className="mt-8 flex gap-7 border-b border-white/[.06]">
+          <button onClick={() => setTab("trending")} className={(tab === "trending" ? "border-b-2 border-zinc-200 text-zinc-100 " : "text-zinc-600 ") + "pb-3 text-sm font-medium"}>Trending</button>
+          <button onClick={() => setTab("templates")} className={(tab === "templates" ? "border-b-2 border-zinc-200 text-zinc-100 " : "text-zinc-600 ") + "pb-3 text-sm font-medium"}>Templates</button>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {templates.map((item, index) => <button key={item.title} onClick={() => chooseTemplate(item.prompt)} className="group overflow-hidden rounded-[22px] border border-white/[.06] bg-[#0a0a0c] text-left hover:border-white/[.12]">
+            <div className={"relative aspect-[4/5] bg-gradient-to-br " + item.tone}>
+              <div className="absolute inset-0 opacity-70" style={{ background: index % 2 === 0 ? "radial-gradient(circle at 50% 35%, rgba(255,255,255,.13), transparent 34%), linear-gradient(145deg, transparent 45%, rgba(255,255,255,.04))" : "radial-gradient(circle at 60% 45%, rgba(255,255,255,.1), transparent 28%), linear-gradient(125deg, rgba(255,255,255,.03), transparent 55%)" }}/>
+              <div className="absolute inset-x-4 bottom-4"><p className="text-lg font-medium tracking-[-.03em] text-zinc-100">{item.title}</p><p className="mt-1 line-clamp-2 text-[10px] leading-4 text-zinc-500">{item.prompt}</p></div>
+            </div>
+          </button>)}
+        </div>
+        {tab === "templates" && <p className="mt-5 text-center text-[10px] text-zinc-700">Choose a template to place its prompt in the creator above.</p>}
+      </div>
+    </div>
+  );
+}
+
+function LibraryView() {
+  const [items, setItems] = useState<LibraryItem[]>([]);
+  const [filter, setFilter] = useState<"all" | "images" | "files">("all");
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState(true);
+  const [notice, setNotice] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const supabase = getSupabase();
+
+  const load = useCallback(async () => {
+    setBusy(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setBusy(false); setNotice("Sign in to use your Library."); return; }
+    const { data, error } = await supabase.from("library_items").select("id,file_name,mime_type,storage_path,size_bytes,source,prompt,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(100);
+    if (error) { setNotice(error.message); setBusy(false); return; }
+    const rows = (data || []) as LibraryItem[];
+    const withUrls = await Promise.all(rows.map(async (item) => {
+      const signed = await supabase.storage.from("zenix-library").createSignedUrl(item.storage_path, 3600);
+      return { ...item, url: signed.data?.signedUrl };
+    }));
+    setItems(withUrls); setBusy(false);
+  }, [supabase]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function uploadFiles(files: FileList | null) {
+    if (!files?.length) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setNotice("Sign in to upload files."); return; }
+    setNotice("");
+    for (const file of Array.from(files)) {
+      if (file.size > 20 * 1024 * 1024) { setNotice(file.name + " is larger than 20 MB."); continue; }
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+      const path = user.id + "/" + crypto.randomUUID() + "-" + safe;
+      const upload = await supabase.storage.from("zenix-library").upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
+      if (upload.error) { setNotice(upload.error.message); continue; }
+      const row = await supabase.from("library_items").insert({ user_id: user.id, file_name: file.name, mime_type: file.type || null, storage_path: path, size_bytes: file.size, source: "uploaded" });
+      if (row.error) setNotice(row.error.message);
+    }
+    await load();
+  }
+
+  async function remove(item: LibraryItem) {
+    const result = await supabase.storage.from("zenix-library").remove([item.storage_path]);
+    if (result.error) { setNotice(result.error.message); return; }
+    const { error } = await supabase.from("library_items").delete().eq("id", item.id);
+    if (error) { setNotice(error.message); return; }
+    setItems((current) => current.filter((x) => x.id !== item.id));
+  }
+
+  const visible = items.filter((item) => {
+    const matchesType = filter === "all" || (filter === "images" ? item.mime_type?.startsWith("image/") : !item.mime_type?.startsWith("image/"));
+    return matchesType && item.file_name.toLowerCase().includes(query.toLowerCase());
+  });
+
+  return (
+    <div className="min-h-full overflow-y-auto">
+      <div className="mx-auto w-full max-w-[1100px] px-4 pb-20 pt-7 sm:px-7">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div><h1 className="text-2xl font-semibold tracking-[-.04em] sm:text-3xl">Library</h1><p className="mt-1 text-xs text-zinc-600">Your uploaded and generated files, kept ready to reuse.</p></div>
+          <div className="flex gap-2">
+            <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 rounded-xl bg-[#171719] px-4 py-2.5 text-xs font-medium text-zinc-200 hover:bg-[#202023]"><Icon name="upload" size={16}/> Upload</button>
+            <input ref={fileRef} type="file" multiple className="hidden" onChange={(e) => { void uploadFiles(e.target.files); e.currentTarget.value = ""; }}/>
+          </div>
+        </div>
+        <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-1 rounded-xl bg-[#0b0b0d] p-1 ring-1 ring-white/[.05]">
+            {(["all", "images", "files"] as const).map((key) => <button key={key} onClick={() => setFilter(key)} className={(filter === key ? "bg-[#171719] text-zinc-100 " : "text-zinc-600 ") + "rounded-lg px-3 py-2 text-xs capitalize hover:text-zinc-200"}>{key}</button>)}
+          </div>
+          <div className="flex h-10 items-center gap-2 rounded-xl border border-white/[.06] bg-[#0b0b0d] px-3 text-zinc-600 sm:w-72"><Icon name="search" size={16}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search library" className="min-w-0 flex-1 bg-transparent text-xs text-zinc-200 outline-none placeholder:text-zinc-700"/></div>
+        </div>
+        {notice && <p className="mt-4 text-xs text-zinc-500">{notice}</p>}
+        {busy ? <div className="py-24 text-center text-xs text-zinc-700">Loading your Library…</div> : !visible.length ? <div className="rounded-[24px] border border-dashed border-white/[.07] bg-[#09090b] py-24 text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[#111113] text-zinc-600"><Icon name="file"/></div><p className="mt-4 text-sm text-zinc-400">{query ? "No matching files." : "Your Library is empty."}</p><p className="mt-1 text-xs text-zinc-700">Upload an image, document, PDF, or other file to start building it.</p></div> : <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {visible.map((item) => <article key={item.id} className="group overflow-hidden rounded-[20px] border border-white/[.06] bg-[#0a0a0c]">
+            {item.mime_type?.startsWith("image/") && item.url ? <a href={item.url} target="_blank" rel="noreferrer" className="block aspect-square bg-[#111113]"><img src={item.url} alt={item.file_name} className="h-full w-full object-cover transition group-hover:scale-[1.02]"/></a> : <div className="grid aspect-square place-items-center bg-[#0d0d0f] text-zinc-600"><Icon name="file" size={34}/></div>}
+            <div className="p-3"><p className="truncate text-xs text-zinc-300">{item.file_name}</p><div className="mt-1 flex items-center justify-between gap-2 text-[9px] text-zinc-700"><span>{formatSize(item.size_bytes)}</span><span>{formatTime(item.created_at)}</span></div><div className="mt-3 flex gap-1.5"><a href={item.url} target="_blank" rel="noreferrer" className="grid h-8 w-8 place-items-center rounded-lg bg-[#151517] text-zinc-500 hover:text-zinc-100" title="Open"><Icon name="download" size={14}/></a><button onClick={() => void remove(item)} className="grid h-8 w-8 place-items-center rounded-lg bg-[#151517] text-zinc-500 hover:text-red-300" title="Delete"><Icon name="trash" size={14}/></button></div></div>
+          </article>)}
+        </div>}
+      </div>
+    </div>
+  );
 }
 
 export default function AssistantPage() {
@@ -58,7 +266,7 @@ export default function AssistantPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dictating, setDictating] = useState(false);
   const [dictationNotice, setDictationNotice] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [view, setView] = useState("chat");
   const dictationRef = useRef<DictationRecognition | null>(null);
   const dictationBaseRef = useRef("");
 
@@ -79,13 +287,15 @@ export default function AssistantPage() {
   }
 
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("conversation");
-    void loadConversations(); if (id) void loadConversation(id); else setLoading(false);
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("conversation");
+    const requestedView = params.get("view");
+    setView(requestedView === "images" || requestedView === "library" ? requestedView : "chat");
+    void loadConversations();
+    if (id) void loadConversation(id); else setLoading(false);
   }, []);
 
-  function stopDictation() {
-    try { dictationRef.current?.stop(); } catch {}
-  }
+  function stopDictation() { try { dictationRef.current?.stop(); } catch {} }
 
   function startDictation() {
     if (dictating) { stopDictation(); return; }
@@ -93,15 +303,10 @@ export default function AssistantPage() {
     if (!recognition) { setDictationNotice("Speech dictation is not supported in this browser."); return; }
     dictationRef.current = recognition; dictationBaseRef.current = input.trim() ? input.trim() + " " : "";
     recognition.onstart = () => { setDictating(true); setDictationNotice("Listening for dictation"); };
-    recognition.onresult = (event) => {
-      let transcript = "";
-      for (let i = 0; i < event.results.length; i += 1) transcript += event.results[i][0].transcript;
-      setInput(dictationBaseRef.current + transcript.trim());
-    };
+    recognition.onresult = (event) => { let transcript = ""; for (let i = 0; i < event.results.length; i += 1) transcript += event.results[i][0].transcript; setInput(dictationBaseRef.current + transcript.trim()); };
     recognition.onend = () => { setDictating(false); setDictationNotice(""); };
     recognition.onerror = (event) => { setDictating(false); setDictationNotice(event.error === "not-allowed" ? "Microphone permission was denied." : "Dictation could not start."); };
-    try { if ("processLocally" in recognition) recognition.processLocally = true; recognition.start(); }
-    catch { try { recognition.abort(); recognition.start(); } catch { setDictating(false); setDictationNotice("Dictation could not start."); } }
+    try { if ("processLocally" in recognition) recognition.processLocally = true; recognition.start(); } catch { try { recognition.abort(); recognition.start(); } catch { setDictating(false); setDictationNotice("Dictation could not start."); } }
   }
 
   useEffect(() => () => stopDictation(), []);
@@ -115,14 +320,11 @@ export default function AssistantPage() {
       const data = await response.json(); if (!response.ok) throw new Error(data.error || "Chat request failed.");
       if (data.conversationId) { setConversationId(data.conversationId); window.history.replaceState({}, "", "/assistant?conversation=" + data.conversationId); }
       setMessages((current) => [...current, { role: "assistant", content: data.message }]); void loadConversations();
-    } catch (error) {
-      setMessages((current) => [...current, { role: "assistant", content: error instanceof Error ? error.message : "Unable to process the request." }]);
-    } finally { setBusy(false); }
+    } catch (error) { setMessages((current) => [...current, { role: "assistant", content: error instanceof Error ? error.message : "Unable to process the request." }]); }
+    finally { setBusy(false); }
   }
 
-  function newChat() {
-    stopDictation(); setConversationId(null); setMessages([]); setInput(""); window.history.replaceState({}, "", "/assistant"); setSidebarOpen(false);
-  }
+  function newChat() { stopDictation(); setView("chat"); setConversationId(null); setMessages([]); setInput(""); window.history.replaceState({}, "", "/assistant"); setSidebarOpen(false); }
 
   const empty = messages.length === 0;
 
@@ -130,74 +332,45 @@ export default function AssistantPage() {
     <main className="h-[100dvh] overflow-hidden bg-[#050506] text-zinc-100">
       <div className="flex h-full">
         {sidebarOpen && <button aria-label="Close sidebar" onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/70 lg:hidden"/>}
-        <aside className={(sidebarOpen ? "fixed inset-y-0 left-0 z-50 flex " : "hidden ") + "h-full w-[270px] shrink-0 flex-col border-r border-white/[.055] bg-[#080809] px-3 py-4 lg:relative lg:flex"}>
-          <div className="flex items-center justify-between px-2 pb-4">
-            <Link href="/assistant" onClick={newChat} className="flex items-center gap-2.5"><BrandMark size={31}/><span className="text-[15px] font-semibold tracking-[-.02em]">ZenixMind</span></Link>
-            <button onClick={() => setSidebarOpen(false)} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-600 hover:bg-[#111113] hover:text-zinc-200 lg:hidden"><Icon name="menu" size={18}/></button>
-          </div>
-          <button onClick={newChat} className="flex h-11 items-center gap-3 rounded-xl bg-[#111113] px-3.5 text-sm font-medium ring-1 ring-white/[.06] hover:bg-[#171719]"><Icon name="plus"/> New chat</button>
-          <button className="mt-2 flex h-10 w-full items-center gap-3 rounded-xl px-3.5 text-sm text-zinc-500 hover:bg-[#101012] hover:text-zinc-200"><Icon name="search"/> Search chats</button>
-          <div className="mt-6 min-h-0 flex-1 overflow-y-auto">
-            <div className="px-3 text-[10px] font-semibold uppercase tracking-[.18em] text-zinc-700">Your conversations</div>
-            <div className="mt-2 space-y-0.5">
-              {conversations.map((chat) => <Link key={chat.id} href={"/assistant?conversation=" + chat.id} onClick={() => setSidebarOpen(false)} className={(conversationId === chat.id ? "bg-[#111113] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-[#101012] hover:text-zinc-200"}><Icon name="chat" size={16}/><span className="min-w-0 flex-1 truncate text-[12px]">{chat.title || "New conversation"}</span><span className="shrink-0 text-[9px] text-zinc-700">{formatTime(chat.updated_at)}</span></Link>)}
-              {!conversations.length && !loading && <p className="px-3 py-4 text-xs leading-5 text-zinc-700">No conversations yet. Start your first chat below.</p>}
-            </div>
-          </div>
-          <div className="border-t border-white/[.055] pt-3">
-            <Link href="/dashboard" className="block rounded-xl px-3 py-2.5 text-xs text-zinc-600 hover:bg-[#101012] hover:text-zinc-200">Workspace</Link>
-            <Link href="/owner" className="mt-1 block rounded-xl border border-white/[.05] bg-[#0d0d0f] px-3 py-2.5 text-xs text-zinc-400 hover:bg-[#121214] hover:text-white">Owner console</Link>
-          </div>
-        </aside>
-
+        <div className={(sidebarOpen ? "fixed inset-y-0 left-0 z-50 flex " : "hidden ") + "lg:relative lg:flex"}><Sidebar view={view} conversations={conversations} conversationId={conversationId} loading={loading} onNewChat={newChat} onClose={() => setSidebarOpen(false)}/></div>
         <section className="relative flex min-w-0 flex-1 flex-col">
           <header className="flex h-[70px] shrink-0 items-center justify-between px-4 sm:px-7">
             <div className="flex items-center gap-3">
               <button onClick={() => setSidebarOpen(true)} className="grid h-10 w-10 place-items-center rounded-full border border-white/[.06] bg-[#0d0d0f] text-zinc-400 hover:bg-[#151517] lg:hidden"><Icon name="menu" size={20}/></button>
               <Link href="/assistant" onClick={newChat} className="lg:hidden"><BrandMark size={27}/></Link>
-              <div className="hidden items-center gap-2 lg:flex"><BrandMark size={25}/><span className="text-sm font-semibold">ZenixMind</span></div>
+              <div className="hidden items-center gap-2 lg:flex"><BrandMark size={25}/><span className="text-sm font-semibold">{view === "images" ? "Images" : view === "library" ? "Library" : "ZenixMind"}</span></div>
             </div>
-
+            {view === "chat" && <div className="text-[11px] text-zinc-700">AI assistant</div>}
           </header>
-
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="mx-auto flex min-h-full w-full max-w-[900px] flex-col px-4 pb-48 sm:px-7">
-              {loading ? <div className="flex flex-1 items-center justify-center"><BrandMark size={38} className="animate-pulse opacity-40"/></div> : empty ? (
-                <div className="flex flex-1 flex-col items-center justify-center pb-8 text-center">
-                  <BrandMark size={54}/><h1 className="mt-7 text-3xl font-semibold tracking-[-.045em] sm:text-[38px]">How can I help?</h1>
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-600">Ask ZenixMind anything. Your conversations are saved to your account.</p>
-                  <div className="mt-8 grid w-full max-w-2xl grid-cols-2 gap-2">
-                    {["Help me plan a project", "Explain something simply", "Write something for me", "Help me research"].map((starter) => <button key={starter} onClick={() => setInput(starter)} className="rounded-2xl border border-white/[.06] bg-[#09090b] px-4 py-3 text-left text-xs text-zinc-500 hover:border-white/[.11] hover:bg-[#0d0d0f] hover:text-zinc-200">{starter}</button>)}
+          <div className="min-h-0 flex-1">
+            {view === "images" ? <ImagesView/> : view === "library" ? <LibraryView/> : <div className="h-full overflow-y-auto">
+              <div className="mx-auto flex min-h-full w-full max-w-[900px] flex-col px-4 pb-48 sm:px-7">
+                {loading ? <div className="flex flex-1 items-center justify-center"><BrandMark size={38} className="animate-pulse opacity-40"/></div> : empty ? (
+                  <div className="flex flex-1 flex-col items-center justify-center pb-8 text-center">
+                    <BrandMark size={54}/><h1 className="mt-7 text-3xl font-semibold tracking-[-.045em] sm:text-[38px]">How can I help?</h1>
+                    <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-600">Ask ZenixMind anything. Your conversations are saved to your account.</p>
+                    <div className="mt-8 grid w-full max-w-2xl grid-cols-2 gap-2">{["Help me plan a project", "Explain something simply", "Write something for me", "Help me research"].map((starter) => <button key={starter} onClick={() => setInput(starter)} className="rounded-2xl border border-white/[.06] bg-[#09090b] px-4 py-3 text-left text-xs text-zinc-500 hover:border-white/[.11] hover:bg-[#0d0d0f] hover:text-zinc-200">{starter}</button>)}</div>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-8 py-8">
+                ) : <div className="space-y-8 py-8">
                   {messages.map((message, index) => <div key={index} className={message.role === "user" ? "flex justify-end" : "flex justify-start"}>{message.role === "user" ? <div className="max-w-[85%] rounded-[22px] rounded-br-md bg-[#171719] px-5 py-3.5 text-sm leading-6 text-zinc-100 ring-1 ring-white/[.05]">{message.content}</div> : <div className="flex max-w-[90%] gap-3"><BrandMark size={27} className="mt-1 shrink-0"/><div className="whitespace-pre-wrap pt-1 text-sm leading-7 text-zinc-300">{message.content}</div></div>}</div>)}
                   {busy && <div className="flex gap-3"><BrandMark size={27} className="mt-1"/><div className="flex gap-1 pt-3"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-zinc-500"/><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-zinc-500 [animation-delay:150ms]"/><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-zinc-500 [animation-delay:300ms]"/></div></div>}
-                </div>
-              )}
-            </div>
+                </div>}
+              </div>
+            </div>}
           </div>
-
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#050506] via-[#050506]/95 to-transparent pt-14">
+          {view === "chat" && <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#050506] via-[#050506]/95 to-transparent pt-14">
             <div className="mx-auto max-w-[900px] px-4 pb-4 sm:px-7">
               <form onSubmit={sendMessage} className="rounded-[26px] border border-white/[.09] bg-[#151517] p-2 shadow-[0_20px_80px_rgba(0,0,0,.5)]">
                 <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }} rows={1} placeholder="Ask anything" className="max-h-36 min-h-[58px] w-full resize-none bg-transparent px-3 py-2.5 text-[17px] text-zinc-100 outline-none placeholder:text-zinc-500"/>
                 <div className="flex items-center justify-between px-1 pb-1">
-                  <div className="flex items-center gap-2">
-                    <input ref={fileRef} type="file" className="hidden"/>
-                    <button type="button" onClick={() => fileRef.current?.click()} className="grid h-10 w-10 place-items-center rounded-full bg-[#222225] text-zinc-300 hover:bg-[#2a2a2e]" title="Attach file"><Icon name="plus" size={21}/></button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={startDictation} className={(dictating ? "bg-amber-300/10 text-amber-200 ring-1 ring-amber-300/20 " : "bg-[#222225] text-zinc-300 ") + "grid h-10 w-10 place-items-center rounded-full hover:bg-[#2a2a2e]"} title="Microphone — dictation only" aria-label="Microphone dictation"><Icon name="mic" size={19}/></button>
-                    {input.trim() ? <button type="submit" disabled={busy} className="grid h-10 w-10 place-items-center rounded-full bg-[#222225] text-zinc-100 hover:bg-[#2a2a2e] disabled:opacity-40" title="Send"><Icon name="send" size={17}/></button> : <Link href="/assistant/voice" className="flex h-10 items-center gap-2 rounded-full bg-[#222225] px-4 text-sm font-medium text-zinc-100 hover:bg-[#2a2a2e]" title="Speak — AI voice conversation"><Icon name="wave" size={17}/> Speak</Link>}
-                  </div>
+                  <div className="flex items-center gap-2"><Link href="/assistant?view=images" className="grid h-10 w-10 place-items-center rounded-full bg-[#222225] text-zinc-300 hover:bg-[#2a2a2e]" title="Images"><Icon name="image" size={19}/></Link></div>
+                  <div className="flex items-center gap-2"><button type="button" onClick={startDictation} className={(dictating ? "bg-amber-300/10 text-amber-200 ring-1 ring-amber-300/20 " : "bg-[#222225] text-zinc-300 ") + "grid h-10 w-10 place-items-center rounded-full hover:bg-[#2a2a2e]"} title="Microphone — dictation only"><Icon name="mic" size={19}/></button>{input.trim() ? <button type="submit" disabled={busy} className="grid h-10 w-10 place-items-center rounded-full bg-[#222225] text-zinc-100 hover:bg-[#2a2a2e] disabled:opacity-40" title="Send"><Icon name="send" size={17}/></button> : <Link href="/assistant/voice" className="flex h-10 items-center gap-2 rounded-full bg-[#222225] px-4 text-sm font-medium text-zinc-100 hover:bg-[#2a2a2e]" title="Speak — AI voice conversation"><Icon name="wave" size={17}/> Speak</Link>}</div>
                 </div>
                 {dictationNotice && <p className="px-3 pb-1 text-[10px] text-zinc-600">{dictationNotice}</p>}
               </form>
               <p className="mt-2 text-center text-[10px] text-zinc-700">Microphone adds words to the composer. Speak starts a separate AI voice conversation.</p>
             </div>
-          </div>
+          </div>}
         </section>
       </div>
     </main>
