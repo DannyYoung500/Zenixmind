@@ -59,7 +59,7 @@ export function WorkspaceShell({ active = "home", children, title }: { active?: 
     <main className="min-h-screen bg-[#050506] text-zinc-100">
       <div className="flex min-h-screen">
         {open && <button aria-label="Close sidebar" onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-black/75 lg:hidden" />}
-        <aside className={(open ? "fixed inset-y-0 left-0 z-50 flex " : "hidden ") + "w-[286px] shrink-0 flex-col border-r border-white/[.055] bg-[#0d0d0e] px-3 py-3 lg:relative lg:z-auto lg:flex"}>
+        <aside className={(open ? "fixed inset-y-0 left-0 z-50 flex " : "hidden ") + "w-[270px] shrink-0 flex-col border-r border-white/[.055] bg-[#0d0d0e] px-2.5 py-3 lg:relative lg:z-auto lg:flex"}>
           <div className="flex items-center justify-between px-2 pb-4">
             <Link href="/assistant" onClick={() => setOpen(false)} className="flex items-center gap-2.5"><BrandMark size={31}/><span className="text-[15px] font-semibold tracking-[-.02em]">ZenixMind</span></Link>
             <button type="button" onClick={() => setOpen(false)} className="grid h-9 w-9 place-items-center rounded-lg text-zinc-600 hover:bg-[#171719] hover:text-zinc-200 lg:hidden"><Icon name="close" size={18}/></button>
@@ -78,7 +78,7 @@ export function WorkspaceShell({ active = "home", children, title }: { active?: 
               ["image", "Images", "/assistant?view=images"],
               ["file", "Library", "/assistant?view=library"],
             ].map(([icon, label, href]) => (
-              <Link key={label} href={href} onClick={() => setOpen(false)} className={(active === label.toLowerCase() ? "bg-[#1b1b1c] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm hover:bg-[#171718] hover:text-zinc-200"}><Icon name={icon}/>{label}</Link>
+              <Link key={label} href={href} onClick={() => setOpen(false)} className={(active === label.toLowerCase() ? "bg-[#1b1b1c] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] hover:bg-[#171718] hover:text-zinc-200"}><Icon name={icon}/>{label}</Link>
             ))}
             <Link href="/pricing" onClick={() => setOpen(false)} className={(active === "plans" ? "bg-[#1b1b1c] text-zinc-100 " : "text-zinc-500 ") + "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm hover:bg-[#171718] hover:text-zinc-200"}>Plans</Link>
           </nav>
@@ -101,11 +101,11 @@ export function WorkspaceShell({ active = "home", children, title }: { active?: 
         </aside>
 
         <section className="min-w-0 flex-1">
-          <header className="flex min-h-[64px] items-center gap-3 border-b border-white/[.05] px-4 sm:px-7">
+          <header className="flex min-h-[58px] items-center gap-3 border-b border-white/[.05] px-4 sm:px-7">
             <button type="button" onClick={() => setOpen(true)} className="grid h-10 w-10 place-items-center rounded-full border border-white/[.06] bg-[#0d0d0f] text-zinc-400 hover:bg-[#151517] lg:hidden"><span className="text-lg">☰</span></button>
-            {title && <div className="text-sm font-semibold text-zinc-200">{title}</div>}
+            {title && <div className="text-[13px] font-medium text-zinc-200">{title}</div>}
           </header>
-          <div className="min-h-[calc(100vh-64px)]">{children}</div>
+          <div className="min-h-[calc(100vh-58px)]">{children}</div>
         </section>
       </div>
     </main>

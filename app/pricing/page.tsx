@@ -6,10 +6,10 @@ import { getSupabaseServer } from "@/lib/supabase-server";
 const features = ["AI conversations", "Conversation history", "Voice experience", "Images workspace", "Personal library"];
 
 function PricingContent({ signedIn }: { signedIn: boolean }) {
-  return <section className="mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
-    <div className="max-w-2xl"><p className="text-[10px] font-semibold uppercase tracking-[.25em] text-zinc-600">Plans</p><h1 className="mt-4 text-4xl font-semibold tracking-[-.05em] sm:text-6xl">Built to grow with ZenixMind.</h1><p className="mt-5 text-sm leading-7 text-zinc-500 sm:text-base">The assistant is being built as one connected experience. Paid plans will be introduced when billing and usage limits are ready.</p></div>
-    <div className="mt-12 grid gap-4 md:grid-cols-2">
-      <div className="rounded-[26px] border border-white/[.1] bg-[#0b0b0d] p-7 shadow-[0_25px_80px_rgba(0,0,0,.25)]">
+  return <section className="mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-20">
+    <div className="max-w-2xl"><p className="text-[10px] font-semibold uppercase tracking-[.25em] text-zinc-600">Plans</p><h1 className="mt-4 text-4xl font-semibold tracking-[-.05em] sm:text-5xl">Built to grow with ZenixMind.</h1><p className="mt-5 text-sm leading-7 text-zinc-500 sm:text-base">The assistant is being built as one connected experience. Paid plans will be introduced when billing and usage limits are ready.</p></div>
+    <div className="mt-9 grid gap-4 md:grid-cols-2">
+      <div className="rounded-[22px] border border-white/[.1] bg-[#0b0b0d] p-6 shadow-[0_25px_80px_rgba(0,0,0,.25)]">
         <div className="flex items-center justify-between"><h2 className="text-xl font-medium">Free</h2><span className="rounded-full border border-white/[.08] px-2.5 py-1 text-[10px] text-zinc-500">{signedIn ? "Current" : "Available"}</span></div>
         <p className="mt-3 text-sm text-zinc-600">Access the ZenixMind experience while the platform is in active development.</p>
         <div className="mt-7 space-y-3">{features.map(f=><div key={f} className="flex items-center gap-3 text-xs text-zinc-400"><span className="h-1.5 w-1.5 rounded-full bg-zinc-600"/>{f}</div>)}</div>
