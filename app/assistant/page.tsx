@@ -196,7 +196,7 @@ export default function AssistantPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button type="button" onClick={startDictation} className={(dictating ? "bg-amber-300/10 text-amber-200 ring-1 ring-amber-300/20 " : "bg-[#222225] text-zinc-300 ") + "grid h-10 w-10 place-items-center rounded-full hover:bg-[#2a2a2e]"} title="Microphone — dictation only" aria-label="Microphone dictation"><Icon name="mic" size={19}/></button>
-                    <button type="submit" disabled={!input.trim() || busy} className="grid h-10 w-10 place-items-center rounded-full bg-zinc-100 text-black hover:bg-zinc-200 disabled:opacity-20" title="Send"><Icon name="send" size={17}/></button>
+                    {input.trim() ? <button type="submit" disabled={busy} className="grid h-10 w-10 place-items-center rounded-full bg-zinc-100 text-black hover:bg-zinc-200 disabled:opacity-40" title="Send"><Icon name="send" size={17}/></button> : <Link href="/assistant/voice" className="flex h-10 items-center gap-2 rounded-full bg-zinc-100 px-4 text-sm font-medium text-black hover:bg-zinc-200" title="Speak — AI voice conversation"><Icon name="wave" size={17}/> Speak</Link>}
                   </div>
                 </div>
                 {dictationNotice && <p className="px-3 pb-1 text-[10px] text-zinc-600">{dictationNotice}</p>}
