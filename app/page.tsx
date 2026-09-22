@@ -1,120 +1,140 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/brand-mark";
 
-const features = [
-  ["Think", "Get clear answers, explanations, ideas and reasoning in one conversation."],
-  ["Create", "Turn your ideas into writing, images, plans and polished work."],
-  ["Research", "Bring together information and sources without jumping between tools."],
-  ["Connect", "Use the AI services you already have through one assistant experience."]
+const capabilities = [
+  { number: "01", title: "Ask anything", text: "A focused space for questions, ideas, explanations, writing, coding and problem solving." },
+  { number: "02", title: "Create with AI", text: "Move from a thought to something usable — text, images, and creative work in one workflow." },
+  { number: "03", title: "Bring your tools", text: "Connect the services you already use and let ZenixMind become the place you direct the work." },
 ];
-
-function Mark({ small = false }: { small?: boolean }) {
-  return (
-    <div className={`logo-mark relative ${small ? "h-9 w-9" : "h-14 w-14"}`}>
-      <svg viewBox="0 0 64 64" className="h-full w-full" aria-hidden="true">
-        <defs>
-          <linearGradient id="g" x1="8" y1="8" x2="56" y2="56">
-            <stop stopColor="#22d3ee"/><stop offset=".42" stopColor="#3b82f6"/>
-            <stop offset=".72" stopColor="#8b5cf6"/><stop offset="1" stopColor="#d946ef"/>
-          </linearGradient>
-        </defs>
-        <path d="M32 7c8 0 14 5 18 11 4 6 5 13 2 19-3 6-8 9-14 10l-5 1 8 7c3 3 3 6 0 8-3 2-7 1-10-1l-9-9c-5-5-7-11-5-17 2-6 7-10 13-11l5-1-8-7c-3-3-3-6 0-8 3-2 7-1 10 1l9 9c5 5 7 11 5 17-2 6-7 10-13 11l-5 1-8 8c-3 3-7 3-9 0-2-3-1-6 2-9l7-7-7-7c-5-5-7-11-5-17 2-6 8-10 14-10Z" fill="none" stroke="url(#g)" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    </div>
-  );
-}
 
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-hidden">
-      <div className="hero-grid pointer-events-none fixed inset-0 opacity-60" />
-      <nav className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <Link href="/" className="flex items-center gap-3">
-          <Mark small />
-          <span className="text-lg font-semibold tracking-tight">ZenixMind</span>
-        </Link>
-        <div className="hidden items-center gap-8 text-sm text-zinc-400 md:flex">
-          <Link href="#features" className="hover:text-white">Features</Link>
-          <Link href="#how" className="hover:text-white">How it works</Link>
-          <Link href="/pricing" className="hover:text-white">Pricing</Link>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/login" className="hidden rounded-full px-4 py-2 text-sm text-zinc-300 hover:text-white sm:block">Log in</Link>
-          <Link href="/assistant" className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-zinc-200">Try ZenixMind</Link>
-        </div>
-      </nav>
-
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24 pt-20 text-center md:pb-32 md:pt-32">
-        <div className="glow absolute left-1/2 top-0 h-[520px] w-[720px] -translate-x-1/2 -translate-y-1/4 blur-3xl" />
-        <div className="relative mx-auto flex max-w-4xl flex-col items-center">
-          <Mark />
-          <div className="mt-7 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[.04] px-4 py-2 text-xs text-zinc-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            One intelligent assistant. Many possibilities.
-          </div>
-          <h1 className="mt-7 text-5xl font-semibold tracking-[-.05em] text-white md:text-7xl">
-            Think. Create. <span className="bg-gradient-to-r from-cyan-300 via-blue-400 to-fuchsia-400 bg-clip-text text-transparent">Go further.</span>
-          </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-400 md:text-xl">
-            ZenixMind is your AI assistant for everyday questions, deep thinking, research and creation — built to bring your tools together in one place.
-          </p>
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <Link href="/assistant" className="rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-black shadow-2xl shadow-white/10">Start chatting</Link>
-            <Link href="#features" className="rounded-full border border-white/10 bg-white/[.04] px-7 py-3.5 text-sm font-semibold text-white hover:bg-white/[.07]">Explore ZenixMind</Link>
+    <main className="min-h-screen bg-[#070707] text-white">
+      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#070707]/85 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
+          <Link href="/" className="flex items-center gap-2.5">
+            <BrandMark size={30} />
+            <span className="text-[15px] font-semibold tracking-[-0.02em]">ZenixMind</span>
+          </Link>
+          <nav className="hidden items-center gap-7 text-[13px] text-zinc-400 md:flex">
+            <Link href="#product" className="transition hover:text-white">Product</Link>
+            <Link href="#capabilities" className="transition hover:text-white">Capabilities</Link>
+            <Link href="/pricing" className="transition hover:text-white">Pricing</Link>
+          </nav>
+          <div className="flex items-center gap-2">
+            <Link href="/login" className="hidden px-3 py-2 text-[13px] text-zinc-300 hover:text-white sm:block">Log in</Link>
+            <Link href="/assistant" className="rounded-lg bg-white px-4 py-2 text-[13px] font-semibold text-black transition hover:bg-zinc-200">Open ZenixMind</Link>
           </div>
         </div>
+      </header>
 
-        <div className="relative mx-auto mt-20 max-w-4xl rounded-[28px] border border-white/10 bg-[#0b0b10]/90 p-3 shadow-2xl shadow-black/40 backdrop-blur">
-          <div className="rounded-[20px] border border-white/5 bg-[#101015]">
-            <div className="flex items-center gap-2 border-b border-white/5 px-5 py-4 text-left">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-400/70"/><span className="h-2.5 w-2.5 rounded-full bg-yellow-400/70"/><span className="h-2.5 w-2.5 rounded-full bg-green-400/70"/>
-              <span className="ml-3 text-xs text-zinc-500">ZenixMind</span>
+      <section className="relative overflow-hidden">
+        <div className="pointer-events-none absolute left-1/2 top-[-220px] h-[620px] w-[900px] -translate-x-1/2 rounded-full bg-white/[0.035] blur-3xl" />
+        <div className="pointer-events-none absolute left-1/2 top-[150px] h-[400px] w-[700px] -translate-x-1/2 rounded-full bg-indigo-500/[0.07] blur-[120px]" />
+        <div className="relative mx-auto max-w-7xl px-5 pb-24 pt-24 sm:px-8 sm:pb-32 sm:pt-32">
+          <div className="max-w-4xl">
+            <div className="mb-8 flex items-center gap-3 text-[13px] text-zinc-400">
+              <BrandMark size={25} />
+              <span className="h-1 w-1 rounded-full bg-zinc-600" />
+              <span>AI, in one place.</span>
             </div>
-            <div className="min-h-[300px] p-7 text-left md:p-10">
-              <div className="max-w-xl">
-                <p className="text-sm text-zinc-500">You</p>
-                <p className="mt-2 text-lg text-zinc-200">Help me turn this idea into something real.</p>
-                <p className="mt-8 text-sm text-zinc-500">ZenixMind</p>
-                <p className="mt-2 text-lg leading-8 text-zinc-200">Absolutely. Let&apos;s break it down, find the best approach, and build it step by step.</p>
-              </div>
-              <div className="mt-12 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[.03] px-4 py-3 text-sm text-zinc-600">Message ZenixMind…</div>
+            <h1 className="max-w-4xl text-[clamp(3.4rem,8vw,7.8rem)] font-semibold leading-[0.91] tracking-[-0.065em]">
+              One place for
+              <span className="block text-zinc-500">your intelligence.</span>
+            </h1>
+            <p className="mt-8 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
+              ZenixMind is an AI workspace for thinking, creating and getting things done. Start with a conversation and bring more of your AI tools into the same place.
+            </p>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <Link href="/assistant" className="inline-flex h-12 items-center justify-center rounded-xl bg-white px-6 text-sm font-semibold text-black transition hover:bg-zinc-200">
+                Start with ZenixMind
+              </Link>
+              <Link href="#product" className="inline-flex h-12 items-center justify-center rounded-xl border border-white/10 bg-white/[0.025] px-6 text-sm font-medium text-white transition hover:bg-white/[0.06]">
+                See the product
+              </Link>
             </div>
           </div>
-        </div>
-      </section>
 
-      <section id="features" className="relative z-10 border-t border-white/5 py-24">
-        <div className="mx-auto max-w-6xl px-6">
-          <p className="text-sm font-medium text-cyan-300">WHAT&apos;S INSIDE</p>
-          <h2 className="mt-3 max-w-2xl text-4xl font-semibold tracking-tight md:text-5xl">An assistant designed around what you actually want to do.</h2>
-          <div className="mt-12 grid gap-4 md:grid-cols-2">
-            {features.map(([title, body], i) => (
-              <div key={title} className="rounded-3xl border border-white/8 bg-white/[.025] p-7 hover:bg-white/[.04]">
-                <span className="text-xs text-zinc-600">0{i + 1}</span>
-                <h3 className="mt-8 text-xl font-semibold">{title}</h3>
-                <p className="mt-3 max-w-md leading-7 text-zinc-400">{body}</p>
+          <div id="product" className="mt-20 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d0f] shadow-[0_40px_120px_rgba(0,0,0,.45)]">
+            <div className="flex h-11 items-center border-b border-white/[0.07] px-4">
+              <div className="flex gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-white/20" /><span className="h-2 w-2 rounded-full bg-white/20" /><span className="h-2 w-2 rounded-full bg-white/20" />
               </div>
-            ))}
+              <div className="mx-auto flex items-center gap-2 text-[11px] text-zinc-500">
+                <BrandMark size={16} /> ZenixMind
+              </div>
+              <div className="w-8" />
+            </div>
+            <div className="grid min-h-[430px] md:grid-cols-[210px_1fr]">
+              <aside className="hidden border-r border-white/[0.06] p-3 md:block">
+                <div className="mb-5 flex items-center gap-2 px-2 py-2 text-xs font-medium"><BrandMark size={18} /> ZenixMind</div>
+                <div className="rounded-lg bg-white/[0.07] px-3 py-2 text-xs text-zinc-300">+ New chat</div>
+                <div className="mt-5 space-y-1 text-[11px] text-zinc-600">
+                  <div className="px-3 py-2">Recent conversations</div>
+                  <div className="rounded-lg px-3 py-2 text-zinc-400">Build my next idea</div>
+                  <div className="rounded-lg px-3 py-2">Product research</div>
+                </div>
+              </aside>
+              <div className="relative flex flex-col">
+                <div className="flex flex-1 items-center justify-center px-6 py-14">
+                  <div className="w-full max-w-2xl">
+                    <div className="mb-10 text-center">
+                      <BrandMark size={38} className="mx-auto" />
+                      <h2 className="mt-5 text-2xl font-medium tracking-tight">What can I help you build?</h2>
+                      <p className="mt-2 text-sm text-zinc-600">Ask a question, explore an idea, or start something new.</p>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-xl border border-white/[0.07] p-4 text-left"><p className="text-xs text-zinc-300">Think through an idea</p><p className="mt-1 text-[11px] text-zinc-600">Turn a rough thought into a clear plan.</p></div>
+                      <div className="rounded-xl border border-white/[0.07] p-4 text-left"><p className="text-xs text-zinc-300">Write something</p><p className="mt-1 text-[11px] text-zinc-600">Draft, rewrite, explain or refine.</p></div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mx-5 mb-5 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3 text-xs text-zinc-600">Message ZenixMind…</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section id="how" className="relative z-10 border-t border-white/5 py-24">
-        <div className="mx-auto grid max-w-6xl gap-12 px-6 md:grid-cols-2 md:items-center">
-          <div>
-            <p className="text-sm font-medium text-fuchsia-300">BUILT TO GROW</p>
-            <h2 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">One assistant, connected to your world.</h2>
-          </div>
-          <div className="space-y-5 text-zinc-400">
-            <p>Start with a conversation. As ZenixMind grows, users can connect the AI services they already use and let ZenixMind coordinate them around their goals.</p>
-            <p>That means the assistant can eventually work with external image, video, voice and other AI services without pretending to be every model itself.</p>
+      <section id="capabilities" className="border-t border-white/[0.07]">
+        <div className="mx-auto max-w-7xl px-5 py-24 sm:px-8 sm:py-32">
+          <div className="grid gap-14 md:grid-cols-[0.9fr_1.1fr]">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">The workspace</p>
+              <h2 className="mt-5 max-w-lg text-4xl font-semibold leading-tight tracking-[-0.04em] sm:text-5xl">
+                Start simple.<br />Go wherever the work takes you.
+              </h2>
+            </div>
+            <div className="divide-y divide-white/[0.07] border-y border-white/[0.07]">
+              {capabilities.map((item) => (
+                <div key={item.number} className="grid gap-5 py-7 sm:grid-cols-[70px_1fr]">
+                  <span className="text-xs text-zinc-600">{item.number}</span>
+                  <div>
+                    <h3 className="text-lg font-medium">{item.title}</h3>
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">{item.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <footer className="relative z-10 border-t border-white/5 py-10">
-        <div className="mx-auto flex max-w-6xl flex-col justify-between gap-4 px-6 text-sm text-zinc-500 md:flex-row">
-          <span>© 2026 ZenixMind</span>
-          <span>Intelligence, connected.</span>
+      <section className="border-t border-white/[0.07]">
+        <div className="mx-auto max-w-7xl px-5 py-24 sm:px-8 sm:py-32">
+          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.025] px-6 py-16 text-center sm:px-10">
+            <BrandMark size={42} className="mx-auto" />
+            <h2 className="mt-6 text-4xl font-semibold tracking-[-0.04em]">Ready when you are.</h2>
+            <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-zinc-500">Open the workspace and start a conversation with ZenixMind.</p>
+            <Link href="/assistant" className="mt-8 inline-flex h-11 items-center rounded-xl bg-white px-6 text-sm font-semibold text-black hover:bg-zinc-200">Open ZenixMind</Link>
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-white/[0.07]">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 text-xs text-zinc-600 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <div className="flex items-center gap-2"><BrandMark size={18} /><span>© 2026 ZenixMind</span></div>
+          <div className="flex gap-5"><Link href="/pricing" className="hover:text-zinc-300">Pricing</Link><Link href="/login" className="hover:text-zinc-300">Log in</Link></div>
         </div>
       </footer>
     </main>
