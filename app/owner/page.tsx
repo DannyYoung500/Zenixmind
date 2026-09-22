@@ -3,13 +3,11 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { OWNER_EMAILS, isOwnerEmail } from "@/lib/owners";
 
-const sections = [
-  ["Users", "Manage accounts and authentication as the user system grows.", "Coming next"],
-  ["Conversations", "Monitor the assistant's conversation infrastructure.", "Coming next"],
-  ["AI providers", "Connect and manage the models that power ZenixMind.", "Ready for integration"],
-  ["Connected tools", "Manage services such as image and video providers.", "Ready for integration"],
-  ["Supabase", "Your database and authentication foundation.", "Connected"],
-  ["Deployment", "The production application deployment pipeline.", "Vercel-ready"]
+const areas = [
+  { title: "AI control", description: "Model, provider and response configuration for the assistant.", href: "/assistant" },
+  { title: "Conversations", description: "Open the live assistant workspace and inspect the conversation experience.", href: "/assistant" },
+  { title: "Images & Library", description: "Review the real image workspace and user file library experience.", href: "/assistant?view=images" },
+  { title: "Account & access", description: "Owner access is authenticated through Supabase and restricted to the allowlist.", href: "/assistant?settings=1" },
 ];
 
 export default async function OwnerDashboard() {
@@ -18,16 +16,97 @@ export default async function OwnerDashboard() {
   if (!user) redirect("/login");
   if (!isOwnerEmail(user.email)) redirect("/dashboard");
 
-  return <WorkspaceShell active="owner" title="Owner console">
-    <div className="mx-auto max-w-6xl px-5 py-9 sm:px-8 sm:py-12">
-      <div><p className="text-xs font-medium uppercase tracking-[.16em] text-zinc-600">ZenixMind control center</p><h1 className="mt-3 text-3xl font-semibold tracking-[-.035em] sm:text-3xl">Welcome to ZenixMind.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">Private control center for the ZenixMind platform, infrastructure and connected product systems.</p></div>
-      <div className="mt-7 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-white/8 bg-black/[.45] p-5"><p className="text-xs text-zinc-600">Authentication</p><p className="mt-3 text-lg font-medium">Supabase</p><p className="mt-1 text-xs text-emerald-300">Connected foundation</p></div>
-        <div className="rounded-2xl border border-white/8 bg-black/[.45] p-5"><p className="text-xs text-zinc-600">Owner accounts</p><p className="mt-3 text-lg font-medium">{OWNER_EMAILS.length}</p><p className="mt-1 text-xs text-zinc-500">Authorized email addresses</p></div>
-        <div className="rounded-2xl border border-white/8 bg-black/[.45] p-5"><p className="text-xs text-zinc-600">Environment</p><p className="mt-3 text-lg font-medium">Production-ready</p><p className="mt-1 text-xs text-zinc-500">Deployment foundation</p></div>
+  const [{ count: conversations }, { count: messages }, { count: libraryItems }] = await Promise.all([
+    supabase.from("conversations").select("id", { count: "exact", head: true }),
+    supabase.from("messages").select("id", { count: "exact", head: true }),
+    supabase.from("library_items").select("id", { count: "exact", head: true }),
+  ]);
+
+  const stats = [
+    ["Conversations", conversations ?? 0, "Live database count"],
+    ["Messages", messages ?? 0, "Live database count"],
+    ["Library items", libraryItems ?? 0, "Live database count"],
+    ["Owner access", OWNER_EMAILS.length, "Allowlisted accounts"],
+  ];
+
+  return (
+    <WorkspaceShell active="owner" title="Owner">
+      <div className="min-h-full bg-[#050506]">
+        <div className="mx-auto max-w-7xl px-5 py-7 sm:px-8 lg:px-10 lg:py-10">
+          <header className="flex flex-col gap-5 border-b border-white/[.06] pb-8 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[11px] font-light uppercase tracking-[.18em] text-zinc-600">ZenixMind / Owner</p>
+              <h1 className="mt-2 text-[28px] font-light tracking-[-.04em] text-zinc-100 sm:text-[34px]">Control center</h1>
+              <p className="mt-2 max-w-2xl text-sm font-light leading-6 text-zinc-600">A private workspace for the systems that power ZenixMind.</p>
+            </div>
+            <div className="rounded-full border border-emerald-400/15 bg-emerald-400/[.04] px-3 py-1.5 text-[11px] font-light text-emerald-300">Authenticated owner</div>
+          </header>
+
+          <section className="mt-7 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/[.06] bg-white/[.06] lg:grid-cols-4">
+            {stats.map(([label, value, note]) => (
+              <div key={String(label)} className="bg-[#0b0b0d] px-5 py-5 sm:px-6">
+                <p className="text-[11px] font-light text-zinc-600">{label}</p>
+                <p className="mt-2 text-2xl font-light tracking-[-.03em] text-zinc-100">{String(value)}</p>
+                <p className="mt-1 text-[10px] font-light text-zinc-700">{note}</p>
+              </div>
+            ))}
+          </section>
+
+          <div className="mt-8 grid gap-8 lg:grid-cols-[1.5fr_1fr]">
+            <section>
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-[11px] font-light uppercase tracking-[.16em] text-zinc-600">Platform</p>
+                  <h2 className="mt-2 text-lg font-light text-zinc-100">Management areas</h2>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-2">
+                {areas.map((area, index) => (
+                  <a key={area.title} href={area.href} className="group flex items-center gap-4 rounded-2xl border border-white/[.06] bg-[#0b0b0d] px-5 py-4 transition hover:border-white/[.1] hover:bg-[#0e0e10]">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#151517] text-xs font-light text-zinc-500">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-light text-zinc-200">{area.title}</span>
+                      <span className="mt-1 block text-xs font-light leading-5 text-zinc-600">{area.description}</span>
+                    </span>
+                    <span className="text-zinc-700 transition group-hover:translate-x-0.5 group-hover:text-zinc-300">→</span>
+                  </a>
+                ))}
+              </div>
+            </section>
+
+            <aside className="space-y-3">
+              <div className="rounded-2xl border border-white/[.06] bg-[#0b0b0d] p-5">
+                <p className="text-[11px] font-light uppercase tracking-[.16em] text-zinc-600">Current session</p>
+                <p className="mt-4 truncate text-sm font-light text-zinc-200">{user.email}</p>
+                <p className="mt-1 text-xs font-light text-zinc-700">Authenticated with Supabase</p>
+              </div>
+              <div className="rounded-2xl border border-white/[.06] bg-[#0b0b0d] p-5">
+                <p className="text-[11px] font-light uppercase tracking-[.16em] text-zinc-600">Infrastructure</p>
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between text-xs"><span className="font-light text-zinc-600">Database</span><span className="font-light text-zinc-300">Supabase</span></div>
+                  <div className="flex items-center justify-between text-xs"><span className="font-light text-zinc-600">App</span><span className="font-light text-zinc-300">Next.js</span></div>
+                  <div className="flex items-center justify-between text-xs"><span className="font-light text-zinc-600">Deployment</span><span className="font-light text-zinc-300">Vercel</span></div>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <section className="mt-8">
+            <div className="mb-4">
+              <p className="text-[11px] font-light uppercase tracking-[.16em] text-zinc-600">Access</p>
+              <h2 className="mt-2 text-lg font-light text-zinc-100">Authorized owners</h2>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {OWNER_EMAILS.map((email) => (
+                <div key={email} className={"rounded-2xl border px-4 py-3.5 text-xs font-light " + (email.toLowerCase() === user.email?.toLowerCase() ? "border-white/[.1] bg-[#111113] text-zinc-200" : "border-white/[.05] bg-[#0a0a0c] text-zinc-600")}>
+                  {email}
+                  {email.toLowerCase() === user.email?.toLowerCase() && <span className="ml-2 text-[10px] text-zinc-700">current</span>}
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
-      <section className="mt-8"><p className="text-xs font-medium uppercase tracking-[.16em] text-zinc-600">Platform</p><h2 className="mt-2 text-xl font-semibold">Management areas</h2><div className="mt-5 grid gap-3 md:grid-cols-2">{sections.map(([title,body,status])=><div key={title} className="rounded-2xl border border-white/8 bg-black/[.45] p-5"><div className="flex items-start justify-between gap-4"><h3 className="font-medium">{title}</h3><span className="rounded-full border border-white/8 px-2.5 py-1 text-[10px] text-zinc-500">{status}</span></div><p className="mt-3 text-sm leading-6 text-zinc-500">{body}</p></div>)}</div></section>
-      <section className="mt-10 rounded-2xl border border-white/8 bg-black/[.45] p-6"><p className="text-xs font-medium uppercase tracking-[.16em] text-zinc-600">Authorized owners</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{OWNER_EMAILS.map((email)=><div key={email} className="rounded-xl border border-white/6 bg-black/20 px-4 py-3 text-sm text-zinc-300">{email}</div>)}</div><p className="mt-4 text-xs leading-5 text-zinc-600">These addresses are allowlisted for the owner dashboard. They still must authenticate through Supabase before access is granted.</p></section>
-    </div>
-  </WorkspaceShell>;
+    </WorkspaceShell>
+  );
 }
