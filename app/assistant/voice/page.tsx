@@ -37,7 +37,7 @@ function makeRecognition() {
   const Constructor = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Constructor) return null;
   const recognition = new Constructor();
-  recognition.continuous = false; recognition.interimResults = false; recognition.maxAlternatives = 1; recognition.lang = "en-US";
+  recognition.continuous = true; recognition.interimResults = false; recognition.maxAlternatives = 1; recognition.lang = "en-US";
   return recognition;
 }
 
@@ -79,7 +79,7 @@ export default function VoicePage() {
     recognition.onend = () => {
       if (!stoppedRef.current && !mutedRef.current && !processingRef.current) window.setTimeout(() => startListening(speakingRef.current), 150);
     };
-    try { if ("processLocally" in recognition) recognition.processLocally = true; recognition.start(); }
+    try { recognition.start(); }
     catch { try { recognition.abort(); recognition.start(); } catch { setState("error"); setNotice("Voice input could not start"); } }
   }
 
@@ -122,7 +122,18 @@ export default function VoicePage() {
 
   useEffect(() => {
     stoppedRef.current = false;
-    startListening(false);
+    void (async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access is unavailable in this browser.");
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+        if (!stoppedRef.current) startListening(false);
+      } catch (error) {
+        if (stoppedRef.current) return;
+        setState("error");
+        setNotice(error instanceof DOMException && error.name === "NotAllowedError" ? "Microphone permission is required for Voice" : "Voice input could not start");
+      }
+    })();
     return () => { stoppedRef.current = true; stopRecognition(); window.speechSynthesis?.cancel(); };
   }, []);
 
