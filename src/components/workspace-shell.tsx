@@ -49,6 +49,7 @@ interface WorkspaceShellProps {
   onOpenSettings?: () => void;
   privateChat?: boolean;
   onTogglePrivateChat?: () => void;
+  onNewChat?: () => void;
 }
 
 export function WorkspaceShell({
@@ -61,7 +62,8 @@ export function WorkspaceShell({
   onRefreshConversations,
   onOpenSettings,
   privateChat = false,
-  onTogglePrivateChat
+  onTogglePrivateChat,
+  onNewChat
 }: WorkspaceShellProps) {
   const [open, setOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -591,6 +593,19 @@ export function WorkspaceShell({
                 <span className="text-[13px] font-semibold text-zinc-200">
                   {title || 'ZenixMind'}
                 </span>
+                {privateChat && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onNewChat) onNewChat();
+                    }}
+                    className="grid h-8 w-8 place-items-center rounded-full border border-white/[.08] bg-[#121215] text-zinc-400 hover:bg-[#18181c] hover:text-zinc-100 hover:border-white/[.14] transition-colors"
+                    title="New private chat"
+                    aria-label="New private chat"
+                  >
+                    <SquarePen size={15} />
+                  </button>
+                )}
               </div>
             </div>
 
