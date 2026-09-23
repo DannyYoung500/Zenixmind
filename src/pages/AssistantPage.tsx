@@ -646,7 +646,6 @@ function ChatMessageItem({
   const [userReactions, setUserReactions] = useState<string[]>(message.userReactions || []);
   const pickerRef = useRef<HTMLDivElement>(null);
 
-  // Synchronize internal state when message changes (e.g. on regeneration)
   useEffect(() => {
     setLiked(message.liked || false);
     setDisliked(message.disliked || false);
@@ -654,62 +653,53 @@ function ChatMessageItem({
     setUserReactions(message.userReactions || []);
   }, [message.liked, message.disliked, message.reactions, message.userReactions]);
 
-  // Close emoji picker when clicked outside
   useEffect(() => {
+    if (!showEmojiPicker) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         setShowEmojiPicker(false);
       }
     };
-    if (showEmojiPicker) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showEmojiPicker]);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {}
   };
 
   const handleLike = () => {
     const nextLiked = !liked;
+    const nextDisliked = nextLiked ? false : disliked;
     setLiked(nextLiked);
-    let nextDisliked = disliked;
-    if (nextLiked && disliked) {
-      nextDisliked = false;
-      setDisliked(false);
-    }
+    setDisliked(nextDisliked);
     onUpdateReaction?.({ liked: nextLiked, disliked: nextDisliked });
   };
 
   const handleDislike = () => {
     const nextDisliked = !disliked;
+    const nextLiked = nextDisliked ? false : liked;
     setDisliked(nextDisliked);
-    let nextLiked = liked;
-    if (nextDisliked && liked) {
-      nextLiked = false;
-      setLiked(false);
-    }
+    setLiked(nextLiked);
     onUpdateReaction?.({ liked: nextLiked, disliked: nextDisliked });
   };
 
   const handleToggleEmoji = (emoji: string) => {
     const alreadyReacted = userReactions.includes(emoji);
-    let nextUserReactions: string[];
-    let nextReactions = { ...reactions };
+    const nextUserReactions = alreadyReacted
+      ? userReactions.filter((e) => e !== emoji)
+      : [...userReactions, emoji];
+    const nextReactions = { ...reactions };
 
     if (alreadyReacted) {
-      nextUserReactions = userReactions.filter((e) => e !== emoji);
-      const currentCount = nextReactions[emoji] || 1;
-      if (currentCount <= 1) {
-        delete nextReactions[emoji];
-      } else {
-        nextReactions[emoji] = currentCount - 1;
-      }
+      const count = nextReactions[emoji] || 1;
+      if (count <= 1) delete nextReactions[emoji];
+      else nextReactions[emoji] = count - 1;
     } else {
-      nextUserReactions = [...userReactions, emoji];
       nextReactions[emoji] = (nextReactions[emoji] || 0) + 1;
     }
 
@@ -720,19 +710,19 @@ function ChatMessageItem({
   };
 
   const handleSpeak = () => {
-    if ('speechSynthesis' in window) {
-      if (speaking) {
-        window.speechSynthesis.cancel();
-        setSpeaking(false);
-        return;
-      }
-      const utterance = new SpeechSynthesisUtterance(message.content);
-      utterance.rate = 1.05;
-      utterance.onend = () => setSpeaking(false);
-      utterance.onerror = () => setSpeaking(false);
-      setSpeaking(true);
-      window.speechSynthesis.speak(utterance);
+    if (!('speechSynthesis' in window)) return;
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
     }
+    const utterance = new SpeechSynthesisUtterance(message.content);
+    utterance.rate = 1.02;
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    setSpeaking(true);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
   };
 
   if (message.role === 'user') {
@@ -745,34 +735,23 @@ function ChatMessageItem({
     );
   }
 
-  const activeEmojiList = Object.entries(reactions).filter(([_, count]) => count > 0);
+  const activeEmojiList = Object.entries(reactions).filter(([, count]) => count > 0);
 
   return (
-    <div className="flex gap-3.5 group animate-in fade-in duration-200">
+    <div className="flex gap-3 sm:gap-3.5 group animate-in fade-in duration-200">
       <BrandMark size={28} className="mt-1 shrink-0 text-zinc-200" />
-      <div className="max-w-[90%] min-w-0 flex-1">
-        {/* Model Badge if available */}
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          {message.model_used && (
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/[.08] bg-[#141417] px-2.5 py-0.5 text-[10px] font-mono text-zinc-400">
-              <Bot size={11} className="text-amber-400" />
-              <span>{message.model_used}</span>
-            </div>
-          )}
-          {message.isStreaming && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-2 py-0.5 text-[10px] text-amber-300 border border-amber-400/20 animate-pulse">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-              Streaming...
-            </span>
-          )}
-        </div>
+      <div className="max-w-[92%] min-w-0 flex-1">
+        {message.model_used && !message.isStreaming && (
+          <div className="mb-1.5 text-[9px] uppercase tracking-[0.14em] text-zinc-600">
+            {message.model_used}
+          </div>
+        )}
 
-        {/* Web Search Citations Sources */}
         {message.sources && message.sources.length > 0 && (
-          <div className="mb-3 rounded-2xl border border-cyan-500/20 bg-cyan-500/[.04] p-3">
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-cyan-400 mb-2">
-              <Globe size={13} />
-              <span>Web Search References ({message.sources.length})</span>
+          <div className="mb-3 rounded-2xl border border-cyan-500/15 bg-cyan-500/[.035] p-3">
+            <div className="mb-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-cyan-400">
+              <Globe size={12} />
+              <span>Sources · {message.sources.length}</span>
             </div>
             <div className="grid gap-1.5 sm:grid-cols-2">
               {message.sources.map((src, i) => (
@@ -781,156 +760,130 @@ function ChatMessageItem({
                   href={src.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center justify-between rounded-xl border border-white/[.06] bg-[#0c0c0e] p-2 text-[11px] text-zinc-300 hover:border-cyan-500/40 hover:text-white transition-colors"
+                  className="flex items-center justify-between rounded-xl border border-white/[.06] bg-[#0c0c0e] px-2.5 py-2 text-[11px] text-zinc-300 transition-colors hover:border-cyan-500/30 hover:text-white"
                 >
                   <span className="truncate pr-2">{src.title}</span>
-                  <ExternalLink size={11} className="text-zinc-500 shrink-0" />
+                  <ExternalLink size={11} className="shrink-0 text-zinc-600" />
                 </a>
               ))}
             </div>
           </div>
         )}
 
-        {/* High Fidelity Markdown, Code Syntax Highlighting & LaTeX Math Renderer */}
         <div className="relative">
           <MessageRenderer content={message.content} />
           {message.isStreaming && (
-            <span className="inline-block w-1.5 h-4 ml-1 bg-amber-400 align-middle animate-pulse" />
+            <span className="ml-1 inline-block h-4 w-1.5 translate-y-[3px] rounded-full bg-amber-400 align-middle animate-pulse" />
           )}
         </div>
 
-        {/* Emoji Reaction Badges (Pills) */}
         {activeEmojiList.length > 0 && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            {activeEmojiList.map(([emoji, count]) => {
-              const isSelected = userReactions.includes(emoji);
-              return (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => handleToggleEmoji(emoji)}
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs transition-all ${
-                    isSelected
-                      ? 'border border-amber-400/40 bg-amber-400/15 text-amber-200 scale-105 shadow-sm'
-                      : 'border border-white/[.08] bg-[#141417] text-zinc-400 hover:bg-[#1c1c20] hover:text-zinc-200'
-                  }`}
-                  title={`${count} reaction${count > 1 ? 's' : ''}`}
-                >
-                  <span>{emoji}</span>
-                  <span className="text-[11px] font-medium font-mono">{count}</span>
-                </button>
-              );
-            })}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {activeEmojiList.map(([emoji, count]) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => handleToggleEmoji(emoji)}
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-all ${
+                  userReactions.includes(emoji)
+                    ? 'border-amber-400/35 bg-amber-400/10 text-amber-200'
+                    : 'border-white/[.07] bg-[#141417] text-zinc-500 hover:text-zinc-200'
+                }`}
+              >
+                <span>{emoji}</span><span>{count}</span>
+              </button>
+            ))}
           </div>
         )}
 
-        {/* Action Toolbar with Emoji Reactions, Like, Dislike, Copy, Regenerate, Listen */}
-        <div className="mt-3 flex flex-wrap items-center gap-1 text-zinc-500 transition-opacity">
-          {/* Like (Thumbs Up) */}
-          <button
-            type="button"
-            onClick={handleLike}
-            className={`flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] transition-colors ${
-              liked
-                ? 'border border-emerald-500/30 bg-emerald-500/15 text-emerald-300'
-                : 'hover:bg-[#18181c] hover:text-zinc-200'
-            }`}
-            title="Good response (Like)"
-          >
-            <ThumbsUp size={12} className={liked ? 'fill-emerald-400/30 text-emerald-400' : ''} />
-            <span className="text-[10px]">Like</span>
-          </button>
-
-          {/* Dislike (Thumbs Down) */}
-          <button
-            type="button"
-            onClick={handleDislike}
-            className={`flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] transition-colors ${
-              disliked
-                ? 'border border-rose-500/30 bg-rose-500/15 text-rose-300'
-                : 'hover:bg-[#18181c] hover:text-zinc-200'
-            }`}
-            title="Poor response (Dislike)"
-          >
-            <ThumbsDown size={12} className={disliked ? 'fill-rose-400/30 text-rose-400' : ''} />
-            <span className="text-[10px]">Dislike</span>
-          </button>
-
-          {/* Emoji Reaction Popover Trigger */}
-          <div className="relative" ref={pickerRef}>
+        {!message.isStreaming && message.content.trim() && (
+          <div className="mt-2.5 flex items-center gap-0.5 border-t border-white/[.045] pt-2 opacity-75 transition-opacity group-hover:opacity-100">
             <button
               type="button"
-              onClick={() => setShowEmojiPicker((v) => !v)}
-              className={`flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] transition-colors ${
-                showEmojiPicker
-                  ? 'bg-[#222228] text-zinc-100'
-                  : 'hover:bg-[#18181c] hover:text-zinc-200'
-              }`}
-              title="React with emoji"
+              onClick={handleCopy}
+              className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[.045] hover:text-zinc-200"
+              title={copied ? 'Copied' : 'Copy'}
             >
-              <Smile size={12} />
-              <span className="text-[10px]">React</span>
+              {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
             </button>
 
-            {/* Emoji Quick Picker Floating Popup */}
-            {showEmojiPicker && (
-              <div className="absolute left-0 bottom-full mb-2 z-50 flex items-center gap-1 rounded-2xl border border-white/[.12] bg-[#121216] p-1.5 shadow-2xl backdrop-blur-xl">
-                {POPULAR_EMOJIS.map((item) => (
-                  <button
-                    key={item.emoji}
-                    type="button"
-                    onClick={() => handleToggleEmoji(item.emoji)}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-white/[.1] hover:scale-110 transition-transform text-base"
-                    title={item.label}
-                  >
-                    {item.emoji}
-                  </button>
-                ))}
-              </div>
+            <button
+              type="button"
+              onClick={handleSpeak}
+              className={`grid h-7 w-7 place-items-center rounded-lg transition-colors ${
+                speaking
+                  ? 'bg-amber-400/10 text-amber-300'
+                  : 'text-zinc-500 hover:bg-white/[.045] hover:text-zinc-200'
+              }`}
+              title={speaking ? 'Stop listening' : 'Listen'}
+            >
+              <Volume2 size={13} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLike}
+              className={`grid h-7 w-7 place-items-center rounded-lg transition-colors ${
+                liked ? 'bg-emerald-500/10 text-emerald-300' : 'text-zinc-500 hover:bg-white/[.045] hover:text-zinc-200'
+              }`}
+              title="Like"
+            >
+              <ThumbsUp size={13} className={liked ? 'fill-emerald-400/20' : ''} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDislike}
+              className={`grid h-7 w-7 place-items-center rounded-lg transition-colors ${
+                disliked ? 'bg-rose-500/10 text-rose-300' : 'text-zinc-500 hover:bg-white/[.045] hover:text-zinc-200'
+              }`}
+              title="Dislike"
+            >
+              <ThumbsDown size={13} className={disliked ? 'fill-rose-400/20' : ''} />
+            </button>
+
+            <div className="mx-1 h-4 w-px bg-white/[.07]" />
+
+            <div className="relative" ref={pickerRef}>
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker((v) => !v)}
+                className={`grid h-7 w-7 place-items-center rounded-lg transition-colors ${
+                  showEmojiPicker ? 'bg-white/[.06] text-zinc-200' : 'text-zinc-500 hover:bg-white/[.045] hover:text-zinc-200'
+                }`}
+                title="React"
+              >
+                <Smile size={13} />
+              </button>
+              {showEmojiPicker && (
+                <div className="absolute bottom-full left-0 z-50 mb-2 flex items-center gap-0.5 rounded-xl border border-white/[.1] bg-[#111114] p-1.5 shadow-2xl backdrop-blur-xl">
+                  {POPULAR_EMOJIS.map((item) => (
+                    <button
+                      key={item.emoji}
+                      type="button"
+                      onClick={() => handleToggleEmoji(item.emoji)}
+                      className="grid h-7 w-7 place-items-center rounded-lg text-sm transition-transform hover:scale-110 hover:bg-white/[.06]"
+                      title={item.label}
+                    >
+                      {item.emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {onRegenerate && (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                className="ml-0.5 grid h-7 w-7 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[.045] hover:text-zinc-200"
+                title="Regenerate"
+              >
+                <RotateCcw size={13} />
+              </button>
             )}
           </div>
-
-          <span className="text-zinc-700 select-none">•</span>
-
-          {/* Copy Response */}
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] hover:bg-[#18181c] hover:text-zinc-200 transition-colors"
-            title="Copy response to clipboard"
-          >
-            {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-            <span className={copied ? 'text-emerald-400' : ''}>{copied ? 'Copied' : 'Copy'}</span>
-          </button>
-
-          {/* Listen TTS */}
-          <button
-            type="button"
-            onClick={handleSpeak}
-            className={`flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] transition-colors ${
-              speaking
-                ? 'bg-amber-400/15 text-amber-300 border border-amber-400/20'
-                : 'hover:bg-[#18181c] hover:text-zinc-200'
-            }`}
-            title={speaking ? 'Stop speech' : 'Read aloud'}
-          >
-            <Volume2 size={12} />
-            <span>{speaking ? 'Stop' : 'Listen'}</span>
-          </button>
-
-          {/* Regenerate Response */}
-          {onRegenerate && (
-            <button
-              type="button"
-              onClick={onRegenerate}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] hover:bg-[#18181c] hover:text-zinc-200 transition-colors"
-              title="Regenerate this response"
-            >
-              <RotateCcw size={12} />
-              <span>Regenerate</span>
-            </button>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
@@ -1533,6 +1486,7 @@ export function AssistantPage() {
   const [deepThink, setDeepThink] = useState(false);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [thinkingStatus, setThinkingStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -1729,7 +1683,7 @@ export function AssistantPage() {
 
     let fullPrompt = text;
     if (attachedFile) {
-      fullPrompt = `[Attached file: ${attachedFile.name}]\n\n${text}`;
+      fullPrompt = `[Attached file: ${attachedFile.name}]\\n\\n${text}`;
     }
 
     const nextMessages = [...messages, { role: 'user' as const, content: fullPrompt }];
@@ -1738,13 +1692,26 @@ export function AssistantPage() {
       setInput('');
       setAttachedFile(null);
     }
+
     setBusy(true);
+    setIsStreaming(true);
+    setThinkingStatus(webSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking');
     setIsAtBottom(true);
     isAtBottomRef.current = true;
     setTimeout(() => scrollToBottom('smooth'), 20);
 
+    const assistantMsgIndex = nextMessages.length;
+    setMessages((curr) => [
+      ...curr,
+      {
+        role: 'assistant',
+        content: '',
+        isStreaming: true
+      }
+    ]);
+
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1762,91 +1729,127 @@ export function AssistantPage() {
         })
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Chat request failed.');
+      if (!response.ok || !response.body) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Chat stream failed.');
       }
 
-      if (data.conversationId) {
-        setConversationId(data.conversationId);
-        setSearchParams((prev) => {
-          const next = new URLSearchParams(prev);
-          next.set('conversation', data.conversationId);
-          return next;
-        });
-      }
-
-      const fullText = data.message || '';
-      const modelUsed = data.modelUsed || selectedModel;
-      const sources = data.sources;
-
-      // Initialize streamed assistant message
       setBusy(false);
-      setIsStreaming(true);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let assistantText = '';
+      let meta: any = null;
 
-      const assistantMsgIndex = nextMessages.length;
-      setMessages((curr) => [
-        ...curr,
-        {
-          role: 'assistant',
-          content: '',
-          model_used: modelUsed,
-          sources: sources,
-          isStreaming: true
+      const applyEvent = (event: any) => {
+        if (!event) return;
+        if (event.type === 'status') {
+          setThinkingStatus(event.status || 'thinking');
+          return;
         }
-      ]);
-
-      // Stream the response smoothly with real-time token progression
-      let currentLength = 0;
-      const totalLength = fullText.length;
-      const chunkSize = Math.max(2, Math.floor(totalLength / 60)); // Fast progressive stream
-      const intervalMs = 18;
-
-      await new Promise<void>((resolve) => {
-        const timer = setInterval(() => {
-          currentLength = Math.min(totalLength, currentLength + chunkSize + Math.floor(Math.random() * 3));
-          const currentSlice = fullText.slice(0, currentLength);
-
+        if (event.type === 'meta') {
+          meta = event;
+          if (event.conversationId) {
+            setConversationId(event.conversationId);
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set('conversation', event.conversationId);
+              return next;
+            });
+          }
           setMessages((curr) => {
             const updated = [...curr];
             if (updated[assistantMsgIndex]) {
               updated[assistantMsgIndex] = {
                 ...updated[assistantMsgIndex],
-                content: currentSlice,
-                isStreaming: currentLength < totalLength
+                model_used: event.modelUsed,
+                sources: event.sources
               };
             }
             return updated;
           });
-
-          // Ensure chat window automatically scrolls to the newest message during streaming
-          if (isAtBottomRef.current) {
-            scrollToBottom('auto');
+          return;
+        }
+        if (event.type === 'delta') {
+          if (event.text) {
+            assistantText += event.text;
+            setThinkingStatus('writing');
+            setMessages((curr) => {
+              const updated = [...curr];
+              if (updated[assistantMsgIndex]) {
+                updated[assistantMsgIndex] = {
+                  ...updated[assistantMsgIndex],
+                  content: assistantText,
+                  isStreaming: true
+                };
+              }
+              return updated;
+            });
+            if (isAtBottomRef.current) scrollToBottom('auto');
           }
+          return;
+        }
+        if (event.type === 'done') {
+          setMessages((curr) => {
+            const updated = [...curr];
+            if (updated[assistantMsgIndex]) {
+              updated[assistantMsgIndex] = {
+                ...updated[assistantMsgIndex],
+                content: assistantText || event.text || '',
+                model_used: meta?.modelUsed,
+                sources: meta?.sources,
+                isStreaming: false
+              };
+            }
+            return updated;
+          });
+          setThinkingStatus(null);
+        }
+        if (event.type === 'error') {
+          throw new Error(event.error || 'AI stream failed.');
+        }
+      };
 
-          if (currentLength >= totalLength) {
-            clearInterval(timer);
-            setIsStreaming(false);
-            setTimeout(() => {
-              scrollToBottom('smooth');
-              resolve();
-            }, 30);
-          }
-        }, intervalMs);
-      });
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const frames = buffer.split('\\n\\n');
+        buffer = frames.pop() || '';
 
+        for (const frame of frames) {
+          const dataLine = frame.split('\\n').find((line) => line.startsWith('data:'));
+          if (!dataLine) continue;
+          applyEvent(JSON.parse(dataLine.slice(5).trim()));
+        }
+      }
+
+      if (buffer.trim()) {
+        const dataLine = buffer.split('\\n').find((line) => line.startsWith('data:'));
+        if (dataLine) applyEvent(JSON.parse(dataLine.slice(5).trim()));
+      }
+
+      setBusy(false);
+      setIsStreaming(false);
+      setThinkingStatus(null);
       loadConversations();
+      setTimeout(() => scrollToBottom('smooth'), 30);
     } catch (err: any) {
       setBusy(false);
       setIsStreaming(false);
-      setMessages((curr) => [
-        ...curr,
-        {
-          role: 'assistant',
-          content: err.message || 'Unable to connect to AI engine. Please verify the connection.',
-          model_used: selectedModel
+      setThinkingStatus(null);
+      setMessages((curr) => {
+        const updated = [...curr];
+        const existing = updated[assistantMsgIndex];
+        if (existing) {
+          updated[assistantMsgIndex] = {
+            ...existing,
+            content: err.message || 'Unable to connect to AI engine.',
+            isStreaming: false
+          };
         }
-      ]);
+        return updated;
+      });
       setTimeout(() => scrollToBottom('smooth'), 30);
     }
   };
@@ -1972,17 +1975,26 @@ export function AssistantPage() {
                     />
                   ))}
 
-                  {busy && (
-                    <div className="flex gap-3.5 items-center animate-in fade-in duration-200">
-                      <BrandMark size={28} className="animate-spin text-zinc-400" />
-                      <div className="flex items-center gap-2 rounded-2xl border border-white/[.06] bg-[#0e0e11] px-4 py-2.5 text-xs text-zinc-400">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  {thinkingStatus && (
+                    <div className="flex items-center gap-3 py-1.5 animate-in fade-in duration-200">
+                      <div className="relative grid h-7 w-7 place-items-center">
+                        <span className="absolute inset-0 rounded-full bg-amber-400/10 blur-md animate-pulse" />
+                        <BrandMark size={24} className="relative text-zinc-300" />
+                      </div>
+                      <div className="flex items-center gap-2.5 rounded-full border border-white/[.065] bg-[#0d0d10] px-3.5 py-2 text-[11px] text-zinc-400 shadow-sm">
+                        <span className="flex items-center gap-1">
+                          <span className="h-1 w-1 rounded-full bg-zinc-500 animate-pulse" />
+                          <span className="h-1 w-1 rounded-full bg-zinc-400 animate-pulse [animation-delay:120ms]" />
+                          <span className="h-1 w-1 rounded-full bg-zinc-300 animate-pulse [animation-delay:240ms]" />
+                        </span>
                         <span>
-                          {webSearch
-                            ? 'Searching verified web references & synthesizing response...'
-                            : deepThink
-                            ? 'Performing deep reasoning & analytical synthesis...'
-                            : 'Formulating response...'}
+                          {thinkingStatus === 'searching'
+                            ? 'Searching'
+                            : thinkingStatus === 'analyzing'
+                            ? 'Analyzing'
+                            : thinkingStatus === 'writing'
+                            ? 'Writing'
+                            : 'Thinking'}
                         </span>
                       </div>
                     </div>
