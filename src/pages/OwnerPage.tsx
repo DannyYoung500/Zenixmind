@@ -1022,22 +1022,18 @@ export function OwnerPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {[
-                    { name: 'Google Gemini 2.5', status: 'Active', latency: '120ms', note: 'Primary reasoning engine' },
-                    { name: 'Anthropic Claude', status: 'Active', latency: '150ms', note: 'Prose & code synthesis' },
-                    { name: 'xAI Grok 3', status: 'Active', latency: '180ms', note: 'Direct Candor gateway' },
-                    { name: 'OpenAI GPT-4o', status: 'Active', latency: '140ms', note: 'Omnimodal reasoning' }
-                  ].map((item) => (
-                    <div key={item.name} className="p-3.5 rounded-2xl bg-white/[.02] border border-white/[.05]">
+                  {(aiControl?.availableProviders || []).map((item: any) => (
+                    <div key={item.id} className="p-3.5 rounded-2xl bg-white/[.02] border border-white/[.05]">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-zinc-200">{item.name}</span>
-                        <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                        <span className={`h-2 w-2 rounded-full ${item.configured ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
                       </div>
-                      <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-                        <span>{item.status}</span>
-                        <span>{item.latency}</span>
+                      <div className="mt-2 text-[11px] text-zinc-400 font-mono">
+                        {item.configured ? 'Configured' : 'Not configured'}
                       </div>
-                      <p className="mt-1 text-[10px] text-zinc-500 font-light">{item.note}</p>
+                      <p className="mt-1 text-[10px] text-zinc-500 font-light">
+                        {item.configured ? 'Credentials detected in the server environment.' : 'No server credential is configured.'}
+                      </p>
                     </div>
                   ))}
                 </div>
