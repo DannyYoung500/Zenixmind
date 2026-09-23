@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BrandMark } from '../components/brand-mark';
 import { useAuth } from '../lib/auth-context';
 import { isOwnerEmail, OWNER_EMAILS } from '../lib/owners';
+import { getSupabase } from '../lib/supabase';
 import {
   LayoutDashboard,
   Cpu,
