@@ -347,7 +347,7 @@ const MODEL_SHORT_MAP: Record<string, { label: string; icon: string }> = {
   'deepseek-r1': { label: 'DeepSeek', icon: 'logic' }
 };
 
-const CompactFloatingComposer = React.forwardRef<
+export const CompactFloatingComposer = React.forwardRef<
   HTMLTextAreaElement,
   CompactFloatingComposerProps
 >(function CompactFloatingComposer(
