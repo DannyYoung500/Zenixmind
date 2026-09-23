@@ -64,6 +64,29 @@ async function requireOwner(req: express.Request, res: express.Response, next: e
   }
 }
 
+
+async function getChatContext(req: express.Request) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) return { error: 'AUTH_REQUIRED' as const };
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://yanupugtteiyenigotmo.supabase.co';
+  const publishableKey =
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    'sb_publishable_RtQLIcHO5Xch8JkcdGPW4g_Oatf4t08';
+
+  const supabase = createClient(supabaseUrl, publishableKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false }
+  });
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) return { error: 'AUTH_INVALID' as const };
+
+  return { supabase, user: data.user };
+}
+
 // =========================================================================
 // MODEL CONFIGURATIONS & ABSTRACTIONS
 // =========================================================================
@@ -945,6 +968,12 @@ app.post('/api/greeting', async (req, res) => {
 
 // POST /api/chat/stream — streamed assistant lifecycle with real cancellation
 app.post('/api/chat/stream', async (req, res) => {
+  const auth = await getChatContext(req);
+  if ('error' in auth) {
+    return res.status(401).json({ error: 'A valid Supabase session is required.', code: auth.error });
+  }
+
+  const { supabase, user } = auth;
   const controller = new AbortController();
   let disconnected = false;
 
@@ -985,38 +1014,56 @@ app.post('/api/chat/stream', async (req, res) => {
 
     send({ type: 'status', status: webSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking' });
 
-    // Private Chat never creates or updates persistent conversation/message records.
     let convId = privateChat ? null : conversationId;
-    let existingConv = privateChat ? null : conversations.find((c) => c.id === convId);
+    let existingConv: any = null;
+
+    if (!privateChat && convId) {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('id, user_id, title, model, created_at, updated_at')
+        .eq('id', convId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) throw error;
+      existingConv = data;
+      if (!existingConv) convId = null;
+    }
 
     if (!privateChat && !existingConv) {
-      convId = 'conv_' + Math.random().toString(36).substring(2, 9);
-      existingConv = {
-        id: convId,
-        title: userMessage.content.trim().slice(0, 60) || 'New conversation',
-        model: model || 'gemini-2.5-flash',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        user_email: (req.headers['x-owner-email'] as string) || 'anonymous',
-        message_count: 0,
-        tokens_used: 0
-      };
-      conversations.unshift(existingConv);
+      const title = userMessage.content.trim().slice(0, 60) || 'New conversation';
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert({
+          user_id: user.id,
+          title,
+          model: model || 'gemini-2.5-flash'
+        })
+        .select('id, user_id, title, model, created_at, updated_at')
+        .single();
+      if (error || !data) throw error || new Error('Unable to create conversation.');
+      existingConv = data;
+      convId = data.id;
     }
 
     if (!privateChat) {
-      messages.push({
-        id: 'msg_' + Math.random().toString(36).substring(2, 9),
-        conversation_id: convId!,
+      const { error } = await supabase.from('messages').insert({
+        conversation_id: convId,
+        user_id: user.id,
         role: 'user',
-        content: userMessage.content.trim(),
-        created_at: new Date().toISOString()
+        content: userMessage.content.trim()
       });
+      if (error) throw error;
     }
 
     const convHistory = privateChat
       ? incomingMessages.slice(0, -1).slice(-10)
-      : messages.filter((m) => m.conversation_id === convId).slice(0, -1).slice(-10);
+      : ((await supabase
+          .from('messages')
+          .select('role, content, created_at')
+          .eq('conversation_id', convId)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true })
+          .limit(10)).data || []).slice(0, -1);
 
     const targetModel = model || aiControlState.defaultModel || 'gemini-2.5-flash';
     const sources = webSearch ? await executeWebSearch(userMessage.content.trim()) : undefined;
@@ -1078,7 +1125,6 @@ app.post('/api/chat/stream', async (req, res) => {
       fullText = inferenceResult.text || '';
       send({ type: 'status', status: 'writing' });
 
-      // Preserve streaming UX for providers that return a complete response.
       for (let i = 0; i < fullText.length; i += 18) {
         if (disconnected) break;
         send({ type: 'delta', text: fullText.slice(i, i + 18) });
@@ -1099,21 +1145,23 @@ app.post('/api/chat/stream', async (req, res) => {
       : targetModel;
 
     if (!privateChat) {
-      messages.push({
-        id: 'msg_' + Math.random().toString(36).substring(2, 9),
-        conversation_id: convId!,
+      const { error: assistantSaveError } = await supabase.from('messages').insert({
+        conversation_id: convId,
+        user_id: user.id,
         role: 'assistant',
-        model_used: modelUsed,
-        sources,
-        content: fullText,
-        created_at: new Date().toISOString()
+        content: fullText
       });
+      if (assistantSaveError) throw assistantSaveError;
 
-      if (existingConv) {
-        existingConv.message_count = (existingConv.message_count || 0) + 2;
-        existingConv.tokens_used = (existingConv.tokens_used || 0) + estimatedInputTokens + estimatedOutputTokens;
-        existingConv.updated_at = new Date().toISOString();
-      }
+      const { error: conversationUpdateError } = await supabase
+        .from('conversations')
+        .update({
+          model: modelUsed,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', convId)
+        .eq('user_id', user.id);
+      if (conversationUpdateError) throw conversationUpdateError;
     }
 
     telemetry.totalRequests += 1;
@@ -1143,44 +1191,14 @@ app.post('/api/chat/stream', async (req, res) => {
   }
 });
 
-// GET /api/models
-app.get('/api/models', (_req, res) => {
-  return res.json({ models: SUPPORTED_MODELS });
-});
-
-// GET /api/search
-app.get('/api/search', async (req, res) => {
-  try {
-    const q = (req.query.q as string) || '';
-    if (!q) return res.status(400).json({ error: 'Search query required' });
-    const results = await executeWebSearch(q);
-    return res.json({ query: q, results, count: results.length });
-  } catch {
-    return res.status(500).json({ error: 'Search failed' });
-  }
-});
-
 // POST /api/chat
 app.post('/api/chat', async (req, res) => {
+  const auth = await getChatContext(req);
+  if ('error' in auth) return res.status(401).json({ error: 'A valid Supabase session is required.', code: auth.error });
+
+  const { supabase, user } = auth;
+
   try {
-    // Check maintenance mode
-    if (systemConfig.maintenanceMode) {
-      const email = req.headers['x-owner-email'] as string;
-      if (!isOwner(email)) {
-        return res.status(503).json({
-          error: 'Platform Maintenance Mode',
-          message: systemConfig.maintenanceMessage
-        });
-      }
-    }
-
-    if (systemConfig.emergencyKillSwitch) {
-      return res.status(503).json({
-        error: 'AI Services Temporarily Suspended by Platform Owner',
-        message: 'The platform owner has enabled the emergency circuit breaker.'
-      });
-    }
-
     const {
       messages: incomingMessages = [],
       conversationId,
@@ -1191,84 +1209,77 @@ app.post('/api/chat', async (req, res) => {
     } = req.body;
 
     const userMessage = [...incomingMessages].reverse().find((m: any) => m.role === 'user' && m.content?.trim());
-    if (!userMessage) {
-      return res.status(400).json({ error: 'A message is required.' });
-    }
+    if (!userMessage) return res.status(400).json({ error: 'A message is required.' });
 
     let convId = conversationId;
-    let existingConv = conversations.find((c) => c.id === convId);
+    let existingConv: any = null;
 
-    if (!existingConv) {
-      convId = 'conv_' + Math.random().toString(36).substring(2, 9);
-      const title = userMessage.content.trim().slice(0, 60);
-      existingConv = {
-        id: convId,
-        title: title || 'New conversation',
-        model: model || 'gemini-2.5-flash',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        user_email: (req.headers['x-owner-email'] as string) || 'anonymous',
-        message_count: 0,
-        tokens_used: 0
-      };
-      conversations.unshift(existingConv);
-    } else {
-      existingConv.updated_at = new Date().toISOString();
-      existingConv.model = model;
+    if (convId) {
+      const { data, error } = await supabase.from('conversations')
+        .select('id, user_id, title, model, created_at, updated_at')
+        .eq('id', convId).eq('user_id', user.id).maybeSingle();
+      if (error) throw error;
+      existingConv = data;
     }
 
-    // Save user message
-    messages.push({
-      id: 'msg_' + Math.random().toString(36).substring(2, 9),
-      conversation_id: convId,
-      role: 'user',
-      content: userMessage.content.trim(),
-      created_at: new Date().toISOString()
-    });
+    if (!existingConv) {
+      const { data, error } = await supabase.from('conversations')
+        .insert({
+          user_id: user.id,
+          title: userMessage.content.trim().slice(0, 60) || 'New conversation',
+          model: model || 'gemini-2.5-flash'
+        })
+        .select('id, user_id, title, model, created_at, updated_at')
+        .single();
+      if (error || !data) throw error || new Error('Unable to create conversation.');
+      existingConv = data;
+      convId = data.id;
+    }
 
-    const convHistory = messages.filter((m) => m.conversation_id === convId && m.content !== userMessage.content.trim()).slice(-10);
+    const { error: userSaveError } = await supabase.from('messages').insert({
+      conversation_id: convId,
+      user_id: user.id,
+      role: 'user',
+      content: userMessage.content.trim()
+    });
+    if (userSaveError) throw userSaveError;
+
+    const { data: historyData } = await supabase.from('messages')
+      .select('role, content, created_at')
+      .eq('conversation_id', convId)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+      .limit(10);
+
+    const convHistory = (historyData || []).slice(0, -1);
 
     const inferenceResult = await executeModelInference({
       modelId: model,
       userMessage: userMessage.content.trim(),
-      history: convHistory,
+      history: convHistory as ChatMessage[],
       preferences,
       webSearch,
       deepThink
     });
 
-    // Save assistant message
-    messages.push({
-      id: 'msg_' + Math.random().toString(36).substring(2, 9),
+    const { error: assistantSaveError } = await supabase.from('messages').insert({
       conversation_id: convId,
+      user_id: user.id,
       role: 'assistant',
-      model_used: inferenceResult.modelUsed,
-      sources: inferenceResult.sources,
-      content: inferenceResult.text,
-      created_at: new Date().toISOString()
+      content: inferenceResult.text
     });
+    if (assistantSaveError) throw assistantSaveError;
 
-    // Update real telemetry counters
+    await supabase.from('conversations').update({
+      model: inferenceResult.modelUsed,
+      updated_at: new Date().toISOString()
+    }).eq('id', convId).eq('user_id', user.id);
+
     telemetry.totalRequests += 1;
     telemetry.successfulRequests += 1;
     telemetry.totalLatencyMs += inferenceResult.latencyMs;
     telemetry.inputTokens += inferenceResult.inputTokens;
     telemetry.outputTokens += inferenceResult.outputTokens;
-
-    const cost = computeTokenCost(inferenceResult.modelUsed, inferenceResult.inputTokens, inferenceResult.outputTokens);
-    if (!telemetry.modelUsage[inferenceResult.modelUsed]) {
-      telemetry.modelUsage[inferenceResult.modelUsed] = { requests: 0, inputTokens: 0, outputTokens: 0, cost: 0 };
-    }
-    telemetry.modelUsage[inferenceResult.modelUsed].requests += 1;
-    telemetry.modelUsage[inferenceResult.modelUsed].inputTokens += inferenceResult.inputTokens;
-    telemetry.modelUsage[inferenceResult.modelUsed].outputTokens += inferenceResult.outputTokens;
-    telemetry.modelUsage[inferenceResult.modelUsed].cost += cost;
-
-    // Update conversation record
-    if (existingConv) {
-      existingConv.message_count = (existingConv.message_count || 0) + 2;
-      existingConv.tokens_used = (existingConv.tokens_used || 0) + inferenceResult.inputTokens + inferenceResult.outputTokens;
-    }
 
     return res.json({
       message: inferenceResult.text,
@@ -1316,15 +1327,90 @@ app.get('/api/chat', (req, res) => {
   }
 });
 
-// DELETE /api/chat
-app.delete('/api/chat', (req, res) => {
+// GET /api/chat
+app.get('/api/chat', async (req, res) => {
+  const auth = await getChatContext(req);
+  if ('error' in auth) return res.status(401).json({ error: 'A valid Supabase session is required.', code: auth.error });
+
+  const { supabase, user } = auth;
+
   try {
-    const email = req.headers['x-owner-email'] as string;
-    conversations.length = 0;
-    messages.length = 0;
-    recordAuditLog(email || 'user', 'CLEAR_CONVERSATIONS', 'all_conversations', 'WARN', { count: 0 });
+    const { conversation_id, export: isExport } = req.query;
+
+    if (isExport === '1') {
+      const { data: convs, error: convError } = await supabase.from('conversations')
+        .select('id, user_id, title, model, created_at, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+      if (convError) throw convError;
+
+      const { data: msgs, error: msgError } = await supabase.from('messages')
+        .select('id, conversation_id, user_id, role, content, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+      if (msgError) throw msgError;
+
+      return res.json({ exportedAt: new Date().toISOString(), conversations: convs || [], messages: msgs || [] });
+    }
+
+    if (conversation_id) {
+      const { data: conv, error: convError } = await supabase.from('conversations')
+        .select('id, user_id, title, model, created_at, updated_at')
+        .eq('id', String(conversation_id))
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (convError) throw convError;
+      if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+
+      const { data: convMessages, error: msgError } = await supabase.from('messages')
+        .select('id, conversation_id, user_id, role, content, created_at')
+        .eq('conversation_id', String(conversation_id))
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+      if (msgError) throw msgError;
+
+      return res.json({ conversation: conv, messages: convMessages || [] });
+    }
+
+    const { data: convs, error } = await supabase.from('conversations')
+      .select('id, user_id, title, model, created_at, updated_at')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+
+    return res.json({ conversations: convs || [] });
+  } catch (err: any) {
+    console.error('Unable to retrieve conversations:', err);
+    return res.status(500).json({ error: 'Unable to retrieve conversations.' });
+  }
+});
+
+// DELETE /api/chat
+app.delete('/api/chat', async (req, res) => {
+  const auth = await getChatContext(req);
+  if ('error' in auth) return res.status(401).json({ error: 'A valid Supabase session is required.', code: auth.error });
+
+  const { supabase, user } = auth;
+
+  try {
+    const { data: userConversations, error: selectError } = await supabase.from('conversations')
+      .select('id').eq('user_id', user.id);
+    if (selectError) throw selectError;
+
+    const ids = (userConversations || []).map((c: any) => c.id);
+    if (ids.length) {
+      const { error: messageDeleteError } = await supabase.from('messages')
+        .delete().eq('user_id', user.id).in('conversation_id', ids);
+      if (messageDeleteError) throw messageDeleteError;
+    }
+
+    const { error: conversationDeleteError } = await supabase.from('conversations')
+      .delete().eq('user_id', user.id);
+    if (conversationDeleteError) throw conversationDeleteError;
+
     return res.json({ success: true, message: 'All conversations cleared.' });
-  } catch {
+  } catch (err: any) {
+    console.error('Failed to delete conversations:', err);
     return res.status(500).json({ error: 'Failed to delete conversations.' });
   }
 });
