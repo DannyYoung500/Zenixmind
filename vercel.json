@@ -5,8 +5,7 @@
   "outputDirectory": "dist",
   "functions": {
     "api/index.ts": {
-      "runtime": "nodejs22.x",
-      "includeFiles": ["server.ts"]
+      "runtime": "nodejs22.x"
     }
   },
   "routes": [
