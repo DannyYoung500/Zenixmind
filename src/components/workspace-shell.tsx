@@ -38,6 +38,27 @@ export interface Conversation {
   pinned?: boolean;
 }
 
+function PrivateChatIcon({ size = 18, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M5 10.5H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M7 10.5C7.35 7.55 9.05 5.5 12 5.5C14.95 5.5 16.65 7.55 17 10.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="4.75" y="11.25" width="5.9" height="4.6" rx="1.9" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="13.35" y="11.25" width="5.9" height="4.6" rx="1.9" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M10.65 13.55H13.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M8 15.85L6.7 18.2M16 15.85L17.3 18.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 interface WorkspaceShellProps {
   active?: 'home' | 'chat' | 'images' | 'library' | 'automations' | 'plans' | 'owner';
   children: React.ReactNode;
@@ -632,7 +653,7 @@ export function WorkspaceShell({
                 title={privateChat ? 'Private chat is on — messages are not saved to chat history' : 'Start a private chat'}
                 aria-label={privateChat ? 'Private chat is on' : 'Start a private chat'}
               >
-                <VenetianMask size={18} strokeWidth={1.8} />
+                <PrivateChatIcon size={19} />
               </button>
             </div>
           </header>
