@@ -32,73 +32,24 @@ const landingCapabilities = [
 
 function PublicHome() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#050505] text-zinc-100">
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-1/2 top-[-420px] h-[780px] w-[1100px] -translate-x-1/2 rounded-full bg-zinc-500/[.035] blur-[170px]" />
-      </div>
-
-      <header className="relative z-20 mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
-        <Link to="/" className="flex items-center gap-3"><BrandMark size={35} /><span className="text-[15px] font-semibold tracking-[-.025em]">ZenixMind</span></Link>
-        <div className="flex items-center gap-1.5">
-          <Link to="/login" className="rounded-xl px-4 py-2.5 text-xs font-medium text-zinc-500 transition hover:bg-white/[.04] hover:text-zinc-100">Sign in</Link>
-          <Link to="/signup" className="rounded-xl bg-zinc-100 px-4 py-2.5 text-xs font-semibold text-black transition hover:bg-white">Get started</Link>
-        </div>
+    <main className="min-h-screen bg-[#fbfbfd] text-[#17151c]">
+      <header className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8">
+        <Link to="/" className="flex items-center gap-3"><BrandMark size={36} /><span className="text-[16px] font-semibold">ZenixMind</span></Link>
+        <nav className="hidden items-center gap-7 text-[13px] font-medium text-[#6f6877] md:flex"><a href="#home">Home</a><a href="#features">Features</a><a href="#models">Models</a><Link to="/pricing">Pricing</Link><a href="#community">Community</a></nav>
+        <div className="flex items-center gap-2"><Link to="/login" className="rounded-full px-4 py-2.5 text-[13px] text-[#625b6a] hover:bg-black/[.04]">Sign in</Link><Link to="/signup" className="rounded-full bg-[#19161f] px-5 py-2.5 text-[13px] font-semibold text-white">Get started</Link></div>
       </header>
-
-      <section className="relative z-10 mx-auto max-w-[1240px] px-5 pb-28 pt-24 sm:px-8 sm:pt-32">
-        <div className="mx-auto max-w-[980px] text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[.3em] text-zinc-600">ZenixMind</p>
-          <h1 className="mt-6 text-[clamp(3.6rem,8vw,7.4rem)] font-semibold leading-[.9] tracking-[-.085em]">
-            <span className="block text-zinc-100">Think.</span><span className="block text-zinc-500">Create.</span><span className="block text-zinc-300">Talk.</span>
-          </h1>
-          <p className="mx-auto mt-7 max-w-[620px] text-sm leading-7 text-zinc-500 sm:text-[15px]">Your AI assistant for conversation, voice, visual creation, and the work you want to keep.</p>
-          <div className="mt-11"><LandingComposer /></div>
-          <p className="mt-4 text-[10px] text-zinc-700">Start with a question, an idea, a file, or a conversation.</p>
-        </div>
-      </section>
-
-      <section className="relative z-10 border-t border-white/[.06]">
-        <div className="mx-auto max-w-[1240px] px-5 py-24 sm:px-8 sm:py-28">
-          <div className="max-w-2xl">
-            <p className="text-[10px] font-semibold uppercase tracking-[.26em] text-zinc-700">Workspace</p>
-            <h2 className="mt-4 text-3xl font-semibold tracking-[-.055em] text-zinc-100 sm:text-5xl">Everything starts with the conversation.</h2>
-            <p className="mt-5 text-sm leading-7 text-zinc-500 sm:text-base">Move from a question to voice, visual creation, or saved work without turning the product into a complicated dashboard.</p>
-          </div>
-          <div className="mt-14 grid gap-px overflow-hidden rounded-[28px] border border-white/[.07] bg-white/[.07] md:grid-cols-2 lg:grid-cols-4">
-            {landingCapabilities.map(([Icon, title, body]) => {
-              const CapabilityIcon = Icon as React.ComponentType<{ size?: number; strokeWidth?: number }>;
-              return <div key={String(title)} className="bg-[#080808] p-6 sm:p-7">
-                <div className="grid h-10 w-10 place-items-center rounded-xl border border-white/[.07] bg-white/[.025] text-zinc-500"><CapabilityIcon size={17} strokeWidth={1.7} /></div>
-                <h3 className="mt-9 text-sm font-semibold text-zinc-200">{String(title)}</h3>
-                <p className="mt-2.5 text-[11px] leading-5 text-zinc-600">{String(body)}</p>
-              </div>;
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className="relative z-10 border-t border-white/[.06] bg-[#030303]">
-        <div className="mx-auto grid max-w-[1240px] gap-14 px-5 py-24 sm:px-8 sm:py-28 lg:grid-cols-[1fr_.8fr] lg:items-center">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[.26em] text-zinc-700">Private by design</p>
-            <h2 className="mt-4 text-3xl font-semibold tracking-[-.055em] text-zinc-100 sm:text-5xl">Your workspace stays yours.</h2>
-            <p className="mt-5 max-w-xl text-sm leading-7 text-zinc-500">Your account is separated by real authentication. Private Chat gives you a separate session when you do not want a conversation added to normal saved chat history.</p>
-            <Link to="/signup" className="mt-8 inline-flex items-center gap-2 rounded-xl bg-zinc-100 px-4 py-2.5 text-xs font-semibold text-black hover:bg-white">Open ZenixMind<ArrowRight size={14} /></Link>
-          </div>
-          <div className="rounded-[28px] border border-white/[.07] bg-[#080808] p-7">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/[.07] bg-white/[.025]"><LockKeyhole size={19} className="text-zinc-500" /></div>
-            <p className="mt-8 text-sm font-semibold text-zinc-200">Private Chat</p>
-            <p className="mt-2 text-xs leading-6 text-zinc-600">Separate from your normal saved conversation history.</p>
-          </div>
-        </div>
-      </section>
-
-      <footer className="relative z-10 border-t border-white/[.06]">
-        <div className="mx-auto flex max-w-[1240px] flex-col gap-5 px-5 py-9 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <div className="flex items-center gap-2.5"><BrandMark size={27} /><span className="text-xs font-semibold">ZenixMind</span></div>
-          <div className="flex items-center gap-5 text-[11px] text-zinc-700"><Link to="/pricing" className="transition hover:text-zinc-300">Plans</Link><Link to="/login" className="transition hover:text-zinc-300">Sign in</Link><Link to="/signup" className="transition hover:text-zinc-300">Create account</Link></div>
-        </div>
-      </footer>
+      <section id="home" className="relative overflow-hidden px-5 pb-24 pt-20 sm:px-8 sm:pt-28"><div className="pointer-events-none absolute left-1/2 top-[-240px] h-[560px] w-[900px] -translate-x-1/2 rounded-full bg-[#8b5cf6]/[.07] blur-[110px]" /><div className="relative mx-auto max-w-5xl text-center">
+        <p className="text-[11px] font-semibold uppercase tracking-[.28em] text-[#8b7f91]">Your intelligent AI assistant</p>
+        <h1 className="mx-auto mt-6 max-w-4xl text-[clamp(3.2rem,8vw,6.9rem)] font-semibold leading-[.94] tracking-[-.075em] text-[#17151c]">Hi, I am ZenixMind AI</h1>
+        <p className="mx-auto mt-7 max-w-2xl text-[15px] leading-7 text-[#777080] sm:text-[17px]">A natural AI assistant for questions, ideas, learning, research, writing, code, and everyday conversations.</p>
+        <div className="mx-auto mt-11 max-w-4xl rounded-[30px] border border-[#ded9e5] bg-white p-3 text-left shadow-[0_24px_70px_rgba(40,25,60,.10)]"><div className="min-h-[86px] rounded-[22px] px-4 pt-3 text-[15px] text-[#a19aa8]">Ask ZenixMind anything...</div><div className="flex items-center justify-between gap-3 px-1 pb-1"><div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-full bg-[#f1eef5] text-[#645b6d]">+</span><span className="hidden rounded-full bg-[#f5f2f8] px-3.5 py-2 text-[11px] font-semibold text-[#62596b] sm:inline-flex">Fast</span><span className="hidden text-[11px] text-[#9a92a2] sm:inline">Attach files</span></div><Link to="/signup" className="rounded-full bg-[#19161f] px-5 py-2.5 text-[12px] font-semibold text-white">Start chatting</Link></div></div>
+      </div></section>
+      <section id="features" className="border-t border-[#ece8ef] bg-white px-5 py-20 sm:px-8 sm:py-24"><div className="mx-auto max-w-7xl"><p className="text-[11px] font-semibold uppercase tracking-[.25em] text-[#938a9d]">Features</p><h2 className="mt-4 text-3xl font-semibold tracking-[-.055em] sm:text-5xl">One assistant. Many ways to work.</h2><p className="mt-5 max-w-2xl text-[15px] leading-7 text-[#7b7281]">Move naturally between conversation, voice, visual work, and your saved library without cluttering the experience.</p><div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-[24px] border border-[#e9e4ec] bg-[#fbfafd] p-6"><div className="text-sm font-semibold">Chat</div><p className="mt-3 text-[12px] leading-6 text-[#817887]">Think through questions, ideas, writing, research, and code.</p></div><div className="rounded-[24px] border border-[#e9e4ec] bg-[#fbfafd] p-6"><div className="text-sm font-semibold">Voice</div><p className="mt-3 text-[12px] leading-6 text-[#817887]">Talk naturally and continue the same conversation hands-free.</p></div><div className="rounded-[24px] border border-[#e9e4ec] bg-[#fbfafd] p-6"><div className="text-sm font-semibold">Images</div><p className="mt-3 text-[12px] leading-6 text-[#817887]">Create visual work without leaving your ZenixMind workspace.</p></div><div className="rounded-[24px] border border-[#e9e4ec] bg-[#fbfafd] p-6"><div className="text-sm font-semibold">Library</div><p className="mt-3 text-[12px] leading-6 text-[#817887]">Keep conversations and saved work organized in one place.</p></div>
+      </div></div></section>
+      <section id="models" className="border-t border-[#ece8ef] bg-[#f8f6fa] px-5 py-20 sm:px-8 sm:py-24"><div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[.8fr_1fr] lg:items-center"><div><p className="text-[11px] font-semibold uppercase tracking-[.25em] text-[#938a9d]">Intelligence</p><h2 className="mt-4 text-3xl font-semibold tracking-[-.055em] sm:text-5xl">Let the assistant handle the complexity.</h2><p className="mt-5 text-[15px] leading-7 text-[#7b7281]">ZenixMind can route requests through the configured AI engine while keeping the experience centered on a single assistant.</p></div><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-[22px] border border-[#e4dfe8] bg-white p-5"><div className="text-sm font-semibold">Fast responses</div><p className="mt-2 text-xs text-[#827989]">Quick everyday answers.</p></div><div className="rounded-[22px] border border-[#e4dfe8] bg-white p-5"><div className="text-sm font-semibold">Deep reasoning</div><p className="mt-2 text-xs text-[#827989]">More deliberate analysis when needed.</p></div><div className="rounded-[22px] border border-[#e4dfe8] bg-white p-5"><div className="text-sm font-semibold">Multimodal</div><p className="mt-2 text-xs text-[#827989]">Text, files, images, and voice.</p></div><div className="rounded-[22px] border border-[#e4dfe8] bg-white p-5"><div className="text-sm font-semibold">Personal</div><p className="mt-2 text-xs text-[#827989]">Your real account and workspace.</p></div></div></div></section>
+      <section id="community" className="border-t border-[#ece8ef] bg-white px-5 py-20 sm:px-8 sm:py-24"><div className="mx-auto max-w-4xl rounded-[30px] bg-[#19161f] px-7 py-14 text-center text-white sm:px-12"><h2 className="text-3xl font-semibold sm:text-5xl">Start with a thought.</h2><p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/60">No starter cards. No clutter. Just you, your question, and ZenixMind.</p><Link to="/signup" className="mt-8 inline-flex rounded-full bg-white px-6 py-3 text-xs font-semibold text-[#19161f]">Get started</Link></div></section>
+      <footer className="border-t border-[#ece8ef] bg-[#fbfbfd] px-5 py-9 sm:px-8"><div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2.5"><BrandMark size={28} /><span className="text-xs font-semibold">ZenixMind</span></div><div className="text-[11px] text-[#8b8390]">Think · Create · Learn · Get Things Done</div></div></footer>
     </main>
   );
 }

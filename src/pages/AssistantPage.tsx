@@ -909,6 +909,7 @@ function ChatMessageItem({
 
 function ImagesView() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [prompt, setPrompt] = useState('');
   const [activeTab, setActiveTab] = useState<'trending' | 'templates'>('trending');
   const [showNotice, setShowNotice] = useState(true);
@@ -1526,6 +1527,7 @@ export function AssistantPage() {
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [emptyGreeting, setEmptyGreeting] = useState('');
 
   const isAtBottomRef = useRef(true);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -1595,6 +1597,8 @@ export function AssistantPage() {
       inputRef.current?.focus();
     }, 50);
   }, [setSearchParams]);
+
+  const loadEmptyGreeting = useCallback(async () => { if (privateChat) return; setEmptyGreeting(''); try { const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; const response = await fetch('/api/greeting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: user?.name || user?.email?.split('@')[0] || '', timezone, localTime: new Date().toISOString() }) }); if (response.ok) { const data = await response.json(); if (data.greeting) setEmptyGreeting(data.greeting); } } catch {} }, [privateChat, user?.name, user?.email]);
 
   // Global Keyboard Shortcuts (Cmd+K / Ctrl+K, Cmd+N / Ctrl+N, Cmd+Shift+S, Cmd+Shift+D, Escape)
   useEffect(() => {
@@ -1690,6 +1694,7 @@ export function AssistantPage() {
     } else {
       setConversationId(null);
       setMessages([]);
+      loadEmptyGreeting();
     }
     if (searchParams.get('settings') === '1') {
       setSettingsOpen(true);
@@ -1697,7 +1702,7 @@ export function AssistantPage() {
     if (urlQuery && !urlConvId) {
       setInput(urlQuery);
     }
-  }, [urlConvId, searchParams]);
+  }, [urlConvId, searchParams, loadEmptyGreeting]);
 
   useEffect(() => {
     if (isAtBottomRef.current || isStreaming || busy) {
@@ -2032,37 +2037,7 @@ export function AssistantPage() {
                     </p>
                   </div>
                 ) : (
-                <div className="flex h-full flex-col items-center justify-center px-4 text-center max-w-2xl mx-auto py-8">
-                  <div className="mb-5 grid h-16 w-16 place-items-center rounded-3xl border border-white/[.08] bg-[#0c0c0e] shadow-xl">
-                    <BrandMark size={36} />
-                  </div>
-                  <h1 className="text-xl sm:text-2xl font-light tracking-tight text-zinc-100">
-                    How can I help you today?
-                  </h1>
-                  <p className="mt-2 text-xs sm:text-sm font-light text-zinc-400 max-w-md">
-                    Ask questions, brainstorm ideas, analyze information, draft content, or solve problems.
-                  </p>
-
-                  <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-lg">
-                    {[
-                      'Search the web for the latest updates and research',
-                      'Explain a complex concept with clear, simple analogies',
-                      'Draft a compelling article, message, or executive summary',
-                      'Analyze data, solve complex math, or review code logic'
-                    ].map((prompt) => (
-                      <button
-                        key={prompt}
-                        onClick={() => {
-                          setInput(prompt);
-                          inputRef.current?.focus();
-                        }}
-                        className="rounded-2xl border border-white/[.07] bg-[#0b0b0e] p-3 text-left text-xs font-light text-zinc-400 hover:border-white/[.18] hover:bg-[#121216] hover:text-zinc-200 transition-all"
-                      >
-                        {prompt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <div className="flex h-full flex-col items-center justify-center px-4 text-center max-w-2xl mx-auto py-8"><div className="mb-6 grid h-14 w-14 place-items-center rounded-2xl border border-white/[.08] bg-[#0c0c0e] shadow-xl"><BrandMark size={32} /></div><h1 className="max-w-xl text-2xl sm:text-3xl font-light tracking-[-.03em] text-zinc-100 min-h-[42px]">{emptyGreeting || " "}</h1></div>
                 )
               ) : (
                 <div ref={messagesContainerRef} className="mx-auto max-w-3xl space-y-6">
