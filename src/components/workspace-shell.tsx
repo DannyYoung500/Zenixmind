@@ -609,15 +609,21 @@ export function WorkspaceShell({
                   if (onTogglePrivateChat) onTogglePrivateChat();
                   else navigate('/assistant?private=1');
                 }}
-                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
                   privateChat
-                    ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
-                    : 'border-white/[.08] bg-[#121215] text-zinc-300 hover:bg-[#18181c] hover:text-white'
+                    ? 'border-white/[.12] bg-[#17171a] text-zinc-200'
+                    : 'border-white/[.08] bg-[#121215] text-zinc-400 hover:bg-[#18181c] hover:text-zinc-200'
                 }`}
                 title={privateChat ? 'Private chat is on — messages are not saved to chat history' : 'Start a private chat'}
+                aria-label={privateChat ? 'Private chat is on' : 'Start a private chat'}
               >
-                <Shield size={12} />
-                <span>Private chat</span>
+                <span className="relative block h-5 w-6" aria-hidden="true">
+                  <span className="absolute left-[18%] top-0 h-[34%] w-[64%] rounded-t-full rounded-b-sm bg-current" />
+                  <span className="absolute left-0 top-[30%] h-[12%] w-full rounded-sm bg-current" />
+                  <span className="absolute left-[5%] top-[49%] h-[48%] w-[40%] rounded-full border-[3px] border-current" />
+                  <span className="absolute right-[5%] top-[49%] h-[48%] w-[40%] rounded-full border-[3px] border-current" />
+                  <span className="absolute left-[43%] top-[61%] h-[7%] w-[14%] rounded-full bg-current" />
+                </span>
               </button>
             </div>
           </header>

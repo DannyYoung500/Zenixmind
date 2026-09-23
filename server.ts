@@ -1475,8 +1475,7 @@ app.post('/api/chat', async (req, res) => {
       model = aiControlState.defaultModel || 'gemini-2.5-flash',
       preferences = {},
       webSearch = false,
-      deepThink = false,
-      privateChat = false
+      deepThink = false
     } = req.body;
 
     const userMessage = [...incomingMessages].reverse().find((m: any) => m.role === 'user' && m.content?.trim());
@@ -1484,10 +1483,10 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'A message is required.' });
     }
 
-    let convId = privateChat ? null : conversationId;
-    let existingConv = privateChat ? undefined : conversations.find((c) => c.id === convId);
+    let convId = conversationId;
+    let existingConv = conversations.find((c) => c.id === convId);
 
-    if (!privateChat && !existingConv) {
+    if (!existingConv) {
       convId = 'conv_' + Math.random().toString(36).substring(2, 9);
       const title = userMessage.content.trim().slice(0, 60);
       existingConv = {
@@ -1506,8 +1505,8 @@ app.post('/api/chat', async (req, res) => {
       existingConv.model = model;
     }
 
-    // Save user message unless this is a private chat.
-    if (!privateChat) messages.push({
+    // Save user message
+    messages.push({
       id: 'msg_' + Math.random().toString(36).substring(2, 9),
       conversation_id: convId,
       role: 'user',
@@ -1515,9 +1514,7 @@ app.post('/api/chat', async (req, res) => {
       created_at: new Date().toISOString()
     });
 
-    const convHistory = privateChat
-      ? []
-      : messages.filter((m) => m.conversation_id === convId && m.content !== userMessage.content.trim()).slice(-10);
+    const convHistory = messages.filter((m) => m.conversation_id === convId && m.content !== userMessage.content.trim()).slice(-10);
 
     const inferenceResult = await executeModelInference({
       modelId: model,
@@ -1528,8 +1525,8 @@ app.post('/api/chat', async (req, res) => {
       deepThink
     });
 
-    // Save assistant message unless this is a private chat.
-    if (!privateChat) messages.push({
+    // Save assistant message
+    messages.push({
       id: 'msg_' + Math.random().toString(36).substring(2, 9),
       conversation_id: convId,
       role: 'assistant',
@@ -1556,138 +1553,20 @@ app.post('/api/chat', async (req, res) => {
     telemetry.modelUsage[inferenceResult.modelUsed].cost += cost;
 
     // Update conversation record
-    if (existingConv && !privateChat) {
+    if (existingConv) {
       existingConv.message_count = (existingConv.message_count || 0) + 2;
       existingConv.tokens_used = (existingConv.tokens_used || 0) + inferenceResult.inputTokens + inferenceResult.outputTokens;
     }
 
     return res.json({
       message: inferenceResult.text,
-      conversationId: privateChat ? null : convId,
+      conversationId: convId,
       modelUsed: inferenceResult.modelUsed,
       providerUsed: inferenceResult.providerUsed,
       latencyMs: inferenceResult.latencyMs,
       inputTokens: inferenceResult.inputTokens,
       outputTokens: inferenceResult.outputTokens,
-      sources: infe// POST /api/chat/stream
-app.post('/api/chat/stream', async (req, res) => {
-  res.status(200);
-  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
-
-  const send = (payload: any) => {
-    if (!res.writableEnded) res.write(`data: ${JSON.stringify(payload)}\\n\\n`);
-  };
-
-  try {
-    const {
-      messages: incomingMessages = [],
-      conversationId,
-      privateChat = false,
-      model = aiControlState.defaultModel || 'gemini-2.5-flash',
-      preferences = {},
-      webSearch = false,
-      deepThink = false
-    } = req.body;
-
-    const userMessage = [...incomingMessages].reverse().find((m: any) => m.role === 'user' && m.content?.trim());
-    if (!userMessage) {
-      send({ type: 'error', error: 'A message is required.' });
-      return res.end();
-    }
-
-    send({ type: 'status', status: webSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking' });
-
-    let convId = privateChat ? null : conversationId;
-    let existingConv = privateChat ? undefined : conversations.find((c) => c.id === convId);
-
-    if (!privateChat && !existingConv) {
-      convId = 'conv_' + Math.random().toString(36).substring(2, 9);
-      existingConv = {
-        id: convId,
-        title: userMessage.content.trim().slice(0, 60) || 'New conversation',
-        model,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        user_email: (req.headers['x-owner-email'] as string) || 'anonymous',
-        message_count: 0,
-        tokens_used: 0
-      };
-      conversations.unshift(existingConv);
-    }
-
-    const convHistory = privateChat
-      ? []
-      : messages.filter((m) => m.conversation_id === convId).slice(-10);
-
-    const result = await executeModelInference({
-      modelId: model,
-      userMessage: userMessage.content.trim(),
-      history: convHistory,
-      preferences,
-      webSearch,
-      deepThink
-    });
-
-    send({ type: 'meta', conversationId: privateChat ? null : convId, modelUsed: result.modelUsed, sources: result.sources });
-    send({ type: 'status', status: 'writing' });
-
-    const output = result.text || '';
-    for (let i = 0; i < output.length; i += 18) {
-      send({ type: 'delta', text: output.slice(i, i + 18) });
-    }
-
-    if (!privateChat) {
-      messages.push({
-        id: 'msg_' + Math.random().toString(36).substring(2, 9),
-        conversation_id: convId,
-        role: 'user',
-        content: userMessage.content.trim(),
-        created_at: new Date().toISOString()
-      });
-      messages.push({
-        id: 'msg_' + Math.random().toString(36).substring(2, 9),
-        conversation_id: convId,
-        role: 'assistant',
-        model_used: result.modelUsed,
-        sources: result.sources,
-        content: output,
-        created_at: new Date().toISOString()
-      });
-      if (existingConv) {
-        existingConv.message_count = (existingConv.message_count || 0) + 2;
-        existingConv.tokens_used = (existingConv.tokens_used || 0) + result.inputTokens + result.outputTokens;
-        existingConv.updated_at = new Date().toISOString();
-      }
-    }
-
-    telemetry.totalRequests += 1;
-    telemetry.successfulRequests += 1;
-    telemetry.totalLatencyMs += result.latencyMs;
-    telemetry.inputTokens += result.inputTokens;
-    telemetry.outputTokens += result.outputTokens;
-
-    send({
-      type: 'done',
-      text: output,
-      conversationId: privateChat ? null : convId,
-      modelUsed: result.modelUsed,
-      sources: result.sources,
-      latencyMs: result.latencyMs
-    });
-    res.end();
-  } catch (err: any) {
-    telemetry.totalRequests += 1;
-    telemetry.failedRequests += 1;
-    console.error('Chat stream error:', err);
-    send({ type: 'error', error: err?.message || 'Failed to process chat message.' });
-    res.end();
-  }
-});
-
-renceResult.sources
+      sources: inferenceResult.sources
     });
   } catch (err: any) {
     telemetry.totalRequests += 1;

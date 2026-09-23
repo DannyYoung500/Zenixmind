@@ -1480,6 +1480,20 @@ function AutomationsView() {
   );
 }
 
+function PrivateChatMark({ size = 118 }: { size?: number }) {
+  return (
+    <div aria-hidden="true" className="relative shrink-0" style={{ width: size, height: size * 0.82 }}>
+      <div className="absolute left-[22%] top-[2%] h-[30%] w-[56%] rounded-t-[42%] rounded-b-[18%] bg-[#3d3d41]" />
+      <div className="absolute left-[15%] top-[29%] h-[10%] w-[70%] rounded-sm bg-[#3d3d41]" />
+      <div className="absolute left-[16%] top-[45%] h-[40%] w-[30%] rounded-full border-[7px] border-[#3d3d41]" />
+      <div className="absolute right-[16%] top-[45%] h-[40%] w-[30%] rounded-full border-[7px] border-[#3d3d41]" />
+      <div className="absolute left-[43%] top-[58%] h-[9%] w-[14%] rounded-full bg-[#3d3d41]" />
+      <div className="absolute left-[8%] top-[57%] h-[8%] w-[12%] rounded-full bg-[#3d3d41]" />
+      <div className="absolute right-[8%] top-[57%] h-[8%] w-[12%] rounded-full bg-[#3d3d41]" />
+    </div>
+  );
+}
+
 export function AssistantPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1947,6 +1961,15 @@ export function AssistantPage() {
               className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 pb-44 sm:pb-32 scroll-smooth"
             >
               {!messages.length ? (
+                privateChat ? (
+                  <div className="flex h-full flex-col items-center justify-center px-4 text-center max-w-xl mx-auto pb-24 sm:pb-12">
+                    <PrivateChatMark size={118} />
+                    <h1 className="mt-12 text-[30px] sm:text-[34px] font-light tracking-[-0.025em] text-zinc-200">Private Chat</h1>
+                    <p className="mt-6 max-w-md text-[16px] sm:text-[18px] leading-relaxed font-light text-zinc-500">
+                      This chat won't appear in your history<br className="hidden sm:block" /> and will not be used to train models.
+                    </p>
+                  </div>
+                ) : (
                 <div className="flex h-full flex-col items-center justify-center px-4 text-center max-w-2xl mx-auto py-8">
                   <div className="mb-5 grid h-16 w-16 place-items-center rounded-3xl border border-white/[.08] bg-[#0c0c0e] shadow-xl">
                     <BrandMark size={36} />
@@ -1978,6 +2001,7 @@ export function AssistantPage() {
                     ))}
                   </div>
                 </div>
+                )
               ) : (
                 <div ref={messagesContainerRef} className="mx-auto max-w-3xl space-y-6">
                   {messages.map((m, idx) => (
