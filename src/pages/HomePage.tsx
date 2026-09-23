@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate, Navigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { BrandMark } from '../components/brand-mark';
 import { CompactFloatingComposer } from './AssistantPage';
 import { useAuth } from '../lib/auth-context';
@@ -163,18 +163,23 @@ function PublicHome() {
   );
 }
 
+function AuthenticatedHome() {
+  const { user } = useAuth();
+  return (
+    <main className="min-h-screen bg-[#050506] text-zinc-100">
+      <div className="mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center px-6 text-center">
+        <BrandMark size={48} />
+        <p className="mt-7 text-[10px] font-semibold uppercase tracking-[.24em] text-zinc-500">Your workspace</p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-[-.045em] sm:text-4xl">Welcome back, {user?.name || 'there'}.</h1>
+        <p className="mt-4 max-w-lg text-sm leading-6 text-zinc-400">Continue where you left off or start something new.</p>
+        <Link to="/assistant" className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#111114] px-5 py-3 text-xs font-semibold text-white shadow-lg">Open workspace <ArrowRight size={14} /></Link>
+      </div>
+    </main>
+  );
+}
+
 export function HomePage() {
   const { user, loading } = useAuth();
-
-  if (loading) {
-    return <div className="min-h-screen bg-[#050506]" />;
-  }
-
-  // The public root is the marketing landing page. Once authenticated,
-  // never show a second "welcome back" page: go directly to the real workspace.
-  if (user) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <PublicHome />;
+  if (loading) return <div className="min-h-screen bg-[#050506]" />;
+  return user ? <AuthenticatedHome /> : <PublicHome />;
 }
