@@ -47,6 +47,8 @@ interface WorkspaceShellProps {
   onSelectModel?: (modelId: string) => void;
   onRefreshConversations?: () => void;
   onOpenSettings?: () => void;
+  privateChat?: boolean;
+  onTogglePrivateChat?: () => void;
 }
 
 export function WorkspaceShell({
@@ -57,7 +59,9 @@ export function WorkspaceShell({
   selectedModel = 'gemini-2.5-flash',
   onSelectModel,
   onRefreshConversations,
-  onOpenSettings
+  onOpenSettings,
+  privateChat = false,
+  onTogglePrivateChat
 }: WorkspaceShellProps) {
   const [open, setOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -599,14 +603,22 @@ export function WorkspaceShell({
                 <span>Upgrade</span>
               </Link>
 
-              <Link
-                to="/assistant/voice"
-                className="flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[11px] font-medium text-amber-300 hover:bg-amber-400/20 transition-colors"
-                title="Voice Assistant Mode"
+              <button
+                type="button"
+                onClick={() => {
+                  if (onTogglePrivateChat) onTogglePrivateChat();
+                  else navigate('/assistant?private=1');
+                }}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                  privateChat
+                    ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+                    : 'border-white/[.08] bg-[#121215] text-zinc-300 hover:bg-[#18181c] hover:text-white'
+                }`}
+                title={privateChat ? 'Private chat is on — messages are not saved to chat history' : 'Start a private chat'}
               >
-                <Mic size={12} />
-                <span className="hidden sm:inline">Voice</span>
-              </Link>
+                <Shield size={12} />
+                <span>Private chat</span>
+              </button>
             </div>
           </header>
 
