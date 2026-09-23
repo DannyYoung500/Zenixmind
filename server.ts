@@ -42,17 +42,16 @@ export function isOwner(email?: string | null): boolean {
 async function requireOwner(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
-
-  if (!token || !supabaseUrl || !supabaseAnonKey) {
+  if (!token) {
     return res.status(401).json({ error: 'A valid authenticated owner session is required.', code: 'OWNER_AUTH_REQUIRED' });
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false }
-    });
+    const supabase = createClient(
+      'https://yanupugtteiyenigotmo.supabase.co',
+      'sb_publishable_RtQLIcHO5Xch8JkcdGPW4g_Oatf4t08',
+      { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false } }
+    );
     const { data, error } = await supabase.auth.getUser(token);
     const email = data.user?.email;
     if (error || !email || !isOwner(email)) {
@@ -458,51 +457,8 @@ const DEFAULT_GATEWAY_CACHE = {
   ttlSeconds: 86400,
   cacheStreaming: true,
   bypassHeaderAllowed: true,
-  stats: {
-    totalHits: 684,
-    totalMisses: 142,
-    tokensSaved: 489200,
-    costSavedUSD: 0.612,
-    latencySavedMs: 382400
-  },
-  entries: [
-    {
-      key: 'hash_9f4b11',
-      querySnippet: 'Explain transformer self-attention mechanism in simple terms',
-      model: 'gemini-2.5-flash',
-      hits: 48,
-      tokensSaved: 38400,
-      costSavedUSD: 0.048,
-      latencySavedMs: 28800,
-      createdAt: new Date(Date.now() - 7200000).toISOString(),
-      lastHitAt: new Date(Date.now() - 300000).toISOString(),
-      sizeBytes: 2480
-    },
-    {
-      key: 'hash_3a8c22',
-      querySnippet: 'Write a TypeScript generic debounce hook with cancellation',
-      model: 'claude-3.7-sonnet',
-      hits: 31,
-      tokensSaved: 42100,
-      costSavedUSD: 0.095,
-      latencySavedMs: 44200,
-      createdAt: new Date(Date.now() - 14400000).toISOString(),
-      lastHitAt: new Date(Date.now() - 600000).toISOString(),
-      sizeBytes: 3120
-    },
-    {
-      key: 'hash_7e1d55',
-      querySnippet: 'Compare PostgreSQL vs ClickHouse for analytics timeseries',
-      model: 'gemini-2.5-pro',
-      hits: 19,
-      tokensSaved: 28500,
-      costSavedUSD: 0.038,
-      latencySavedMs: 32400,
-      createdAt: new Date(Date.now() - 28800000).toISOString(),
-      lastHitAt: new Date(Date.now() - 1200000).toISOString(),
-      sizeBytes: 4200
-    }
-  ] as GatewayCacheEntry[]
+  stats: { totalHits: 0, totalMisses: 0, tokensSaved: 0, costSavedUSD: 0, latencySavedMs: 0 },
+  entries: [] as GatewayCacheEntry[]
 };
 
 const gatewayCacheState = loadJsonFile('gateway_cache.json', DEFAULT_GATEWAY_CACHE);
@@ -525,30 +481,7 @@ interface BroadcastBanner {
   expiresAt?: string;
 }
 
-const DEFAULT_BROADCASTS: BroadcastBanner[] = [
-  {
-    id: 'bc-1',
-    title: 'Gemini 2.5 Flash Multimodal Active',
-    message: 'Ultra-fast sub-second token generation and live reasoning pipeline is online for all tiers.',
-    type: 'announcement',
-    targetTier: 'ALL',
-    active: true,
-    dismissible: true,
-    actionLabel: 'Explore Capabilities',
-    actionUrl: '#',
-    createdAt: new Date(Date.now() - 86400000).toISOString()
-  },
-  {
-    id: 'bc-2',
-    title: 'Routine Database Optimization Window',
-    message: 'Scheduled zero-downtime ledger compaction scheduled for Sunday 03:00 UTC.',
-    type: 'info',
-    targetTier: 'ALL',
-    active: false,
-    dismissible: true,
-    createdAt: new Date(Date.now() - 172800000).toISOString()
-  }
-];
+const DEFAULT_BROADCASTS: BroadcastBanner[] = [];
 
 const broadcastBanners: BroadcastBanner[] = loadJsonFile('broadcasts.json', DEFAULT_BROADCASTS);
 if (!fs.existsSync(path.join(DATA_DIR, 'broadcasts.json'))) saveJsonFile('broadcasts.json', broadcastBanners);
@@ -571,71 +504,7 @@ interface PromptTemplate {
   updatedAt: string;
 }
 
-const DEFAULT_PROMPTS: PromptTemplate[] = [
-  {
-    id: 'prompt-1',
-    name: 'ZenixMind Universal Core',
-    slug: 'zenix_core',
-    description: 'The standard persona balancing lucidity, precision, and structured markdown outputs.',
-    category: 'GENERAL',
-    systemPrompt: `You are ZenixMind, an elite AI assistant powering a premium intelligent workspace.
-Always maintain clarity, deep helpfulness, and intellectual rigor.
-Format output with structured headers, bulleted lists, and markdown syntax highlighting when presenting code.`,
-    temperature: 0.7,
-    maxTokens: 4096,
-    defaultModel: 'gemini-2.5-flash',
-    version: 3,
-    active: true,
-    updatedAt: new Date(Date.now() - 43200000).toISOString()
-  },
-  {
-    id: 'prompt-2',
-    name: 'Deep Research & Evidence Retrieval',
-    slug: 'deep_research',
-    description: 'Specialized for rigorous academic citation, fact-verification, and cross-source analysis.',
-    category: 'RESEARCH',
-    systemPrompt: `You are ZenixMind Deep Research, an investigative intelligence specialist.
-Break down complex queries into systematic analytical inquiries.
-Attribute claims to reliable web sources, state certainty levels, and provide counter-perspectives when applicable.`,
-    temperature: 0.3,
-    maxTokens: 8192,
-    defaultModel: 'gemini-2.5-pro',
-    version: 2,
-    active: true,
-    updatedAt: new Date(Date.now() - 86400000).toISOString()
-  },
-  {
-    id: 'prompt-3',
-    name: 'Staff Software Architect & Polyglot Coder',
-    slug: 'polyglot_coder',
-    description: 'Outputs pristine production TypeScript, Python, Rust, and Go with zero placeholders.',
-    category: 'CODING',
-    systemPrompt: `You are a Staff Principal Engineer and Polyglot Software Architect.
-Produce clean, production-grade, fully typed code with thorough error handling and idiomatic patterns.
-Avoid vague placeholders like "// TODO"; provide complete, drop-in solutions.`,
-    temperature: 0.2,
-    maxTokens: 8192,
-    defaultModel: 'claude-3.7-sonnet',
-    version: 4,
-    active: true,
-    updatedAt: new Date(Date.now() - 259200000).toISOString()
-  },
-  {
-    id: 'prompt-4',
-    name: 'Real-time Conversational Voice Persona',
-    slug: 'voice_companion',
-    description: 'Optimized for sub-second text-to-speech audio synthesis with human cadence.',
-    category: 'VOICE',
-    systemPrompt: `You are the voice of ZenixMind. Speak with natural cadence, brevity, and warm engagement.
-Keep sentences punchy and conversational. Avoid markdown asterisks or code symbols that sound awkward when read aloud.`,
-    temperature: 0.8,
-    maxTokens: 1024,
-    defaultModel: 'gemini-2.5-flash',
-    version: 1,
-    active: true,
-    updatedAt: new Date(Date.now() - 518400000).toISOString()
-  }
-];
+const DEFAULT_PROMPTS: PromptTemplate[] = [];
 
 const promptTemplates: PromptTemplate[] = loadJsonFile('prompt_templates.json', DEFAULT_PROMPTS);
 if (!fs.existsSync(path.join(DATA_DIR, 'prompt_templates.json'))) saveJsonFile('prompt_templates.json', promptTemplates);
@@ -705,28 +574,7 @@ interface ArenaBenchmarkRecord {
   timestamp: string;
 }
 
-const arenaHistory: ArenaBenchmarkRecord[] = loadJsonFile('arena_history.json', [
-  {
-    id: 'arena-init-1',
-    prompt: 'Synthesize a high-performance LRU Cache in TypeScript with O(1) get and put.',
-    modelA: {
-      id: 'gemini-2.5-flash',
-      text: 'class LRUCache<K, V> {\n  private capacity: number;\n  private cache = new Map<K, V>();\n  // ...\n}',
-      latencyMs: 310,
-      tokens: 420,
-      costUSD: 0.00012
-    },
-    modelB: {
-      id: 'claude-3.7-sonnet',
-      text: 'export class LRUCache<K, V> {\n  private readonly max: number;\n  private readonly map: Map<K, V>;\n  // ...\n}',
-      latencyMs: 780,
-      tokens: 460,
-      costUSD: 0.00138
-    },
-    winner: 'modelA',
-    timestamp: new Date(Date.now() - 3600000).toISOString()
-  }
-]);
+const arenaHistory: ArenaBenchmarkRecord[] = loadJsonFile('arena_history.json', []);
 if (!fs.existsSync(path.join(DATA_DIR, 'arena_history.json'))) saveJsonFile('arena_history.json', arenaHistory);
 
 // Helper to push immutable audit log and persist to disk
