@@ -19,99 +19,89 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
 const LOCAL_STORAGE_USER_KEY = 'zenixmind_current_user';
 
+function mapSupabaseUser(sbUser: any): User {
+  return {
+    id: sbUser.id,
+    email: sbUser.email || '',
+    name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
+    isOwner: isOwnerEmail(sbUser.email)
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          ...parsed,
-          isOwner: isOwnerEmail(parsed.email)
-        };
-      }
-    } catch {
-      // ignore
-    }
-    // Default logged in as repo owner for previewing convenience if not set
-    return {
-      id: 'usr_owner_preview',
-      email: 'dannyyoungofficial1@gmail.com',
-      name: 'Danny Young',
-      isOwner: true
-    };
-  });
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const supabase = getSupabase();
-    if (supabase) {
-      supabase.auth.getUser().then(({ data: { user: sbUser } }) => {
-        if (sbUser) {
-          const mapped: User = {
-            id: sbUser.id,
-            email: sbUser.email || '',
-            name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
-            isOwner: isOwnerEmail(sbUser.email)
-          };
-          setUser(mapped);
-          localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(mapped));
-        }
-      }).catch(() => {});
+    if (!supabase) {
+      setUser(null);
+      setLoading(false);
+      return;
     }
+
+    let mounted = true;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      const nextUser = session?.user ? mapSupabaseUser(session.user) : null;
+      setUser(nextUser);
+      if (nextUser) localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(nextUser));
+      else localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+      setLoading(false);
+    }).catch(() => {
+      if (mounted) {
+        setUser(null);
+        setLoading(false);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      const nextUser = session?.user ? mapSupabaseUser(session.user) : null;
+      setUser(nextUser);
+      if (nextUser) localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(nextUser));
+      else localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const setUserDirect = (newUser: User | null) => {
     setUser(newUser);
-    if (newUser) {
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(newUser));
-    } else {
-      localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
-    }
+    if (newUser) localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(newUser));
+    else localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
   };
 
-  const signIn = async (email: string, _pass: string) => {
+  const signIn = async (email: string, pass: string) => {
     setLoading(true);
     try {
       const supabase = getSupabase();
-      if (supabase) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password: _pass });
-        if (error) throw error;
-      }
-      const loggedUser: User = {
-        id: 'usr_' + Math.random().toString(36).substring(2, 9),
-        email,
-        name: email.split('@')[0],
-        isOwner: isOwnerEmail(email)
-      };
-      setUserDirect(loggedUser);
+      if (!supabase) throw new Error('Authentication is not configured. Please try again later.');
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+      if (error) throw error;
+      if (data.user) setUserDirect(mapSupabaseUser(data.user));
     } finally {
       setLoading(false);
     }
   };
 
-  const signUp = async (email: string, _pass: string, name?: string) => {
+  const signUp = async (email: string, pass: string, name?: string) => {
     setLoading(true);
     try {
       const supabase = getSupabase();
-      if (supabase) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password: _pass,
-          options: { data: { full_name: name || '' } }
-        });
-        if (error) throw error;
-      }
-      const registeredUser: User = {
-        id: 'usr_' + Math.random().toString(36).substring(2, 9),
+      if (!supabase) throw new Error('Authentication is not configured. Please try again later.');
+      const { data, error } = await supabase.auth.signUp({
         email,
-        name: name || email.split('@')[0],
-        isOwner: isOwnerEmail(email)
-      };
-      setUserDirect(registeredUser);
+        password: pass,
+        options: { data: { full_name: name || '' } }
+      });
+      if (error) throw error;
+      if (data.user) setUserDirect(mapSupabaseUser(data.user));
     } finally {
       setLoading(false);
     }
@@ -120,11 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     const supabase = getSupabase();
     if (supabase) {
-      try {
-        await supabase.auth.signOut();
-      } catch {
-        // ignore
-      }
+      try { await supabase.auth.signOut(); } catch {}
     }
     setUserDirect(null);
   };
@@ -138,8 +124,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }

@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BrandMark } from '../components/brand-mark';
 import { useAuth } from '../lib/auth-context';
-import { ShieldCheck, UserCheck, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, setUserDirect } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,16 +24,6 @@ export function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickLoginAsOwner = () => {
-    setUserDirect({
-      id: 'usr_danny',
-      email: 'dannyyoungofficial1@gmail.com',
-      name: 'Danny Young',
-      isOwner: true
-    });
-    navigate('/assistant');
   };
 
   return (
@@ -74,16 +64,6 @@ export function LoginPage() {
                 Sign up
               </Link>
             </div>
-
-            {/* Quick Demo Login Option */}
-            <button
-              type="button"
-              onClick={handleQuickLoginAsOwner}
-              className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 py-2.5 text-xs font-medium text-amber-300 hover:bg-amber-400/20 transition-all"
-            >
-              <ShieldCheck size={14} />
-              <span>Quick Login as Danny Young (Owner)</span>
-            </button>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
