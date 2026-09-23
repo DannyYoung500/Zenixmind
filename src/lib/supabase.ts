@@ -1,18 +1,21 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+// Supabase publishable configuration is intentionally safe to ship to the browser.
+// RLS and Supabase Auth enforce access; no service-role secret belongs here.
+const SUPABASE_URL = 'https://yanupugtteiyenigotmo.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_RtQLIcHO5Xch8JkcdGPW4g_Oatf4t08';
+
 let supabaseClient: SupabaseClient | null = null;
 
-export function getSupabase(): SupabaseClient | null {
-  const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return null;
-  }
-
+export function getSupabase(): SupabaseClient {
   if (!supabaseClient) {
-    supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    });
   }
-
   return supabaseClient;
 }
