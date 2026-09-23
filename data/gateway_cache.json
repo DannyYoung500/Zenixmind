@@ -1,0 +1,54 @@
+{
+  "enabled": true,
+  "exactMatch": true,
+  "semanticCaching": true,
+  "semanticSimilarityThreshold": 0.92,
+  "ttlSeconds": 86400,
+  "cacheStreaming": true,
+  "bypassHeaderAllowed": true,
+  "stats": {
+    "totalHits": 684,
+    "totalMisses": 142,
+    "tokensSaved": 489200,
+    "costSavedUSD": 0.612,
+    "latencySavedMs": 382400
+  },
+  "entries": [
+    {
+      "key": "hash_9f4b11",
+      "querySnippet": "Explain transformer self-attention mechanism in simple terms",
+      "model": "gemini-2.5-flash",
+      "hits": 48,
+      "tokensSaved": 38400,
+      "costSavedUSD": 0.048,
+      "latencySavedMs": 28800,
+      "createdAt": "2026-09-23T12:41:47.709Z",
+      "lastHitAt": "2026-09-23T14:36:47.709Z",
+      "sizeBytes": 2480
+    },
+    {
+      "key": "hash_3a8c22",
+      "querySnippet": "Write a TypeScript generic debounce hook with cancellation",
+      "model": "claude-3.7-sonnet",
+      "hits": 31,
+      "tokensSaved": 42100,
+      "costSavedUSD": 0.095,
+      "latencySavedMs": 44200,
+      "createdAt": "2026-09-23T10:41:47.709Z",
+      "lastHitAt": "2026-09-23T14:31:47.709Z",
+      "sizeBytes": 3120
+    },
+    {
+      "key": "hash_7e1d55",
+      "querySnippet": "Compare PostgreSQL vs ClickHouse for analytics timeseries",
+      "model": "gemini-2.5-pro",
+      "hits": 19,
+      "tokensSaved": 28500,
+      "costSavedUSD": 0.038,
+      "latencySavedMs": 32400,
+      "createdAt": "2026-09-23T06:41:47.709Z",
+      "lastHitAt": "2026-09-23T14:21:47.709Z",
+      "sizeBytes": 4200
+    }
+  ]
+}

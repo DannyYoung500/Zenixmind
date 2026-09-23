@@ -1,0 +1,22 @@
+[
+  {
+    "id": "arena-init-1",
+    "prompt": "Synthesize a high-performance LRU Cache in TypeScript with O(1) get and put.",
+    "modelA": {
+      "id": "gemini-2.5-flash",
+      "text": "class LRUCache<K, V> {\n  private capacity: number;\n  private cache = new Map<K, V>();\n  // ...\n}",
+      "latencyMs": 310,
+      "tokens": 420,
+      "costUSD": 0.00012
+    },
+    "modelB": {
+      "id": "claude-3.7-sonnet",
+      "text": "export class LRUCache<K, V> {\n  private readonly max: number;\n  private readonly map: Map<K, V>;\n  // ...\n}",
+      "latencyMs": 780,
+      "tokens": 460,
+      "costUSD": 0.00138
+    },
+    "winner": "modelA",
+    "timestamp": "2026-09-23T13:41:47.709Z"
+  }
+]
