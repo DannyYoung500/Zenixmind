@@ -331,19 +331,23 @@ export function OwnerPage() {
     }, 6000);
   }, []);
 
-  // Fetch helper with server-side owner header
+  // Every owner request is authenticated with the current Supabase access token.
+  // No hard-coded owner identity or master token is ever sent from the browser.
   const ownerFetch = useCallback(
     async (url: string, options: RequestInit = {}) => {
+      const supabase = getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token || !user?.isOwner) {
+        throw new Error('Owner session required');
+      }
       const headers = new Headers(options.headers || {});
-      const email = user?.email || 'dannyyoungofficial1@gmail.com';
-      headers.set('x-owner-email', email);
-      headers.set('Authorization', 'Bearer owner-master-token');
+      headers.set('Authorization', `Bearer ${session.access_token}`);
       if (!headers.has('Content-Type') && options.method && options.method !== 'GET') {
         headers.set('Content-Type', 'application/json');
       }
       return fetch(url, { ...options, headers });
     },
-    [user?.email]
+    [user?.isOwner]
   );
 
   // Load active section data
