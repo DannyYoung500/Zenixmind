@@ -72,6 +72,7 @@ interface WorkspaceShellProps {
   onTogglePrivateChat?: () => void;
   onStartPrivateChat?: () => void;
   onNewChat?: () => void;
+  headerAction?: 'private' | 'new' | 'none';
 }
 
 export function WorkspaceShell({
@@ -86,7 +87,8 @@ export function WorkspaceShell({
   privateChat = false,
   onTogglePrivateChat,
   onStartPrivateChat,
-  onNewChat
+  onNewChat,
+  headerAction = 'private'
 }: WorkspaceShellProps) {
   const [open, setOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -639,22 +641,32 @@ export function WorkspaceShell({
                 <span>Upgrade</span>
               </Link>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (onTogglePrivateChat) onTogglePrivateChat();
-                  else navigate('/assistant?private=1');
-                }}
-                className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
-                  privateChat
-                    ? 'border-white/[.12] bg-[#17171a] text-zinc-200'
-                    : 'border-white/[.08] bg-[#121215] text-zinc-400 hover:bg-[#18181c] hover:text-zinc-200'
-                }`}
-                title={privateChat ? 'Private chat is on — messages are not saved to chat history' : 'Start a private chat'}
-                aria-label={privateChat ? 'Private chat is on' : 'Start a private chat'}
-              >
-                <PrivateChatIcon size={19} />
-              </button>
+              {headerAction === 'private' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onStartPrivateChat) onStartPrivateChat();
+                    else if (onTogglePrivateChat) onTogglePrivateChat();
+                    else navigate('/assistant?private=1');
+                  }}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[.08] bg-[#121215] text-zinc-100 hover:bg-[#18181c] transition-colors"
+                  title="Start a private chat"
+                  aria-label="Start a private chat"
+                >
+                  <PrivateChatIcon size={21} />
+                </button>
+              )}
+              {headerAction === 'new' && (
+                <button
+                  type="button"
+                  onClick={() => onNewChat?.()}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[.08] bg-[#121215] text-zinc-100 hover:bg-[#18181c] transition-colors"
+                  title="New chat"
+                  aria-label="New chat"
+                >
+                  <SquarePen size={20} strokeWidth={2} />
+                </button>
+              )}
             </div>
           </header>
 
