@@ -689,17 +689,19 @@ function ChatMessageItem({
   };
 
   const handleToggleEmoji = (emoji: string) => {
-    const alreadyReacted = userReactions.includes(emoji);
-    const nextUserReactions = alreadyReacted
-      ? userReactions.filter((e) => e !== emoji)
-      : [...userReactions, emoji];
+    const previousEmoji = userReactions[0];
+    const alreadyReacted = previousEmoji === emoji;
     const nextReactions = { ...reactions };
 
-    if (alreadyReacted) {
-      const count = nextReactions[emoji] || 1;
-      if (count <= 1) delete nextReactions[emoji];
-      else nextReactions[emoji] = count - 1;
-    } else {
+    if (previousEmoji && nextReactions[previousEmoji]) {
+      const count = nextReactions[previousEmoji];
+      if (count <= 1) delete nextReactions[previousEmoji];
+      else nextReactions[previousEmoji] = count - 1;
+    }
+
+    const nextUserReactions = alreadyReacted ? [] : [emoji];
+
+    if (!alreadyReacted) {
       nextReactions[emoji] = (nextReactions[emoji] || 0) + 1;
     }
 
@@ -736,6 +738,10 @@ function ChatMessageItem({
   }
 
   const activeEmojiList = Object.entries(reactions).filter(([, count]) => count > 0);
+
+  if (message.role === 'assistant' && message.isStreaming && !message.content.trim()) {
+    return null;
+  }
 
   return (
     <div className="flex gap-3 sm:gap-3.5 group animate-in fade-in duration-200">
@@ -1773,7 +1779,7 @@ export function AssistantPage() {
         if (event.type === 'delta') {
           if (event.text) {
             assistantText += event.text;
-            setThinkingStatus('writing');
+            setThinkingStatus(null);
             setMessages((curr) => {
               const updated = [...curr];
               if (updated[assistantMsgIndex]) {
@@ -1921,7 +1927,7 @@ export function AssistantPage() {
             <div
               ref={chatScrollRef}
               onScroll={handleScroll}
-              className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 pb-32 scroll-smooth"
+              className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 pb-44 sm:pb-32 scroll-smooth"
             >
               {!messages.length ? (
                 <div className="flex h-full flex-col items-center justify-center px-4 text-center max-w-2xl mx-auto py-8">
