@@ -5,6 +5,7 @@ import { WorkspaceShell, Conversation } from '../components/workspace-shell';
 import { ModelSelector } from '../components/model-selector';
 import { MessageRenderer } from '../components/message-renderer';
 import { useAuth } from '../lib/auth-context';
+import { getSupabase } from '../lib/supabase';
 import {
   Send,
   Mic,
@@ -39,6 +40,14 @@ import {
   ChevronDown,
   Zap
 } from 'lucide-react';
+
+
+const chatApiFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+  const { data: { session } } = await getSupabase().auth.getSession();
+  const headers = new Headers(init.headers);
+  if (session?.access_token) headers.set('Authorization', `Bearer ${session.access_token}`);
+  return fetch(input, { ...init, headers });
+};
 
 interface Source {
   title: string;
@@ -90,7 +99,7 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
     setExporting(true);
     setNotice('');
     try {
-      const response = await fetch('/api/chat?export=1');
+      const response = await chatApiFetch('/api/chat?export=1');
       let exportData: any = {};
       if (response.ok) {
         exportData = await response.json();
@@ -123,7 +132,7 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
       return;
     }
     try {
-      await fetch('/api/chat', { method: 'DELETE' });
+      await chatApiFetch('/api/chat', { method: 'DELETE' });
       localStorage.removeItem('zenixmind_chats');
       localStorage.removeItem('zenixmind_messages');
       onClearChats();
@@ -1648,7 +1657,7 @@ export function AssistantPage() {
 
   const loadConversations = async () => {
     try {
-      const r = await fetch('/api/chat', { cache: 'no-store' });
+      const r = await chatApiFetch('/api/chat', { cache: 'no-store' });
       if (r.ok) {
         const data = await r.json();
         setConversations(data.conversations || []);
@@ -1658,7 +1667,7 @@ export function AssistantPage() {
 
   const loadConversation = async (id: string) => {
     try {
-      const r = await fetch(`/api/chat?conversation_id=${encodeURIComponent(id)}`, { cache: 'no-store' });
+      const r = await chatApiFetch(`/api/chat?conversation_id=${encodeURIComponent(id)}`, { cache: 'no-store' });
       if (r.ok) {
         const d = await r.json();
         setConversationId(d.conversation?.id || id);
@@ -1757,7 +1766,7 @@ export function AssistantPage() {
     generationControllerRef.current = controller;
 
     try {
-      const response = await fetch('/api/chat/stream', {
+      const response = await chatApiFetch('/api/chat/stream', {
         signal: controller.signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
