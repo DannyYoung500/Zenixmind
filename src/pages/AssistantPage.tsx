@@ -1978,6 +1978,13 @@ export function AssistantPage() {
       onSelectModel={handleModelChange}
       onOpenSettings={() => setSettingsOpen(true)}
       privateChat={privateChat}
+      headerAction={
+        view !== 'chat'
+          ? 'none'
+          : messages.length === 0 && !input.trim()
+          ? 'private'
+          : 'new'
+      }
       onNewChat={handleStartNewChat}
       onStartPrivateChat={() => {
         setMessages([]);
