@@ -1,0 +1,24 @@
+[
+  {
+    "id": "bc-1",
+    "title": "Gemini 2.5 Flash Multimodal Active",
+    "message": "Ultra-fast sub-second token generation and live reasoning pipeline is online for all tiers.",
+    "type": "announcement",
+    "targetTier": "ALL",
+    "active": true,
+    "dismissible": true,
+    "actionLabel": "Explore Capabilities",
+    "actionUrl": "#",
+    "createdAt": "2026-09-22T14:41:47.709Z"
+  },
+  {
+    "id": "bc-2",
+    "title": "Routine Database Optimization Window",
+    "message": "Scheduled zero-downtime ledger compaction scheduled for Sunday 03:00 UTC.",
+    "type": "info",
+    "targetTier": "ALL",
+    "active": false,
+    "dismissible": true,
+    "createdAt": "2026-09-21T14:41:47.709Z"
+  }
+]

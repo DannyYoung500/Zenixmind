@@ -1,0 +1,33 @@
+{
+  "currentProvider": "google",
+  "defaultModel": "gemini-2.5-flash",
+  "routingPolicy": {
+    "auto": "gemini-2.5-flash",
+    "fast": "gemini-2.5-flash",
+    "reasoning": "gemini-2.5-pro",
+    "coding": "claude-3.7-sonnet",
+    "vision": "gpt-4o",
+    "longContext": "gemini-2.5-pro",
+    "voice": "gemini-2.5-flash",
+    "creative": "claude-3.7-sonnet",
+    "webSearch": "gemini-2.5-flash"
+  },
+  "fallbackProvider": "anthropic",
+  "secondaryFallback": "xai",
+  "timeoutMs": 30000,
+  "maxRetries": 2,
+  "maxContextTokens": 32768,
+  "temperature": 0.7,
+  "toolPermissions": {
+    "webSearch": true,
+    "codeExecution": true,
+    "memoryAccess": true,
+    "fileUploads": true
+  },
+  "safetyGuardrails": {
+    "promptInjectionShield": true,
+    "piiRedaction": true,
+    "sandboxIsolation": true,
+    "toxicityThreshold": 0.85
+  }
+}

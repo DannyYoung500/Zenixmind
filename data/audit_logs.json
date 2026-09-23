@@ -1,0 +1,67 @@
+[
+  {
+    "id": "audit-1790149011643-rg6c",
+    "timestamp": "2026-09-23T07:36:51.643Z",
+    "actor": "owner",
+    "action": "REVOKE_USER_SESSION",
+    "target": "dev.support@zenixmind.internal",
+    "result": "WARN",
+    "category": "SECURITY",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "curl/7.88.1",
+    "requestId": "req_rwyn0k",
+    "details": {
+      "sessionId": "sess-user-4",
+      "ipAddress": "54.210.133.42",
+      "role": "Free",
+      "reason": "Testing revoke"
+    }
+  },
+  {
+    "id": "audit-init-1",
+    "timestamp": "2026-09-23T07:21:25.336Z",
+    "actor": "system",
+    "action": "PLATFORM_INITIALIZATION",
+    "target": "zenixmind_core",
+    "result": "SUCCESS",
+    "category": "SYSTEM",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Node.js/V8 Runtime",
+    "details": {
+      "version": "1.2.4",
+      "runtime": "v22.23.2",
+      "persistentStorage": "READY"
+    }
+  },
+  {
+    "id": "audit-sec-1",
+    "timestamp": "2026-09-23T06:21:25.336Z",
+    "actor": "dannyyoungofficial1@gmail.com",
+    "action": "SUPERUSER_LOGIN",
+    "target": "owner_console",
+    "result": "SUCCESS",
+    "category": "SECURITY",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "ZenixMind Secure Shell",
+    "details": {
+      "authProvider": "Master Session Token",
+      "accessLevel": "Superuser Level 0"
+    }
+  },
+  {
+    "id": "audit-route-1",
+    "timestamp": "2026-09-23T06:51:25.336Z",
+    "actor": "dannyyoungofficial1@gmail.com",
+    "action": "UPDATE_AI_ROUTING_RULE",
+    "target": "gemini-2.5-flash",
+    "result": "SUCCESS",
+    "category": "AI_ROUTING",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Owner Console UI",
+    "details": {
+      "task": "fast",
+      "previousModel": "gemini-2.0-flash",
+      "newModel": "gemini-2.5-flash"
+    }
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "name": "ZenixMind",
+  "description": "ZenixMind - Your intelligent AI workspace for conversation, research, writing, voice, and personal library.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
