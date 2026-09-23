@@ -76,76 +76,9 @@ import {
 import { SecurityMonitor } from '../components/security-monitor';
 import { UsageAndCosts } from '../components/usage-and-costs';
 
-export const FALLBACK_MODELS = [
-  {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    badge: 'Google',
-    tag: '⚡ Ultra Fast',
-    description: 'Next-gen multimodal reasoning with rapid token generation.',
-    maxContext: 1048576,
-    inputCostPer1M: 0.075,
-    outputCostPer1M: 0.3,
-    enabled: true
-  },
-  {
-    id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro',
-    badge: 'Google',
-    tag: '🧠 Deep Logic',
-    description: 'Advanced reasoning, deep analytical logic and code synthesis.',
-    maxContext: 2097152,
-    inputCostPer1M: 1.25,
-    outputCostPer1M: 5.0,
-    enabled: true
-  },
-  {
-    id: 'grok-3',
-    name: 'Grok 3',
-    badge: 'xAI',
-    tag: '🚀 Live & Direct',
-    description: 'xAI flagship intelligence with real-time insight and candor.',
-    maxContext: 131072,
-    inputCostPer1M: 3.0,
-    outputCostPer1M: 15.0,
-    enabled: true
-  },
-  {
-    id: 'claude-3.7-sonnet',
-    name: 'Claude 3.7 Sonnet',
-    badge: 'Anthropic',
-    tag: '🖋️ Master Writer & Code',
-    description: 'Nuanced prose, enterprise architecture, and code precision.',
-    maxContext: 200000,
-    inputCostPer1M: 3.0,
-    outputCostPer1M: 15.0,
-    enabled: true
-  },
-  {
-    id: 'gpt-4o',
-    name: 'GPT-4o',
-    badge: 'OpenAI',
-    tag: '🌐 Omnimodal',
-    description: 'High-capability general reasoning, structured outputs, and vision.',
-    maxContext: 128000,
-    inputCostPer1M: 2.5,
-    outputCostPer1M: 10.0,
-    enabled: true
-  },
-  {
-    id: 'deepseek-r1',
-    name: 'DeepSeek R1',
-    badge: 'DeepSeek',
-    tag: '🔬 Deep Thinking',
-    description: 'Open-weight reasoning and chain-of-thought mathematical proof engine.',
-    maxContext: 64000,
-    inputCostPer1M: 0.55,
-    outputCostPer1M: 2.19,
-    enabled: true
-  }
-];
+export const FALLBACK_MODELS: any[] = [];
 
-// The 24 Master Owner Dashboard Menu Items
+// Primary owner console navigation
 export type OwnerSection =
   | 'overview'
   | 'ai-control'
@@ -180,33 +113,20 @@ interface MenuItem {
 }
 
 const MENU_ITEMS: MenuItem[] = [
-  // Core Platform
   { id: 'overview', label: 'Overview', group: 'Core Platform', icon: LayoutDashboard },
   { id: 'ai-control', label: 'AI Control Center', group: 'Core Platform', icon: Cpu },
   { id: 'models', label: 'Models', group: 'Core Platform', icon: Layers },
   { id: 'providers', label: 'AI Providers', group: 'Core Platform', icon: Server },
-  { id: 'voice', label: 'Voice Engine', group: 'Core Platform', icon: Mic },
-  { id: 'search', label: 'Web & Search', group: 'Core Platform', icon: Globe },
-
-  // Data & Intelligence
-  { id: 'users', label: 'Users', group: 'Data & Intelligence', icon: Users },
-  { id: 'conversations', label: 'Conversations', group: 'Data & Intelligence', icon: MessageSquare },
-  { id: 'memory', label: 'Memory & Context', group: 'Data & Intelligence', icon: Brain },
-  { id: 'storage', label: 'Files & Storage', group: 'Data & Intelligence', icon: HardDrive },
-  { id: 'usage', label: 'Usage & Costs', group: 'Data & Intelligence', icon: BarChart3 },
-
-  // System & Security
-  { id: 'security', label: 'Security & Access', group: 'System & Security', icon: Shield },
-  { id: 'audit-log', label: 'Audit Log', group: 'System & Security', icon: FileText },
-  { id: 'health', label: 'System Health', group: 'System & Security', icon: Activity },
-  { id: 'logs', label: 'Errors & Logs', group: 'System & Security', icon: AlertTriangle },
-  { id: 'feature-flags', label: 'Feature Flags', group: 'System & Security', icon: ToggleLeft },
-
-  // Operations
-  { id: 'notifications', label: 'Notifications & Alerts', group: 'Operations', icon: Bell },
+  { id: 'voice', label: 'Voice Engine', group: 'Product', icon: Mic },
+  { id: 'search', label: 'Web & Search', group: 'Product', icon: Globe },
+  { id: 'users', label: 'Users', group: 'Product', icon: Users },
+  { id: 'conversations', label: 'Conversations', group: 'Product', icon: MessageSquare },
+  { id: 'usage', label: 'Usage & Costs', group: 'Product', icon: BarChart3 },
+  { id: 'security', label: 'Security & Access', group: 'Trust & Operations', icon: Shield },
+  { id: 'audit-log', label: 'Audit Log', group: 'Trust & Operations', icon: FileText },
+  { id: 'health', label: 'System Health', group: 'Trust & Operations', icon: Activity },
   { id: 'integrations', label: 'Integrations', group: 'Operations', icon: Blocks },
-  { id: 'api-keys', label: 'API & Keys', group: 'Operations', icon: Key },
-  { id: 'env-config', label: 'Environment Config', group: 'Operations', icon: Terminal },
+  { id: 'env-config', label: 'Environment', group: 'Operations', icon: Terminal },
   { id: 'database', label: 'Database', group: 'Operations', icon: Database },
   { id: 'deployments', label: 'Deployments', group: 'Operations', icon: Rocket },
   { id: 'backups', label: 'Backups & Recovery', group: 'Operations', icon: Archive },

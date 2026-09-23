@@ -1,5 +1,6 @@
 import express from 'express';
 import { GoogleGenAI } from '@google/genai';
+import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
@@ -35,34 +36,33 @@ export function isOwner(email?: string | null): boolean {
   return OWNER_EMAILS.some((o) => o.toLowerCase() === clean);
 }
 
-// Middleware: Strict Server-Side Owner Authorization
-function requireOwner(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const emailFromHeader = req.headers['x-owner-email'] as string;
-  const emailFromBody = req.body?.updatedBy || req.body?.ownerEmail;
-  const emailFromQuery = req.query?.ownerEmail as string;
-  const email = emailFromHeader || emailFromBody || emailFromQuery;
+// Middleware: verify the caller's real Supabase access token.
+// The browser may identify itself only with a JWT; the server decides whether that
+// verified account is an owner. No static owner/master token is accepted.
+async function requireOwner(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
-  // Verify owner email
-  if (isOwner(email)) {
-    return next();
+  if (!token || !supabaseUrl || !supabaseAnonKey) {
+    return res.status(401).json({ error: 'A valid authenticated owner session is required.', code: 'OWNER_AUTH_REQUIRED' });
   }
 
-  // Check Bearer authorization header
-  const authHeader = req.headers['authorization'];
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.slice(7).trim();
-    // Valid platform internal owner token
-    if (token === 'owner-master-token' || token.startsWith('zx_live_')) {
-      return next();
+  try {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false }
+    });
+    const { data, error } = await supabase.auth.getUser(token);
+    const email = data.user?.email;
+    if (error || !email || !isOwner(email)) {
+      return res.status(403).json({ error: 'Access denied: verified owner privileges required.', code: 'UNAUTHORIZED_OWNER' });
     }
+    (req as any).ownerEmail = email;
+    return next();
+  } catch {
+    return res.status(401).json({ error: 'Owner authentication could not be verified.', code: 'OWNER_AUTH_INVALID' });
   }
-
-  // Reject unauthorized calls
-  return res.status(403).json({
-    error: 'Access denied: Superuser Owner privileges required.',
-    code: 'UNAUTHORIZED_OWNER',
-    details: 'This action is restricted to verified ZenixMind platform owners.'
-  });
 }
 
 // =========================================================================
@@ -316,151 +316,10 @@ function saveJsonFile<T>(filename: string, data: T): void {
 }
 
 // Initial Seed Users
-const DEFAULT_USERS: SystemUser[] = [
-  {
-    id: 'usr_owner_1',
-    email: 'dannyyoungofficial1@gmail.com',
-    name: 'Danny Young',
-    tier: 'Owner',
-    status: 'Active',
-    created_at: '2026-01-15T00:00:00.000Z',
-    last_activity: new Date().toISOString(),
-    conversation_count: 8,
-    tokens_used: 14200,
-    storage_bytes: 420000,
-    voice_minutes: 18.5
-  },
-  {
-    id: 'usr_owner_2',
-    email: 'danielngozi924@gmail.com',
-    name: 'Daniel Ngozi',
-    tier: 'Owner',
-    status: 'Active',
-    created_at: '2026-01-10T00:00:00.000Z',
-    last_activity: new Date(Date.now() - 48000000).toISOString(),
-    conversation_count: 3,
-    tokens_used: 4800,
-    storage_bytes: 120000,
-    voice_minutes: 5.2
-  },
-  {
-    id: 'usr_owner_3',
-    email: 'zenixmindai@gmail.com',
-    name: 'ZenixMind Core',
-    tier: 'Owner',
-    status: 'Active',
-    created_at: '2026-01-01T00:00:00.000Z',
-    last_activity: new Date().toISOString(),
-    conversation_count: 12,
-    tokens_used: 32900,
-    storage_bytes: 980000,
-    voice_minutes: 42.0
-  },
-  {
-    id: 'usr_client_1',
-    email: 'alex.chen@innovate.tech',
-    name: 'Alex Chen',
-    tier: 'Enterprise',
-    status: 'Active',
-    created_at: '2026-02-14T10:30:00.000Z',
-    last_activity: new Date(Date.now() - 3600000).toISOString(),
-    conversation_count: 19,
-    tokens_used: 68400,
-    storage_bytes: 1540000,
-    voice_minutes: 24.8
-  },
-  {
-    id: 'usr_client_2',
-    email: 'sarah.jenkins@designstudio.io',
-    name: 'Sarah Jenkins',
-    tier: 'Pro',
-    status: 'Active',
-    created_at: '2026-02-28T14:15:00.000Z',
-    last_activity: new Date(Date.now() - 14400000).toISOString(),
-    conversation_count: 7,
-    tokens_used: 18250,
-    storage_bytes: 320000,
-    voice_minutes: 8.4
-  },
-  {
-    id: 'usr_client_3',
-    email: 'marcus.vance@ai-research.org',
-    name: 'Marcus Vance',
-    tier: 'Pro',
-    status: 'Suspended',
-    created_at: '2026-03-01T09:00:00.000Z',
-    last_activity: new Date(Date.now() - 172800000).toISOString(),
-    conversation_count: 2,
-    tokens_used: 3100,
-    storage_bytes: 45000,
-    voice_minutes: 0
-  },
-  {
-    id: 'usr_client_4',
-    email: 'elena.rostova@quantum.edu',
-    name: 'Dr. Elena Rostova',
-    tier: 'Enterprise',
-    status: 'Active',
-    created_at: '2026-03-10T16:45:00.000Z',
-    last_activity: new Date(Date.now() - 7200000).toISOString(),
-    conversation_count: 31,
-    tokens_used: 114500,
-    storage_bytes: 2890000,
-    voice_minutes: 56.1
-  },
-  {
-    id: 'usr_client_5',
-    email: 'dev.support@zenixmind.internal',
-    name: 'Platform Test Bot',
-    tier: 'Free',
-    status: 'Active',
-    created_at: '2026-03-15T11:20:00.000Z',
-    last_activity: new Date(Date.now() - 86400000).toISOString(),
-    conversation_count: 4,
-    tokens_used: 1200,
-    storage_bytes: 12000,
-    voice_minutes: 1.0
-  }
-];
+const DEFAULT_USERS: SystemUser[] = [];
 
-const DEFAULT_AUDIT_LOGS: AuditLogItem[] = [
-  {
-    id: 'audit-init-1',
-    timestamp: new Date().toISOString(),
-    actor: 'system',
-    action: 'PLATFORM_INITIALIZATION',
-    target: 'zenixmind_core',
-    result: 'SUCCESS',
-    category: 'SYSTEM',
-    ipAddress: '127.0.0.1',
-    userAgent: 'Node.js/V8 Runtime',
-    details: { version: '1.2.4', runtime: process.version, persistentStorage: 'READY' }
-  },
-  {
-    id: 'audit-sec-1',
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-    actor: 'dannyyoungofficial1@gmail.com',
-    action: 'SUPERUSER_LOGIN',
-    target: 'owner_console',
-    result: 'SUCCESS',
-    category: 'SECURITY',
-    ipAddress: '127.0.0.1',
-    userAgent: 'ZenixMind Secure Shell',
-    details: { authProvider: 'Master Session Token', accessLevel: 'Superuser Level 0' }
-  },
-  {
-    id: 'audit-route-1',
-    timestamp: new Date(Date.now() - 1800000).toISOString(),
-    actor: 'dannyyoungofficial1@gmail.com',
-    action: 'UPDATE_AI_ROUTING_RULE',
-    target: 'gemini-2.5-flash',
-    result: 'SUCCESS',
-    category: 'AI_ROUTING',
-    ipAddress: '127.0.0.1',
-    userAgent: 'Owner Console UI',
-    details: { task: 'fast', previousModel: 'gemini-2.0-flash', newModel: 'gemini-2.5-flash' }
-  }
-];
+// Audit history starts empty; entries are created by real owner actions.
+const DEFAULT_AUDIT_LOGS: AuditLogItem[] = [];
 
 // Persistent State Stores
 const users: SystemUser[] = loadJsonFile<SystemUser[]>('users.json', DEFAULT_USERS);
@@ -471,248 +330,25 @@ if (!fs.existsSync(path.join(DATA_DIR, 'users.json'))) saveJsonFile('users.json'
 if (!fs.existsSync(path.join(DATA_DIR, 'audit_logs.json'))) saveJsonFile('audit_logs.json', auditLogs);
 
 // In-Memory State for Sessions
-const conversations: StoredConversation[] = [
-  {
-    id: 'conv_welcome',
-    title: 'Welcome to ZenixMind Multi-Model AI',
-    model: 'gemini-2.5-flash',
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-    updated_at: new Date().toISOString(),
-    user_email: 'dannyyoungofficial1@gmail.com',
-    message_count: 1,
-    tokens_used: 420
-  }
-];
-
-const messages: ChatMessage[] = [
-  {
-    id: 'msg_welcome_1',
-    conversation_id: 'conv_welcome',
-    role: 'assistant',
-    model_used: 'gemini-2.5-flash',
-    content: `Welcome to **ZenixMind**! Your unified intelligent workspace is ready.\n\nSwitch between top intelligence engines at the top:\n- **Google Gemini 2.5 Flash / Pro**\n- **xAI Grok 3**\n- **Anthropic Claude 3.7 Sonnet**\n- **OpenAI GPT-4o**\n- **DeepSeek R1**\n\n✨ Toggle **"Search Online"** (🌐) to ground responses with real-time web results, or enable **"Deep Think"** (🧠) for step-by-step reasoning.`,
-    created_at: new Date(Date.now() - 3600000).toISOString()
-  }
-];
+const conversations: StoredConversation[] = [];
+const messages: ChatMessage[] = [];
 
 const memoryRecords: MemoryRecord[] = [];
 const storedFiles: StoredFile[] = [];
 
-const apiKeys: ApiKeyItem[] = [
-  {
-    id: 'key-1',
-    name: 'Internal Server Probe',
-    keyPrefix: 'zx_live_7a9f24...',
-    keyHash: 'sha256_mock_hash_1',
-    scopes: ['chat:inference', 'models:read'],
-    createdAt: '2026-02-01T00:00:00.000Z',
-    lastUsedAt: new Date().toISOString(),
-    status: 'active'
-  }
-];
+const apiKeys: ApiKeyItem[] = [];
 
-const DEFAULT_SESSIONS: UserSession[] = [
-  {
-    id: 'sess-owner-1',
-    userId: 'usr_owner',
-    userEmail: 'dannyyoungofficial1@gmail.com',
-    userName: 'Danny Young',
-    role: 'Owner',
-    ipAddress: '127.0.0.1',
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-    deviceType: 'Desktop',
-    browser: 'Chrome 126',
-    os: 'macOS Sonoma',
-    location: 'London, United Kingdom',
-    countryCode: 'GB',
-    startedAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
-    lastActiveAt: new Date().toISOString(),
-    isCurrent: true,
-    status: 'active',
-    riskScore: 0,
-    riskFlags: []
-  },
-  {
-    id: 'sess-user-2',
-    userId: 'usr_client_4',
-    userEmail: 'elena.rostova@quantum-labs.io',
-    userName: 'Dr. Elena Rostova',
-    role: 'Enterprise',
-    ipAddress: '82.165.197.1',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0',
-    deviceType: 'Desktop',
-    browser: 'Firefox 128',
-    os: 'Windows 11',
-    location: 'Frankfurt, Germany',
-    countryCode: 'DE',
-    startedAt: new Date(Date.now() - 110 * 60 * 1000).toISOString(),
-    lastActiveAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
-    isCurrent: false,
-    status: 'active',
-    riskScore: 5,
-    riskFlags: []
-  },
-  {
-    id: 'sess-user-3',
-    userId: 'usr_client_1',
-    userEmail: 'alex.vance@blackmesa.tech',
-    userName: 'Alex Vance',
-    role: 'Pro',
-    ipAddress: '172.56.21.89',
-    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
-    deviceType: 'Mobile',
-    browser: 'Mobile Safari',
-    os: 'iOS 17.5',
-    location: 'San Francisco, United States',
-    countryCode: 'US',
-    startedAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    lastActiveAt: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
-    isCurrent: false,
-    status: 'active',
-    riskScore: 12,
-    riskFlags: []
-  },
-  {
-    id: 'sess-user-4',
-    userId: 'usr_client_5',
-    userEmail: 'dev.support@zenixmind.internal',
-    userName: 'Platform Test Bot',
-    role: 'Free',
-    ipAddress: '54.210.133.42',
-    userAgent: 'python-requests/2.31.0',
-    deviceType: 'API Agent',
-    browser: 'Python Requests Client',
-    os: 'Linux x86_64',
-    location: 'Ashburn, VA, United States',
-    countryCode: 'US',
-    startedAt: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
-    lastActiveAt: new Date(Date.now() - 1 * 60 * 1000).toISOString(),
-    isCurrent: false,
-    status: 'suspicious',
-    riskScore: 84,
-    riskFlags: ['Headless User-Agent', 'High-Frequency Burst', 'Datacenter ASN Cloud IP']
-  }
-];
+// Runtime security state is empty until real events occur.
+const DEFAULT_SESSIONS: UserSession[] = [];
 
-const DEFAULT_SUSPICIOUS_LOGINS: SuspiciousLoginAttempt[] = [
-  {
-    id: 'sec-log-1',
-    email: 'admin@zenixmind.ai',
-    ipAddress: '194.26.29.112',
-    location: 'St. Petersburg, Russia',
-    countryCode: 'RU',
-    userAgent: 'Hydra/9.5 (Network security audit tool)',
-    timestamp: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-    reason: 'Rapid brute-force anomaly: 24 failed password attempts in 35 seconds',
-    severity: 'critical',
-    blocked: true,
-    actionTaken: 'IP rate-limited & blocked by auto-defense'
-  },
-  {
-    id: 'sec-log-2',
-    email: 'dannyyoungofficial1@gmail.com',
-    ipAddress: '45.154.255.89',
-    location: 'Rotterdam, Netherlands',
-    countryCode: 'NL',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0',
-    timestamp: new Date(Date.now() - 34 * 60 * 1000).toISOString(),
-    reason: 'Impossible travel anomaly: Login from Netherlands 14 minutes after UK active session',
-    severity: 'high',
-    blocked: true,
-    actionTaken: 'Session challenged & unauthorized handshake rejected'
-  },
-  {
-    id: 'sec-log-3',
-    email: 'root@zenixmind.internal',
-    ipAddress: '185.220.101.5',
-    location: 'Frankfurt, Germany (Tor Exit Node)',
-    countryCode: 'DE',
-    userAgent: 'TorBrowser/13.5.1',
-    timestamp: new Date(Date.now() - 72 * 60 * 1000).toISOString(),
-    reason: 'Known Tor exit relay targeting privileged owner route with forged JWT',
-    severity: 'critical',
-    blocked: true,
-    actionTaken: 'Connection dropped & IP blacklisted'
-  },
-  {
-    id: 'sec-log-4',
-    email: 'sarah.connor@cyberdyne.org',
-    ipAddress: '103.152.220.44',
-    location: 'Jakarta, Indonesia',
-    countryCode: 'ID',
-    userAgent: 'Mozilla/5.0 (Linux; Android 10)',
-    timestamp: new Date(Date.now() - 135 * 60 * 1000).toISOString(),
-    reason: 'Failed MFA authentication challenge 3 consecutive times',
-    severity: 'medium',
-    blocked: false,
-    actionTaken: 'Account locked for 15-minute cooldown'
-  }
-];
+// Suspicious-login state is populated only by real security events.
+const DEFAULT_SUSPICIOUS_LOGINS: SuspiciousLoginAttempt[] = [];
 
-const DEFAULT_UNAUTHORIZED_API_ATTEMPTS: UnauthorizedApiKeyAttempt[] = [
-  {
-    id: 'sec-api-1',
-    attemptedKeyPrefix: 'zx_live_bad89f2a...',
-    endpoint: 'POST /api/chat/completions',
-    method: 'POST',
-    ipAddress: '185.191.171.12',
-    location: 'Frankfurt, Germany',
-    countryCode: 'DE',
-    userAgent: 'curl/8.4.0',
-    timestamp: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
-    errorReason: 'Non-existent API key token with high request burst rate',
-    severity: 'high',
-    blocked: true,
-    actionTaken: 'Rejected HTTP 401 Unauthorized'
-  },
-  {
-    id: 'sec-api-2',
-    attemptedKeyPrefix: 'zx_live_revoked_7a9...',
-    endpoint: 'GET /api/admin/models',
-    method: 'GET',
-    ipAddress: '91.240.118.82',
-    location: 'Kyiv, Ukraine',
-    countryCode: 'UA',
-    userAgent: 'PostmanRuntime/7.39.0',
-    timestamp: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
-    errorReason: 'Access attempted with revoked enterprise API key (key-1)',
-    severity: 'critical',
-    blocked: true,
-    actionTaken: 'HTTP 403 Forbidden; Security incident logged'
-  },
-  {
-    id: 'sec-api-3',
-    attemptedKeyPrefix: 'sk-proj-49a81f09...',
-    endpoint: 'POST /api/generate',
-    method: 'POST',
-    ipAddress: '198.51.100.24',
-    location: 'Chicago, United States',
-    countryCode: 'US',
-    userAgent: 'Go-http-client/1.1',
-    timestamp: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
-    errorReason: 'Malformed key format: OpenAI prefix presented to ZenixMind gateway',
-    severity: 'medium',
-    blocked: true,
-    actionTaken: 'HTTP 401 Invalid Token Header'
-  },
-  {
-    id: 'sec-api-4',
-    attemptedKeyPrefix: 'zx_live_7a9f24...',
-    endpoint: 'DELETE /api/admin/users/usr_client_1',
-    method: 'DELETE',
-    ipAddress: '84.17.45.10',
-    location: 'London, United Kingdom',
-    countryCode: 'GB',
-    userAgent: 'CustomScript/1.0',
-    timestamp: new Date(Date.now() - 180 * 60 * 1000).toISOString(),
-    errorReason: 'Scope violation: Key only holds [chat:inference], attempted privileged deletion',
-    severity: 'critical',
-    blocked: true,
-    actionTaken: 'HTTP 403 Permission Denied; IP flagged for review'
-  }
-];
+// Unauthorized API attempts are populated only by real rejected requests.
+const DEFAULT_UNAUTHORIZED_API_ATTEMPTS: UnauthorizedApiKeyAttempt[] = [];
 
-const DEFAULT_BLOCKED_IPS = ['194.26.29.112', '185.220.101.5', '91.240.118.82'];
+// No fabricated blocked IPs.
+const DEFAULT_BLOCKED_IPS: string[] = [];
 
 const activeSessions: UserSession[] = loadJsonFile<UserSession[]>('sessions.json', DEFAULT_SESSIONS);
 const suspiciousLogins: SuspiciousLoginAttempt[] = loadJsonFile<SuspiciousLoginAttempt[]>('suspicious_logins.json', DEFAULT_SUSPICIOUS_LOGINS);
@@ -721,19 +357,17 @@ const blockedIps: string[] = loadJsonFile<string[]>('blocked_ips.json', DEFAULT_
 
 // Real Telemetry Counters (Incremented on real events)
 const telemetry = loadJsonFile('telemetry.json', {
-  totalRequests: 1,
-  successfulRequests: 1,
+  totalRequests: 0,
+  successfulRequests: 0,
   failedRequests: 0,
-  totalLatencyMs: 245,
-  inputTokens: 140,
-  outputTokens: 280,
+  totalLatencyMs: 0,
+  inputTokens: 0,
+  outputTokens: 0,
   voiceSessions: 0,
   voiceMinutes: 0,
   webSearches: 0,
   fileProcessing: 0,
-  modelUsage: {
-    'gemini-2.5-flash': { requests: 1, inputTokens: 140, outputTokens: 280, cost: 0.0000945 }
-  } as Record<string, { requests: number; inputTokens: number; outputTokens: number; cost: number }>
+  modelUsage: {} as Record<string, { requests: number; inputTokens: number; outputTokens: number; cost: number }>
 });
 
 // AI Control Center & Router State
@@ -2204,7 +1838,7 @@ app.get('/api/admin/providers', requireOwner, (_req, res) => {
       configured: Boolean(process.env.GEMINI_API_KEY),
       maskedKey: process.env.GEMINI_API_KEY ? `AIzaSy...${process.env.GEMINI_API_KEY.slice(-4)}` : null,
       status: process.env.GEMINI_API_KEY ? 'Active' : 'Not configured',
-      latencyMs: process.env.GEMINI_API_KEY ? 115 : 0,
+      latencyMs: 0,
       modelsCount: 2,
       capabilities: ['Multimodal', 'Reasoning', 'Grounding', 'Vision', 'Voice']
     },
@@ -2214,7 +1848,7 @@ app.get('/api/admin/providers', requireOwner, (_req, res) => {
       configured: Boolean(process.env.ANTHROPIC_API_KEY),
       maskedKey: process.env.ANTHROPIC_API_KEY ? `sk-ant-...${process.env.ANTHROPIC_API_KEY.slice(-4)}` : null,
       status: process.env.ANTHROPIC_API_KEY ? 'Active' : 'Not configured',
-      latencyMs: process.env.ANTHROPIC_API_KEY ? 145 : 0,
+      latencyMs: 0,
       modelsCount: 1,
       capabilities: ['Code Synthesis', 'Nuanced Prose', 'Artifacts', 'Reasoning']
     },
@@ -2224,7 +1858,7 @@ app.get('/api/admin/providers', requireOwner, (_req, res) => {
       configured: Boolean(process.env.GROK_API_KEY),
       maskedKey: process.env.GROK_API_KEY ? `xai-...${process.env.GROK_API_KEY.slice(-4)}` : null,
       status: process.env.GROK_API_KEY ? 'Active' : 'Not configured',
-      latencyMs: process.env.GROK_API_KEY ? 175 : 0,
+      latencyMs: 0,
       modelsCount: 1,
       capabilities: ['Live Real-Time', 'Deep Logic', 'Direct Candor']
     },
@@ -2234,17 +1868,17 @@ app.get('/api/admin/providers', requireOwner, (_req, res) => {
       configured: Boolean(process.env.OPENAI_API_KEY),
       maskedKey: process.env.OPENAI_API_KEY ? `sk-...${process.env.OPENAI_API_KEY.slice(-4)}` : null,
       status: process.env.OPENAI_API_KEY ? 'Active' : 'Not configured',
-      latencyMs: process.env.OPENAI_API_KEY ? 135 : 0,
+      latencyMs: 0,
       modelsCount: 1,
       capabilities: ['Omnimodal', 'Structured Output', 'Vision']
     },
     {
       id: 'deepseek',
       name: 'DeepSeek Reasoning',
-      configured: true,
-      maskedKey: 'dsk-managed...',
-      status: 'Active',
-      latencyMs: 160,
+      configured: Boolean(process.env.DEEPSEEK_API_KEY),
+      maskedKey: process.env.DEEPSEEK_API_KEY ? `••••${process.env.DEEPSEEK_API_KEY.slice(-4)}` : null,
+      status: process.env.DEEPSEEK_API_KEY ? 'Configured' : 'Not configured',
+      latencyMs: 0,
       modelsCount: 1,
       capabilities: ['Chain-of-Thought', 'Math Reasoning', 'Open Weights']
     },
@@ -2254,7 +1888,7 @@ app.get('/api/admin/providers', requireOwner, (_req, res) => {
       configured: Boolean(process.env.ZENIXMIND_AI_API_KEY),
       baseUrl: process.env.ZENIXMIND_AI_BASE_URL || 'https://api.openai.com/v1',
       status: process.env.ZENIXMIND_AI_API_KEY ? 'Active' : 'Not configured',
-      latencyMs: process.env.ZENIXMIND_AI_API_KEY ? 190 : 0,
+      latencyMs: 0,
       modelsCount: 1,
       capabilities: ['Self-Hosted', 'vLLM', 'Ollama', 'Custom Endpoints']
     }
@@ -2289,25 +1923,25 @@ app.post('/api/admin/providers/:id/ping', requireOwner, async (req, res) => {
         detail = 'GEMINI_API_KEY not configured in environment';
       }
     } else if (id === 'anthropic') {
-      latencyMs = 135 + Math.floor(Math.random() * 25);
+      latencyMs = 0;
       status = process.env.ANTHROPIC_API_KEY ? 'operational' : 'unconfigured';
       detail = process.env.ANTHROPIC_API_KEY ? 'Anthropic Messages API ready' : 'ANTHROPIC_API_KEY missing';
     } else if (id === 'xai') {
-      latencyMs = 160 + Math.floor(Math.random() * 30);
+      latencyMs = 0;
       status = process.env.GROK_API_KEY ? 'operational' : 'unconfigured';
       detail = process.env.GROK_API_KEY ? 'xAI Grok API endpoint reachable' : 'GROK_API_KEY missing';
     } else if (id === 'openai') {
-      latencyMs = 125 + Math.floor(Math.random() * 20);
+      latencyMs = 0;
       status = process.env.OPENAI_API_KEY ? 'operational' : 'unconfigured';
       detail = process.env.OPENAI_API_KEY ? 'OpenAI Chat Completions endpoint reachable' : 'OPENAI_API_KEY missing';
     } else if (id === 'deepseek') {
-      latencyMs = 150 + Math.floor(Math.random() * 25);
+      latencyMs = 0;
       status = 'operational';
       detail = 'DeepSeek R1 reasoning pipeline online';
     } else {
-      latencyMs = 110;
-      status = 'operational';
-      detail = 'Custom AI Gateway endpoint verified';
+      latencyMs = 0;
+      status = process.env.ZENIXMIND_AI_API_KEY ? 'operational' : 'unconfigured';
+      detail = process.env.ZENIXMIND_AI_API_KEY ? 'Custom gateway configured; no synthetic latency reported' : 'ZENIXMIND_AI_API_KEY missing';
     }
 
     recordAuditLog(
@@ -2377,67 +2011,45 @@ app.get('/api/admin/ai-health', requireOwner, (_req, res) => {
 });
 
 // 5. USERS MANAGEMENT (SEARCH, FILTERING, ACCOUNT STATUS TRACKING & ACTIONS)
-app.get('/api/admin/users', requireOwner, (req, res) => {
-  const { search, q, status, tier, sortBy = 'last_activity', sortDir = 'desc' } = req.query as Record<string, string>;
-  const queryTerm = (search || q || '').trim().toLowerCase();
-
-  let filtered = [...users];
-
-  // Search filter
-  if (queryTerm) {
-    filtered = filtered.filter(
-      (u) =>
-        u.name.toLowerCase().includes(queryTerm) ||
-        u.email.toLowerCase().includes(queryTerm) ||
-        u.id.toLowerCase().includes(queryTerm)
-    );
+app.get('/api/admin/users', requireOwner, async (req, res) => {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(200).json({ users: [], total: 0, activeCount: 0, suspendedCount: 0, totalTokens: 0, error: 'Supabase server-side admin key is not configured. User data is intentionally not fabricated.' });
   }
-
-  // Status filter
-  if (status && status !== 'All') {
-    filtered = filtered.filter((u) => u.status.toLowerCase() === status.toLowerCase());
+  try {
+    const admin = createClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false } });
+    const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (error) return res.status(502).json({ error: error.message });
+    const query = String((req.query.search || req.query.q || '')).trim().toLowerCase();
+    const users = (data.users || [])
+      .filter((u) => !query || String(u.email || '').toLowerCase().includes(query) || u.id.toLowerCase().includes(query))
+      .map((u) => ({
+        id: u.id,
+        email: u.email || '',
+        name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'User',
+        tier: isOwner(u.email) ? 'Owner' : (u.user_metadata?.tier || 'Free'),
+        status: u.banned_until && new Date(u.banned_until).getTime() > Date.now() ? 'Suspended' : 'Active',
+        created_at: u.created_at,
+        last_activity: u.last_sign_in_at || u.created_at,
+        conversation_count: 0,
+        tokens_used: 0,
+        storage_bytes: 0,
+        voice_minutes: 0
+      }));
+    return res.json({
+      users,
+      total: users.length,
+      activeCount: users.filter((u) => u.status === 'Active').length,
+      suspendedCount: users.filter((u) => u.status === 'Suspended').length,
+      totalTokens: 0,
+      source: 'supabase-auth'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Unable to read Supabase Auth users.' });
   }
-
-  // Tier filter
-  if (tier && tier !== 'All') {
-    filtered = filtered.filter((u) => u.tier.toLowerCase() === tier.toLowerCase());
-  }
-
-  // Sorting
-  filtered.sort((a, b) => {
-    let valA: any = (a as any)[sortBy] ?? 0;
-    let valB: any = (b as any)[sortBy] ?? 0;
-
-    if (typeof valA === 'string') {
-      valA = valA.toLowerCase();
-      valB = (valB || '').toLowerCase();
-      return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-    }
-
-    return sortDir === 'asc' ? valA - valB : valB - valA;
-  });
-
-  const totalTokens = users.reduce((acc, u) => acc + (u.tokens_used || 0), 0);
-  const activeCount = users.filter((u) => u.status === 'Active').length;
-  const suspendedCount = users.filter((u) => u.status === 'Suspended').length;
-
-  return res.json({
-    users: filtered,
-    total: users.length,
-    filteredCount: filtered.length,
-    activeCount,
-    suspendedCount,
-    totalTokens,
-    tiersBreakdown: {
-      Owner: users.filter((u) => u.tier === 'Owner').length,
-      Enterprise: users.filter((u) => u.tier === 'Enterprise').length,
-      Pro: users.filter((u) => u.tier === 'Pro').length,
-      Free: users.filter((u) => u.tier === 'Free').length
-    }
-  });
 });
 
-// Create / Invite User Account
 app.post('/api/admin/users', requireOwner, (req, res) => {
   try {
     const { name, email, tier = 'Free', status = 'Active', updatedBy } = req.body;
@@ -2645,247 +2257,55 @@ app.delete('/api/admin/files/:id', requireOwner, (req, res) => {
 
 // 9. USAGE & COSTS (COMPREHENSIVE TELEMETRY, TOKEN CONSUMPTION, VOICE MINUTES & AI PROVIDER COSTS)
 app.get('/api/admin/usage', requireOwner, (_req, res) => {
-  // Provider cost calculation mapping
-  const providerBreakdown: Record<string, {
-    provider: string;
-    displayName: string;
-    totalCost: number;
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-    requestCount: number;
-    models: string[];
-    costPer1MInput: number;
-    costPer1MOutput: number;
-  }> = {
-    google: {
-      provider: 'google',
-      displayName: 'Google Gemini AI',
-      totalCost: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      requestCount: 0,
-      models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
-      costPer1MInput: 0.075,
-      costPer1MOutput: 0.30
-    },
-    anthropic: {
-      provider: 'anthropic',
-      displayName: 'Anthropic Claude',
-      totalCost: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      requestCount: 0,
-      models: ['claude-3.7-sonnet'],
-      costPer1MInput: 3.00,
-      costPer1MOutput: 15.00
-    },
-    openai: {
-      provider: 'openai',
-      displayName: 'OpenAI Omnimodal',
-      totalCost: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      requestCount: 0,
-      models: ['gpt-4o'],
-      costPer1MInput: 2.50,
-      costPer1MOutput: 10.00
-    },
-    xai: {
-      provider: 'xai',
-      displayName: 'xAI Grok',
-      totalCost: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      requestCount: 0,
-      models: ['grok-3'],
-      costPer1MInput: 3.00,
-      costPer1MOutput: 15.00
-    },
-    deepseek: {
-      provider: 'deepseek',
-      displayName: 'DeepSeek Reasoning',
-      totalCost: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      requestCount: 0,
-      models: ['deepseek-r1'],
-      costPer1MInput: 0.55,
-      costPer1MOutput: 2.19
-    }
-  };
+  const modelUsage = telemetry.modelUsage || {};
+  let estimatedAiCostUSD = 0;
+  const enrichedModelUsage: Record<string, any> = {};
 
-  // Map each model usage to its provider
-  let totalCost = 0;
-  const enrichedModelUsage: Record<string, {
-    requests: number;
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-    cost: number;
-    provider: string;
-    modelName: string;
-    avgLatencyMs: number;
-  }> = {};
-
-  // Standardize existing telemetry and incorporate default active models
-  const modelLookup: Record<string, { provider: string; name: string }> = {
-    'gemini-2.5-flash': { provider: 'google', name: 'Gemini 2.5 Flash' },
-    'gemini-2.5-pro': { provider: 'google', name: 'Gemini 2.5 Pro' },
-    'claude-3.7-sonnet': { provider: 'anthropic', name: 'Claude 3.7 Sonnet' },
-    'gpt-4o': { provider: 'openai', name: 'GPT-4o' },
-    'grok-3': { provider: 'xai', name: 'Grok 3' },
-    'deepseek-r1': { provider: 'deepseek', name: 'DeepSeek R1' }
-  };
-
-  // Baseline telemetry distribution if telemetry is young
-  const baselineStats: Record<string, { requests: number; inputTokens: number; outputTokens: number; cost: number; avgLatency: number }> = {
-    'gemini-2.5-flash': { requests: Math.max(1, telemetry.modelUsage['gemini-2.5-flash']?.requests || 1420), inputTokens: Math.max(140, telemetry.modelUsage['gemini-2.5-flash']?.inputTokens || 892400), outputTokens: Math.max(280, telemetry.modelUsage['gemini-2.5-flash']?.outputTokens || 1245000), cost: Math.max(0.0001, telemetry.modelUsage['gemini-2.5-flash']?.cost || 0.44043), avgLatency: 145 },
-    'gemini-2.5-pro': { requests: 480, inputTokens: 410000, outputTokens: 680000, cost: 3.9125, avgLatency: 380 },
-    'claude-3.7-sonnet': { requests: 310, inputTokens: 380000, outputTokens: 520000, cost: 8.9400, avgLatency: 420 },
-    'gpt-4o': { requests: 260, inputTokens: 290000, outputTokens: 410000, cost: 4.8250, avgLatency: 340 },
-    'grok-3': { requests: 120, inputTokens: 110000, outputTokens: 190000, cost: 3.1800, avgLatency: 290 },
-    'deepseek-r1': { requests: 190, inputTokens: 240000, outputTokens: 490000, cost: 1.2051, avgLatency: 510 }
-  };
-
-  // Build model and provider metrics
-  Object.keys(baselineStats).forEach((modelId) => {
-    const base = baselineStats[modelId];
-    const live = telemetry.modelUsage[modelId];
-    const requests = live ? Math.max(base.requests, live.requests) : base.requests;
-    const inputTokens = live ? Math.max(base.inputTokens, live.inputTokens) : base.inputTokens;
-    const outputTokens = live ? Math.max(base.outputTokens, live.outputTokens) : base.outputTokens;
-    const cost = live ? Math.max(base.cost, live.cost) : base.cost;
-    const meta = modelLookup[modelId] || { provider: 'google', name: modelId };
-
-    totalCost += cost;
-
+  for (const [modelId, usage] of Object.entries(modelUsage)) {
+    const model = SUPPORTED_MODELS.find((m) => m.id === modelId);
+    const cost = Number(usage.cost || 0);
+    estimatedAiCostUSD += cost;
     enrichedModelUsage[modelId] = {
-      requests,
-      inputTokens,
-      outputTokens,
-      totalTokens: inputTokens + outputTokens,
-      cost: Number(cost.toFixed(5)),
-      provider: meta.provider,
-      modelName: meta.name,
-      avgLatencyMs: base.avgLatency
+      ...usage,
+      totalTokens: Number(usage.inputTokens || 0) + Number(usage.outputTokens || 0),
+      cost: Number(cost.toFixed(6)),
+      provider: model?.provider || 'unknown',
+      modelName: model?.name || modelId,
+      avgLatencyMs: usage.requests ? Math.round(telemetry.totalLatencyMs / Math.max(1, usage.requests)) : 0
     };
-
-    if (providerBreakdown[meta.provider]) {
-      providerBreakdown[meta.provider].totalCost += cost;
-      providerBreakdown[meta.provider].inputTokens += inputTokens;
-      providerBreakdown[meta.provider].outputTokens += outputTokens;
-      providerBreakdown[meta.provider].totalTokens += inputTokens + outputTokens;
-      providerBreakdown[meta.provider].requestCount += requests;
-    }
-  });
-
-  // Voice engine breakdown & calculation
-  const totalVoiceMinutes = Math.max(48.5, Number(telemetry.voiceMinutes.toFixed(1)));
-  const voiceRatePerMinute = 0.06; // $0.06 / min for low-latency neural TTS + STT streaming
-  const voiceCostUSD = Number((totalVoiceMinutes * voiceRatePerMinute).toFixed(4));
-  const totalPlatformAiCost = Number((totalCost + voiceCostUSD).toFixed(4));
-
-  // Voice sessions distribution
-  const voiceMetrics = {
-    totalMinutes: totalVoiceMinutes,
-    totalSessions: Math.max(14, telemetry.voiceSessions || 18),
-    costUSD: voiceCostUSD,
-    ratePerMinute: voiceRatePerMinute,
-    avgSessionMinutes: 2.7,
-    audioInputMinutes: Number((totalVoiceMinutes * 0.45).toFixed(1)),
-    audioOutputMinutes: Number((totalVoiceMinutes * 0.55).toFixed(1)),
-    synthesizedAudioBytes: Math.round(totalVoiceMinutes * 60 * 24000), // ~24KB/sec PCM/Opus
-    voiceProvider: 'Gemini Realtime Multimodal & Neural TTS'
-  };
-
-  // 14-Day Historical Usage & Financial Telemetry Feed
-  const today = new Date();
-  const dailyHistory: Array<{
-    date: string;
-    dayLabel: string;
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-    voiceMinutes: number;
-    apiCostUSD: number;
-    voiceCostUSD: number;
-    totalCostUSD: number;
-    requestCount: number;
-  }> = [];
-
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
-    const dayLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-    // Seeded realistic trend curve with weekend variances
-    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-    const factor = isWeekend ? 0.65 : 1.0 + (13 - i) * 0.04;
-    const inTokens = Math.round((140000 + (i % 5) * 22000) * factor);
-    const outTokens = Math.round((210000 + (i % 7) * 31000) * factor);
-    const totTokens = inTokens + outTokens;
-    const vMinutes = Number(((2.8 + (i % 4) * 0.9) * factor).toFixed(1));
-    const tokenCost = Number(((inTokens * 0.0000015) + (outTokens * 0.0000065)).toFixed(4));
-    const vCost = Number((vMinutes * voiceRatePerMinute).toFixed(4));
-    const dayTotalCost = Number((tokenCost + vCost).toFixed(4));
-    const reqCount = Math.round((180 + (i % 6) * 30) * factor);
-
-    dailyHistory.push({
-      date: dateStr,
-      dayLabel,
-      inputTokens: inTokens,
-      outputTokens: outTokens,
-      totalTokens: totTokens,
-      voiceMinutes: vMinutes,
-      apiCostUSD: tokenCost,
-      voiceCostUSD: vCost,
-      totalCostUSD: dayTotalCost,
-      requestCount: reqCount
-    });
   }
 
-  // Financial KPIs & Budgets
-  const monthlyBudgetUSD = 150.00;
-  const currentMonthProjectedSpendUSD = Number((totalPlatformAiCost * 1.35).toFixed(2));
-  const budgetUtilizationPercent = Math.min(100, Number(((totalPlatformAiCost / monthlyBudgetUSD) * 100).toFixed(1)));
-  const totalTokensCombined = Object.values(enrichedModelUsage).reduce((acc, m) => acc + m.totalTokens, 0);
-
   return res.json({
-    totalRequests: Math.max(telemetry.totalRequests, 2780),
-    inputTokens: Object.values(enrichedModelUsage).reduce((acc, m) => acc + m.inputTokens, 0),
-    outputTokens: Object.values(enrichedModelUsage).reduce((acc, m) => acc + m.outputTokens, 0),
-    totalTokens: totalTokensCombined,
-    estimatedAiCostUSD: Number(totalCost.toFixed(4)),
-    voiceMinutes: totalVoiceMinutes,
-    voiceMetrics,
-    totalPlatformAiCost,
+    totalRequests: telemetry.totalRequests,
+    inputTokens: telemetry.inputTokens,
+    outputTokens: telemetry.outputTokens,
+    totalTokens: telemetry.inputTokens + telemetry.outputTokens,
+    estimatedAiCostUSD: Number(estimatedAiCostUSD.toFixed(6)),
+    voiceMinutes: Number(telemetry.voiceMinutes.toFixed(1)),
+    voiceSessions: telemetry.voiceSessions,
     webSearches: telemetry.webSearches,
     modelUsage: enrichedModelUsage,
-    providerBreakdown: Object.values(providerBreakdown).map((p) => ({
-      ...p,
-      totalCost: Number(p.totalCost.toFixed(4)),
-      costSharePercent: Number(((p.totalCost / (totalCost || 1)) * 100).toFixed(1))
-    })),
-    financialPerformance: {
-      monthlyBudgetUSD,
-      currentSpendUSD: totalPlatformAiCost,
-      projectedMonthEndSpendUSD: currentMonthProjectedSpendUSD,
-      budgetUtilizationPercent,
-      remainingBudgetUSD: Number(Math.max(0, monthlyBudgetUSD - totalPlatformAiCost).toFixed(2)),
-      avgCostPer1KTokens: Number(((totalCost / (totalTokensCombined / 1000)) || 0.004).toFixed(5)),
-      avgCostPerRequest: Number(((totalCost / (Math.max(telemetry.totalRequests, 2780))) || 0.008).toFixed(4)),
-      costEfficiencyScore: 94, // Out of 100 benchmarked against vanilla GPT-4o
-      costSavingsFromSmartRoutingUSD: 38.45 // Estimated savings from routing to Gemini Flash / DeepSeek
-    },
-    dailyHistory,
-    costNotice: 'Estimated AI provider and voice synthesizer costs based on public API token & streaming unit pricing. Excludes container compute & database hosting.'
+    providerBreakdown: Object.values(enrichedModelUsage).reduce((acc: any[], item: any) => {
+      const existing = acc.find((p) => p.provider === item.provider);
+      if (existing) {
+        existing.requestCount += item.requests || 0;
+        existing.inputTokens += item.inputTokens || 0;
+        existing.outputTokens += item.outputTokens || 0;
+        existing.totalCost += item.cost || 0;
+      } else {
+        acc.push({
+          provider: item.provider,
+          displayName: item.provider,
+          requestCount: item.requests || 0,
+          inputTokens: item.inputTokens || 0,
+          outputTokens: item.outputTokens || 0,
+          totalCost: item.cost || 0
+        });
+      }
+      return acc;
+    }, []),
+    historicalDataAvailable: false,
+    costNotice: 'Only runtime-measured telemetry is shown. No seeded historical or projected figures are included.'
   });
 });
 
@@ -3206,67 +2626,16 @@ app.post('/api/admin/audit-log/clear', requireOwner, (req, res) => {
 // 12. SYSTEM HEALTH
 app.get('/api/admin/health', requireOwner, async (_req, res) => {
   const memory = process.memoryUsage();
-
   const checks = [
-    {
-      name: 'Node.js Runtime & V8 Engine',
-      status: 'healthy',
-      latencyMs: 1,
-      details: `${process.version} | Heap ${Math.round(memory.heapUsed / (1024 * 1024))}MB`,
-      lastChecked: new Date().toISOString()
-    },
-    {
-      name: 'Google Gemini Provider',
-      status: process.env.GEMINI_API_KEY ? 'healthy' : 'unconfigured',
-      latencyMs: process.env.GEMINI_API_KEY ? 120 : 0,
-      details: process.env.GEMINI_API_KEY ? 'API key active & verified' : 'GEMINI_API_KEY missing in environment',
-      lastChecked: new Date().toISOString()
-    },
-    {
-      name: 'Anthropic Claude Provider',
-      status: process.env.ANTHROPIC_API_KEY ? 'healthy' : 'unconfigured',
-      latencyMs: process.env.ANTHROPIC_API_KEY ? 150 : 0,
-      details: process.env.ANTHROPIC_API_KEY ? 'API key active' : 'ANTHROPIC_API_KEY missing in environment',
-      lastChecked: new Date().toISOString()
-    },
-    {
-      name: 'xAI Grok Provider',
-      status: process.env.GROK_API_KEY ? 'healthy' : 'unconfigured',
-      latencyMs: process.env.GROK_API_KEY ? 180 : 0,
-      details: process.env.GROK_API_KEY ? 'API key active' : 'GROK_API_KEY missing in environment',
-      lastChecked: new Date().toISOString()
-    },
-    {
-      name: 'Web Search Grounding Engine',
-      status: 'healthy',
-      latencyMs: 45,
-      details: 'Active realtime search research indexer',
-      lastChecked: new Date().toISOString()
-    },
-    {
-      name: 'Voice Pipeline & Speech Engine',
-      status: 'healthy',
-      latencyMs: 12,
-      details: 'Realtime Web Audio & Sun Orb Visual active',
-      lastChecked: new Date().toISOString()
-    },
-    {
-      name: 'Supabase PostgreSQL & Auth',
-      status: (process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) ? 'healthy' : 'unconfigured',
-      latencyMs: (process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) ? 38 : 0,
-      details: (process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) ? 'Connected via Supabase client' : 'Supabase environment variables not configured',
-      lastChecked: new Date().toISOString()
-    },
-    {
-      name: 'Storage Subsystem',
-      status: 'healthy',
-      latencyMs: 3,
-      details: `${storedFiles.length} files tracked in storage index`,
-      lastChecked: new Date().toISOString()
-    }
+    { name: 'Node.js Runtime & V8 Engine', status: 'healthy', latencyMs: 0, details: process.version + ' | Heap ' + Math.round(memory.heapUsed / (1024 * 1024)) + 'MB', lastChecked: new Date().toISOString() },
+    { name: 'Google Gemini Provider', status: process.env.GEMINI_API_KEY ? 'configured' : 'unconfigured', latencyMs: 0, details: process.env.GEMINI_API_KEY ? 'API key configured' : 'GEMINI_API_KEY missing', lastChecked: new Date().toISOString() },
+    { name: 'Anthropic Claude Provider', status: process.env.ANTHROPIC_API_KEY ? 'configured' : 'unconfigured', latencyMs: 0, details: process.env.ANTHROPIC_API_KEY ? 'API key configured' : 'ANTHROPIC_API_KEY missing', lastChecked: new Date().toISOString() },
+    { name: 'xAI Grok Provider', status: process.env.GROK_API_KEY ? 'configured' : 'unconfigured', latencyMs: 0, details: process.env.GROK_API_KEY ? 'API key configured' : 'GROK_API_KEY missing', lastChecked: new Date().toISOString() },
+    { name: 'OpenAI Provider', status: process.env.OPENAI_API_KEY ? 'configured' : 'unconfigured', latencyMs: 0, details: process.env.OPENAI_API_KEY ? 'API key configured' : 'OPENAI_API_KEY missing', lastChecked: new Date().toISOString() },
+    { name: 'Supabase Auth', status: (process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) ? 'configured' : 'unconfigured', latencyMs: 0, details: (process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) ? 'Supabase endpoint configured' : 'Supabase URL missing', lastChecked: new Date().toISOString() },
+    { name: 'Runtime storage', status: 'healthy', latencyMs: 0, details: storedFiles.length + ' files tracked in this runtime', lastChecked: new Date().toISOString() }
   ];
-
-  return res.json({ checks, timestamp: new Date().toISOString() });
+  return res.json({ checks });
 });
 
 // 13. FEATURE FLAGS
@@ -3570,8 +2939,7 @@ app.get('/api/admin/deployments', requireOwner, (_req, res) => {
     environment: process.env.VERCEL_ENV || process.env.NODE_ENV || 'production',
     runtime: `Node.js ${process.version} (${process.platform} ${process.arch})`,
     uptimeSeconds: Math.floor(process.uptime()),
-    deployedAt: '2026-09-22T16:00:00.000Z',
-    deploymentUrl: process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://zenixmind.ai'
+    deploymentUrl: process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
   };
   return res.json({ deployment });
 });
@@ -3579,7 +2947,7 @@ app.get('/api/admin/deployments', requireOwner, (_req, res) => {
 // 20. BACKUPS & RECOVERY
 app.get('/api/admin/backups', requireOwner, (_req, res) => {
   return res.json({
-    lastBackupTimestamp: new Date(Date.now() - 3600000).toISOString(),
+    lastBackupTimestamp: null,
     status: 'READY',
     totalRecordsAvailable: conversations.length + messages.length + users.length + auditLogs.length
   });
