@@ -49,6 +49,7 @@ interface WorkspaceShellProps {
   onOpenSettings?: () => void;
   privateChat?: boolean;
   onTogglePrivateChat?: () => void;
+  onStartPrivateChat?: () => void;
   onNewChat?: () => void;
 }
 
@@ -63,6 +64,7 @@ export function WorkspaceShell({
   onOpenSettings,
   privateChat = false,
   onTogglePrivateChat,
+  onStartPrivateChat,
   onNewChat
 }: WorkspaceShellProps) {
   const [open, setOpen] = useState(false);
@@ -269,6 +271,17 @@ export function WorkspaceShell({
               </div>
             </div>
           )}
+
+          {/* New Chat controls */}
+          <div className="mb-2 flex items-center gap-1.5">
+            <button type="button" onClick={() => { onNewChat?.(); setOpen(false); }} title="New chat" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-zinc-300 hover:bg-[#141416] hover:text-zinc-100 transition-colors">
+              <SquarePen size={16} className="shrink-0 text-zinc-400" />
+              {!sidebarCollapsed && <span>New chat</span>}
+            </button>
+            <button type="button" onClick={() => { if (onStartPrivateChat) onStartPrivateChat(); else if (onTogglePrivateChat) onTogglePrivateChat(); setOpen(false); }} title="Start a private chat" aria-label="Start a private chat" className={privateChat ? 'grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-amber-400/25 bg-amber-400/10 text-amber-300' : 'grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/[.07] bg-[#111113] text-zinc-400 hover:bg-[#18181b] hover:text-zinc-100'}>
+              <Shield size={15} />
+            </button>
+          </div>
 
           {/* Core Navigation Items */}
           <nav className="space-y-0.5">
@@ -593,19 +606,6 @@ export function WorkspaceShell({
                 <span className="text-[13px] font-semibold text-zinc-200">
                   {title || 'ZenixMind'}
                 </span>
-                {privateChat && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onNewChat) onNewChat();
-                    }}
-                    className="grid h-8 w-8 place-items-center rounded-full border border-white/[.08] bg-[#121215] text-zinc-400 hover:bg-[#18181c] hover:text-zinc-100 hover:border-white/[.14] transition-colors"
-                    title="New private chat"
-                    aria-label="New private chat"
-                  >
-                    <SquarePen size={15} />
-                  </button>
-                )}
               </div>
             </div>
 

@@ -1979,6 +1979,14 @@ export function AssistantPage() {
       onOpenSettings={() => setSettingsOpen(true)}
       privateChat={privateChat}
       onNewChat={handleStartNewChat}
+      onStartPrivateChat={() => {
+        setMessages([]);
+        setConversationId(null);
+        setInput('');
+        setAttachedFile(null);
+        setPrivateChat(true);
+        navigate('/assistant?private=1');
+      }}
       onTogglePrivateChat={() => {
         setPrivateChat((current) => {
           const next = !current;
