@@ -1,25 +1,82 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { BrandMark } from '../components/brand-mark';
+import { CompactFloatingComposer } from './AssistantPage';
 import { useAuth } from '../lib/auth-context';
 import { ArrowRight, Plus, Paperclip, Mic, Zap, ChevronDown, Image as ImageIcon, MessageSquare, AudioLines, FolderOpen, LockKeyhole } from 'lucide-react';
 
 function LandingComposer() {
+  const navigate = useNavigate();
+  const [value, setValue] = React.useState('');
+  const [selectedModel, setSelectedModel] = React.useState('gemini-2.5-flash');
+  const [webSearch, setWebSearch] = React.useState(false);
+  const [deepThink, setDeepThink] = React.useState(false);
+  const [isListening, setIsListening] = React.useState(false);
+  const [attachmentName, setAttachmentName] = React.useState('');
+  const [attachmentFile, setAttachmentFile] = React.useState<File | null>(null);
+
+  const goToChat = React.useCallback(() => {
+    const prompt = value.trim();
+    if (!prompt) {
+      navigate('/assistant');
+      return;
+    }
+    const params = new URLSearchParams({ q: prompt });
+    if (selectedModel) params.set('model', selectedModel);
+    if (webSearch) params.set('webSearch', '1');
+    if (deepThink) params.set('deepThink', '1');
+    navigate(`/assistant?${params.toString()}`);
+  }, [value, selectedModel, webSearch, deepThink, navigate]);
+
   return (
-    <div className="mx-auto w-full max-w-[860px] rounded-[26px] border border-white/[.09] bg-[#151517] p-3.5 shadow-[0_30px_100px_rgba(0,0,0,.55)]">
-      <div className="min-h-[74px] px-2 pt-1 text-left text-[15px] text-zinc-500">Ask anything</div>
-      <div className="flex items-center justify-between gap-3 pt-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <button className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#27272a] text-zinc-200" aria-label="More"><Plus size={18} /></button>
-          <button className="flex h-9 items-center gap-1.5 rounded-full bg-[#27272a] px-3.5 text-xs font-semibold text-zinc-100" aria-label="Selected model"><Zap size={13} className="fill-white" />Fast<ChevronDown size={13} className="text-zinc-500" /></button>
-          <button className="hidden items-center gap-2 rounded-full px-2 text-[11px] text-zinc-500 transition hover:text-zinc-300 sm:flex"><Paperclip size={14} />Attach</button>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button className="grid h-9 w-9 place-items-center rounded-full bg-[#27272a] text-zinc-300" aria-label="Voice input"><Mic size={16} /></button>
-          <button className="flex h-9 items-center gap-2 rounded-full bg-zinc-200 px-4 text-xs font-semibold text-black" aria-label="Speak"><AudioLines size={14} />Speak</button>
-        </div>
-      </div>
-    </div>
+    <CompactFloatingComposer
+      value={value}
+      setValue={setValue}
+      onSend={goToChat}
+      onStop={() => {}}
+      onOpenVoice={() => navigate('/assistant')}
+      busy={false}
+      selectedModel={selectedModel}
+      onSelectModel={setSelectedModel}
+      webSearch={webSearch}
+      setWebSearch={setWebSearch}
+      deepThink={deepThink}
+      setDeepThink={setDeepThink}
+      onDictate={() => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          alert('Speech recognition is not supported in this browser.');
+          return;
+        }
+        if (isListening) {
+          setIsListening(false);
+          return;
+        }
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        recognition.onstart = () => setIsListening(true);
+        recognition.onresult = (event: any) => {
+          let transcript = '';
+          for (let i = 0; i < event.results.length; i++) transcript += event.results[i][0].transcript;
+          setValue(transcript);
+        };
+        recognition.onerror = () => setIsListening(false);
+        recognition.onend = () => setIsListening(false);
+        try { recognition.start(); } catch { setIsListening(false); }
+      }}
+      isListening={isListening}
+      onAttachFile={(file) => {
+        setAttachmentFile(file);
+        setAttachmentName(file.name);
+      }}
+      attachmentName={attachmentName}
+      onClearAttachment={() => {
+        setAttachmentFile(null);
+        setAttachmentName('');
+      }}
+    />
   );
 }
 
@@ -42,7 +99,7 @@ function PublicHome() {
         <p className="text-[11px] font-semibold uppercase tracking-[.28em] text-zinc-500">Your intelligent AI assistant</p>
         <h1 className="mx-auto mt-6 max-w-4xl text-[clamp(3.2rem,8vw,6.9rem)] font-semibold leading-[.94] tracking-[-.075em] text-zinc-100">Hi, I am ZenixMind AI</h1>
         <p className="mx-auto mt-7 max-w-2xl text-[15px] leading-7 text-zinc-400 sm:text-[17px]">A natural AI assistant for questions, ideas, learning, research, writing, code, and everyday conversations.</p>
-        <div className="mx-auto mt-11 max-w-4xl rounded-[30px] border border-white/[.09] bg-[#101012] p-3 text-left shadow-[0_24px_70px_rgba(40,25,60,.10)]"><div className="min-h-[86px] rounded-[22px] px-4 pt-3 text-[15px] text-[#a19aa8]">Ask ZenixMind anything...</div><div className="flex items-center justify-between gap-3 px-1 pb-1"><div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-full bg-[#1b1b1f] text-zinc-300">+</span><span className="hidden rounded-full bg-[#1b1b1f] px-3.5 py-2 text-[11px] font-semibold text-zinc-300 sm:inline-flex">Fast</span><span className="hidden text-[11px] text-zinc-500 sm:inline">Attach files</span></div><Link to="/signup" className="rounded-full bg-[#111114] px-5 py-2.5 text-[12px] font-semibold text-white">Start chatting</Link></div></div>
+        <div className="mx-auto mt-11 max-w-4xl"><LandingComposer /></div>
       </div></section>
       <section id="features" className="border-t border-white/[.07] bg-[#050506] px-5 py-20 sm:px-8 sm:py-24"><div className="mx-auto max-w-7xl"><p className="text-[11px] font-semibold uppercase tracking-[.25em] text-zinc-500">Features</p><h2 className="mt-4 text-3xl font-semibold tracking-[-.055em] sm:text-5xl">One assistant. Many ways to work.</h2><p className="mt-5 max-w-2xl text-[15px] leading-7 text-zinc-400">Move naturally between conversation, voice, visual work, and your saved library without cluttering the experience.</p><div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-[24px] border border-white/[.08] bg-[#0b0b0e] p-6"><div className="text-sm font-semibold">Chat</div><p className="mt-3 text-[12px] leading-6 text-zinc-500">Think through questions, ideas, writing, research, and code.</p></div><div className="rounded-[24px] border border-white/[.08] bg-[#0b0b0e] p-6"><div className="text-sm font-semibold">Voice</div><p className="mt-3 text-[12px] leading-6 text-zinc-500">Talk naturally and continue the same conversation hands-free.</p></div><div className="rounded-[24px] border border-white/[.08] bg-[#0b0b0e] p-6"><div className="text-sm font-semibold">Images</div><p className="mt-3 text-[12px] leading-6 text-zinc-500">Create visual work without leaving your ZenixMind workspace.</p></div><div className="rounded-[24px] border border-white/[.08] bg-[#0b0b0e] p-6"><div className="text-sm font-semibold">Library</div><p className="mt-3 text-[12px] leading-6 text-zinc-500">Keep conversations and saved work organized in one place.</p></div>
