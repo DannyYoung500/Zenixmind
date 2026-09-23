@@ -1966,7 +1966,7 @@ export function AssistantPage() {
       active={view}
       title={
         view === 'chat'
-          ? 'ZenixMind Assistant'
+          ? 'ZenixMind'
           : view === 'images'
           ? 'Imagine Studio'
           : view === 'library'
@@ -1978,6 +1978,7 @@ export function AssistantPage() {
       onSelectModel={handleModelChange}
       onOpenSettings={() => setSettingsOpen(true)}
       privateChat={privateChat}
+      onNewChat={handleStartNewChat}
       onTogglePrivateChat={() => {
         setPrivateChat((current) => {
           const next = !current;
