@@ -1517,6 +1517,7 @@ function PrivateChatMark({ size = 118 }: { size?: number }) {
 }
 
 export function AssistantPage() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
