@@ -1,9 +1,8 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { ArrowRight, Plus, Paperclip, Mic, Zap, ChevronDown, Image as ImageIcon, MessageSquare, AudioLines, FolderOpen, LockKeyhole, Link } from 'react-router-dom';
 import { BrandMark } from '../components/brand-mark';
 import { useAuth } from '../lib/auth-context';
 import {
-  ArrowUp,
   Bell,
   Bot,
   FolderOpen,
@@ -24,155 +23,99 @@ const features = [
   { title: 'Library', text: 'Keep your work organized and accessible.', icon: FolderOpen }
 ];
 
+function LandingComposer() {
+  return (
+    <div className="mx-auto w-full max-w-[860px] rounded-[26px] border border-white/[.09] bg-[#151517] p-3.5 shadow-[0_30px_100px_rgba(0,0,0,.55)]">
+      <div className="min-h-[74px] px-2 pt-1 text-left text-[15px] text-zinc-500">Ask anything</div>
+      <div className="flex items-center justify-between gap-3 pt-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <button className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#27272a] text-zinc-200" aria-label="More"><Plus size={18} /></button>
+          <button className="flex h-9 items-center gap-1.5 rounded-full bg-[#27272a] px-3.5 text-xs font-semibold text-zinc-100" aria-label="Selected model"><Zap size={13} className="fill-white" />Fast<ChevronDown size={13} className="text-zinc-500" /></button>
+          <button className="hidden items-center gap-2 rounded-full px-2 text-[11px] text-zinc-500 transition hover:text-zinc-300 sm:flex"><Paperclip size={14} />Attach</button>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button className="grid h-9 w-9 place-items-center rounded-full bg-[#27272a] text-zinc-300" aria-label="Voice input"><Mic size={16} /></button>
+          <button className="flex h-9 items-center gap-2 rounded-full bg-zinc-200 px-4 text-xs font-semibold text-black" aria-label="Speak"><AudioLines size={14} />Speak</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const landingCapabilities = [
+  [MessageSquare, 'Chat', 'Think through questions, ideas, writing, research, and code.'],
+  [AudioLines, 'Voice', 'Talk naturally and continue the same conversation hands-free.'],
+  [ImageIcon, 'Images', 'Create visual work without leaving your ZenixMind workspace.'],
+  [FolderOpen, 'Library', 'Keep conversations and saved work organized in one place.']
+];
+
 function PublicHome() {
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f6f1f8] text-[#211c25] selection:bg-[#d8bfe9]">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-[-24rem] h-[58rem] w-[80rem] -translate-x-1/2 rounded-full bg-[#d8b6ed]/55 blur-[125px]" />
-        <div className="absolute left-[-8rem] top-[35%] h-[30rem] w-[30rem] rounded-full bg-[#eadff1]/90 blur-[110px]" />
-        <div className="absolute right-[-10rem] top-[18%] h-[36rem] w-[36rem] rounded-full bg-[#d7c4ef]/65 blur-[120px]" />
+    <main className="min-h-screen overflow-hidden bg-[#050505] text-zinc-100">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute left-1/2 top-[-420px] h-[780px] w-[1100px] -translate-x-1/2 rounded-full bg-zinc-500/[.035] blur-[170px]" />
       </div>
 
-      <section className="relative z-10 mx-auto px-3 py-3 sm:px-5 sm:py-5">
-        <div className="mx-auto min-h-[calc(100vh-24px)] max-w-[1370px] overflow-hidden rounded-[30px] border border-white/85 bg-white/25 shadow-[0_30px_100px_rgba(70,48,91,.13)] backdrop-blur-2xl sm:min-h-[calc(100vh-40px)] sm:rounded-[34px]">
-          <header className="flex h-[72px] items-center justify-between border-b border-white/55 px-5 sm:h-[82px] sm:px-8 lg:px-10">
-            <Link to="/" className="flex items-center gap-3">
-              <BrandMark size={39} />
-              <span className="text-[18px] font-semibold tracking-[-.04em]">ZenixMind</span>
-            </Link>
+      <header className="relative z-20 mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
+        <Link to="/" className="flex items-center gap-3"><BrandMark size={35} /><span className="text-[15px] font-semibold tracking-[-.025em]">ZenixMind</span></Link>
+        <div className="flex items-center gap-1.5">
+          <Link to="/login" className="rounded-xl px-4 py-2.5 text-xs font-medium text-zinc-500 transition hover:bg-white/[.04] hover:text-zinc-100">Sign in</Link>
+          <Link to="/signup" className="rounded-xl bg-zinc-100 px-4 py-2.5 text-xs font-semibold text-black transition hover:bg-white">Get started</Link>
+        </div>
+      </header>
 
-            <nav className="hidden items-center gap-7 text-[12px] font-medium text-[#6c6471] lg:flex">
-              <a href="#workspace" className="hover:text-[#211c25]">Workspace</a>
-              <a href="#capabilities" className="hover:text-[#211c25]">Capabilities</a>
-              <Link to="/pricing" className="hover:text-[#211c25]">Plans</Link>
-            </nav>
+      <section className="relative z-10 mx-auto max-w-[1240px] px-5 pb-28 pt-24 sm:px-8 sm:pt-32">
+        <div className="mx-auto max-w-[980px] text-center">
+          <p className="text-[10px] font-semibold uppercase tracking-[.3em] text-zinc-600">ZenixMind</p>
+          <h1 className="mt-6 text-[clamp(3.6rem,8vw,7.4rem)] font-semibold leading-[.9] tracking-[-.085em]">
+            <span className="block text-zinc-100">Think.</span><span className="block text-zinc-500">Create.</span><span className="block text-zinc-300">Talk.</span>
+          </h1>
+          <p className="mx-auto mt-7 max-w-[620px] text-sm leading-7 text-zinc-500 sm:text-[15px]">Your AI assistant for conversation, voice, visual creation, and the work you want to keep.</p>
+          <div className="mt-11"><LandingComposer /></div>
+          <p className="mt-4 text-[10px] text-zinc-700">Start with a question, an idea, a file, or a conversation.</p>
+        </div>
+      </section>
 
-            <div className="flex items-center gap-2">
-              <div className="hidden h-10 w-[190px] items-center gap-2 rounded-full border border-white/75 bg-white/45 px-3.5 text-[11px] text-[#8a818d] shadow-[0_8px_25px_rgba(65,44,83,.04)] sm:flex">
-                <Search size={14} />
-                Search
-              </div>
-              <button className="grid h-10 w-10 place-items-center rounded-full border border-white/70 bg-white/40 text-[#6e6572]" aria-label="Notifications">
-                <Bell size={15} />
-              </button>
-              <Link to="/login" className="hidden h-10 w-10 items-center justify-center rounded-full border border-white/75 bg-white/50 text-[11px] font-semibold text-[#4f4754] sm:flex">
-                ZM
-              </Link>
-              <button className="grid h-10 w-10 place-items-center rounded-full border border-white/70 bg-white/40 text-[#6e6572] lg:hidden" aria-label="Menu">
-                <Menu size={16} />
-              </button>
-            </div>
-          </header>
-
-          <div id="workspace" className="relative flex min-h-[calc(100vh-108px)] items-center justify-center px-5 py-16 sm:px-10 sm:py-20">
-            <div className="pointer-events-none absolute left-1/2 top-[36%] h-[22rem] w-[55rem] -translate-x-1/2 rounded-full bg-[#cba4e7]/35 blur-[90px]" />
-
-            <div className="relative w-full max-w-[940px] text-center">
-              <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white/50 shadow-[0_10px_30px_rgba(65,44,83,.08)]">
-                <BrandMark size={42} />
-              </div>
-
-              <h1 className="mt-5 text-[clamp(2.2rem,5vw,4rem)] font-semibold leading-none tracking-[-.07em] text-[#332a39]">
-                Hi, I&apos;m ZenixMind
-              </h1>
-              <p className="mt-3 text-[13px] text-[#8b818e] sm:text-[15px]">How can I help you today?</p>
-
-              <div className="mx-auto mt-9 w-full max-w-[820px] rounded-[24px] border border-white/90 bg-white/48 p-2 shadow-[0_24px_70px_rgba(69,48,88,.10)] backdrop-blur-xl">
-                <div className="min-h-[92px] px-4 py-4 text-left text-[12px] text-[#9b919e] sm:min-h-[112px] sm:px-5">
-                  Ask anything...
-                </div>
-                <div className="flex items-center justify-between gap-2 px-1 pb-1">
-                  <div className="flex items-center gap-1.5">
-                    <button className="grid h-9 w-9 place-items-center rounded-full text-[#766c7a] hover:bg-white/60" aria-label="Attach file">
-                      <Paperclip size={15} />
-                    </button>
-                    <button className="flex h-9 items-center gap-1.5 rounded-full border border-white/80 bg-white/35 px-3 text-[10px] font-medium text-[#756b79]">
-                      <Sparkles size={12} /> Deep research
-                    </button>
-                    <button className="flex h-9 items-center gap-1.5 rounded-full border border-white/80 bg-white/35 px-3 text-[10px] font-medium text-[#756b79]">
-                      <Search size={12} /> Search
-                    </button>
-                  </div>
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#9b59c7] text-white shadow-[0_8px_22px_rgba(120,67,158,.24)]">
-                    <ArrowUp size={15} />
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap justify-center gap-2">
-                {['Fast', 'In-depth', 'Creative', 'Research'].map(label => (
-                  <span key={label} className="rounded-full border border-white/85 bg-white/35 px-4 py-2 text-[10px] font-medium text-[#776d7b] backdrop-blur-xl">
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="absolute bottom-7 right-5 w-[255px] rounded-[22px] border border-white/90 bg-white/82 p-3.5 text-left shadow-[0_28px_70px_rgba(63,43,80,.18)] backdrop-blur-xl sm:bottom-10 sm:right-8 sm:w-[300px]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <BrandMark size={23} />
-                  <div>
-                    <p className="text-[10px] font-semibold text-[#332a38]">ZenixMind</p>
-                    <p className="text-[8px] text-[#958b99]">Your AI assistant</p>
-                  </div>
-                </div>
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-black text-white">
-                  <X size={12} />
-                </span>
-              </div>
-              <div className="mt-3 rounded-[14px] bg-[#f2ebf5] p-3">
-                <div className="flex items-center gap-2">
-                  <Bot size={13} className="text-[#85629b]" />
-                  <span className="text-[9px] font-semibold text-[#4d4452]">Ready when you are</span>
-                </div>
-                <p className="mt-1.5 text-[8px] leading-4 text-[#8a808e]">
-                  Start a conversation in your ZenixMind workspace.
-                </p>
-              </div>
-              <div className="mt-2 flex items-center gap-3 text-[8px] text-[#817685]">
-                <span className="inline-flex items-center gap-1"><MessageSquare size={10} /> Chat</span>
-                <span className="inline-flex items-center gap-1"><Mic size={10} /> Voice</span>
-              </div>
-            </div>
-
-            <span className="absolute bottom-8 left-7 hidden h-11 w-11 place-items-center rounded-full bg-black text-white shadow-xl sm:grid">
-              <Search size={15} />
-            </span>
+      <section className="relative z-10 border-t border-white/[.06]">
+        <div className="mx-auto max-w-[1240px] px-5 py-24 sm:px-8 sm:py-28">
+          <div className="max-w-2xl">
+            <p className="text-[10px] font-semibold uppercase tracking-[.26em] text-zinc-700">Workspace</p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-[-.055em] text-zinc-100 sm:text-5xl">Everything starts with the conversation.</h2>
+            <p className="mt-5 text-sm leading-7 text-zinc-500 sm:text-base">Move from a question to voice, visual creation, or saved work without turning the product into a complicated dashboard.</p>
+          </div>
+          <div className="mt-14 grid gap-px overflow-hidden rounded-[28px] border border-white/[.07] bg-white/[.07] md:grid-cols-2 lg:grid-cols-4">
+            {landingCapabilities.map(([Icon, title, body]) => {
+              const CapabilityIcon = Icon as React.ComponentType<{ size?: number; strokeWidth?: number }>;
+              return <div key={String(title)} className="bg-[#080808] p-6 sm:p-7">
+                <div className="grid h-10 w-10 place-items-center rounded-xl border border-white/[.07] bg-white/[.025] text-zinc-500"><CapabilityIcon size={17} strokeWidth={1.7} /></div>
+                <h3 className="mt-9 text-sm font-semibold text-zinc-200">{String(title)}</h3>
+                <p className="mt-2.5 text-[11px] leading-5 text-zinc-600">{String(body)}</p>
+              </div>;
+            })}
           </div>
         </div>
       </section>
 
-      <section id="capabilities" className="relative z-10 mx-auto max-w-[1370px] px-5 py-16 sm:px-8 lg:px-10">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#83778a]">ZenixMind workspace</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-.06em] text-[#2b2430] sm:text-5xl">Everything stays in one place.</h2>
-          <p className="mt-4 text-sm leading-6 text-[#7d7281]">A focused AI workspace for conversation and creation without unnecessary clutter.</p>
-        </div>
-        <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {features.map(({ title, text, icon: Icon }) => (
-            <div key={title} className="rounded-[24px] border border-white/80 bg-white/40 p-5 shadow-[0_16px_45px_rgba(71,49,91,.06)] backdrop-blur-xl">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/55 text-[#6e6077]">
-                <Icon size={17} />
-              </div>
-              <h3 className="mt-7 text-[14px] font-semibold text-[#2b2430]">{title}</h3>
-              <p className="mt-2 text-[11px] leading-5 text-[#7e7482]">{text}</p>
-            </div>
-          ))}
+      <section className="relative z-10 border-t border-white/[.06] bg-[#030303]">
+        <div className="mx-auto grid max-w-[1240px] gap-14 px-5 py-24 sm:px-8 sm:py-28 lg:grid-cols-[1fr_.8fr] lg:items-center">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[.26em] text-zinc-700">Private by design</p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-[-.055em] text-zinc-100 sm:text-5xl">Your workspace stays yours.</h2>
+            <p className="mt-5 max-w-xl text-sm leading-7 text-zinc-500">Your account is separated by real authentication. Private Chat gives you a separate session when you do not want a conversation added to normal saved chat history.</p>
+            <Link to="/signup" className="mt-8 inline-flex items-center gap-2 rounded-xl bg-zinc-100 px-4 py-2.5 text-xs font-semibold text-black hover:bg-white">Open ZenixMind<ArrowRight size={14} /></Link>
+          </div>
+          <div className="rounded-[28px] border border-white/[.07] bg-[#080808] p-7">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/[.07] bg-white/[.025]"><LockKeyhole size={19} className="text-zinc-500" /></div>
+            <p className="mt-8 text-sm font-semibold text-zinc-200">Private Chat</p>
+            <p className="mt-2 text-xs leading-6 text-zinc-600">Separate from your normal saved conversation history.</p>
+          </div>
         </div>
       </section>
 
-      <footer className="relative z-10 border-t border-white/70 bg-white/15">
-        <div className="mx-auto flex max-w-[1370px] flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
-          <div className="flex items-center gap-2.5">
-            <BrandMark size={28} />
-            <span className="text-xs font-semibold text-[#302936]">ZenixMind</span>
-          </div>
-          <div className="flex gap-5 text-[11px] text-[#7c7181]">
-            <Link to="/pricing">Plans</Link>
-            <Link to="/login">Sign in</Link>
-            <Link to="/signup">Get started</Link>
-          </div>
+      <footer className="relative z-10 border-t border-white/[.06]">
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-5 px-5 py-9 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <div className="flex items-center gap-2.5"><BrandMark size={27} /><span className="text-xs font-semibold">ZenixMind</span></div>
+          <div className="flex items-center gap-5 text-[11px] text-zinc-700"><Link to="/pricing" className="transition hover:text-zinc-300">Plans</Link><Link to="/login" className="transition hover:text-zinc-300">Sign in</Link><Link to="/signup" className="transition hover:text-zinc-300">Create account</Link></div>
         </div>
       </footer>
     </main>
