@@ -1204,7 +1204,8 @@ async function executeModelInference({
   history,
   preferences,
   webSearch = false,
-  deepThink = false
+  deepThink = false,
+  abortSignal
 }: {
   modelId: string;
   userMessage: string;
@@ -1212,6 +1213,7 @@ async function executeModelInference({
   preferences: any;
   webSearch?: boolean;
   deepThink?: boolean;
+  abortSignal?: AbortSignal;
 }): Promise<{
   text: string;
   modelUsed: string;
@@ -1284,6 +1286,7 @@ async function executeModelInference({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${process.env.GROK_API_KEY}`
         },
+        signal: abortSignal,
         body: JSON.stringify({
           model: targetModel,
           messages: [
@@ -1327,6 +1330,7 @@ async function executeModelInference({
           'x-api-key': process.env.ANTHROPIC_API_KEY,
           'anthropic-version': '2023-06-01'
         },
+        signal: abortSignal,
         body: JSON.stringify({
           model: targetModel.includes('3.7') ? 'claude-3-7-sonnet-20250219' : 'claude-3-5-sonnet-20241022',
           max_tokens: 4096,
@@ -1373,6 +1377,7 @@ async function executeModelInference({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${genericApiKey}`
         },
+        signal: abortSignal,
         body: JSON.stringify({
           model: chosenModel,
           messages: [
@@ -1430,6 +1435,206 @@ async function executeModelInference({
 // =========================================================================
 // CORE USER-FACING API ROUTES
 // =========================================================================
+
+// POST /api/chat/stream — streamed assistant lifecycle with real cancellation
+app.post('/api/chat/stream', async (req, res) => {
+  const controller = new AbortController();
+  let disconnected = false;
+
+  req.on('close', () => {
+    disconnected = true;
+    controller.abort();
+  });
+
+  res.status(200);
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders?.();
+
+  const send = (payload: any) => {
+    if (!disconnected && !res.writableEnded) {
+      res.write(`data: ${JSON.stringify(payload)}\\n\\n`);
+    }
+  };
+
+  try {
+    const {
+      messages: incomingMessages = [],
+      conversationId,
+      privateChat = false,
+      model = aiControlState.defaultModel || 'gemini-2.5-flash',
+      preferences = {},
+      webSearch = false,
+      deepThink = false
+    } = req.body;
+
+    const userMessage = [...incomingMessages].reverse().find((m: any) => m.role === 'user' && m.content?.trim());
+    if (!userMessage) {
+      send({ type: 'error', error: 'A message is required.' });
+      return res.end();
+    }
+
+    send({ type: 'status', status: webSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking' });
+
+    // Private Chat never creates or updates persistent conversation/message records.
+    let convId = privateChat ? null : conversationId;
+    let existingConv = privateChat ? null : conversations.find((c) => c.id === convId);
+
+    if (!privateChat && !existingConv) {
+      convId = 'conv_' + Math.random().toString(36).substring(2, 9);
+      existingConv = {
+        id: convId,
+        title: userMessage.content.trim().slice(0, 60) || 'New conversation',
+        model: model || 'gemini-2.5-flash',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        user_email: (req.headers['x-owner-email'] as string) || 'anonymous',
+        message_count: 0,
+        tokens_used: 0
+      };
+      conversations.unshift(existingConv);
+    }
+
+    if (!privateChat) {
+      messages.push({
+        id: 'msg_' + Math.random().toString(36).substring(2, 9),
+        conversation_id: convId!,
+        role: 'user',
+        content: userMessage.content.trim(),
+        created_at: new Date().toISOString()
+      });
+    }
+
+    const convHistory = privateChat
+      ? incomingMessages.slice(0, -1).slice(-10)
+      : messages.filter((m) => m.conversation_id === convId).slice(0, -1).slice(-10);
+
+    const targetModel = model || aiControlState.defaultModel || 'gemini-2.5-flash';
+    const sources = webSearch ? await executeWebSearch(userMessage.content.trim()) : undefined;
+
+    if (disconnected) return res.end();
+
+    const systemInstructions = [
+      'You are ZenixMind, an elite AI assistant powering a premium intelligent workspace.',
+      `You are running with ${targetModel} reasoning capabilities.`,
+      webSearch ? 'WEB SEARCH MODE: Enabled. Incorporate current factual information and clearly identify sources.' : '',
+      deepThink ? 'DEEP REASONING MODE: Enabled. Think rigorously and verify important assumptions before answering.' : '',
+      'Do not expose private chain-of-thought. Give concise conclusions and useful explanations.',
+      'Format output with high readability, clean markdown, code blocks with syntax languages, and structured lists when helpful.',
+      preferences?.personality ? `Personality: ${preferences.personality}.` : 'Personality: Balanced and clear.',
+      preferences?.responseLength ? `Depth: ${preferences.responseLength}.` : '',
+      preferences?.customInstructions ? `User Custom Instructions: ${preferences.customInstructions}` : ''
+    ].filter(Boolean).join('\\n');
+
+    const promptHistory = convHistory
+      .map((m: any) => `${m.role === 'user' ? 'User' : 'ZenixMind'}: ${m.content}`)
+      .join('\\n\\n');
+    const fullPrompt = `${systemInstructions}\\n\\nChat History:\\n${promptHistory}\\n\\nUser: ${userMessage.content.trim()}\\n\\nZenixMind:`;
+
+    const gemini = getGeminiClient();
+    let fullText = '';
+    const startTime = Date.now();
+
+    send({ type: 'meta', conversationId: convId, modelUsed: targetModel, sources });
+
+    if (targetModel.startsWith('gemini') && gemini) {
+      const geminiModel = targetModel.includes('pro') ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+      const stream = await gemini.models.generateContentStream({
+        model: geminiModel,
+        contents: fullPrompt
+      });
+
+      send({ type: 'status', status: 'writing' });
+
+      for await (const chunk of stream) {
+        if (disconnected) break;
+        const text = chunk.text || '';
+        if (!text) continue;
+        fullText += text;
+        send({ type: 'delta', text });
+      }
+    } else {
+      const inferenceResult = await executeModelInference({
+        modelId: targetModel,
+        userMessage: userMessage.content.trim(),
+        history: convHistory as ChatMessage[],
+        preferences,
+        webSearch,
+        deepThink,
+        abortSignal: controller.signal
+      });
+
+      if (disconnected) return res.end();
+
+      fullText = inferenceResult.text || '';
+      send({ type: 'status', status: 'writing' });
+
+      // Preserve streaming UX for providers that return a complete response.
+      for (let i = 0; i < fullText.length; i += 18) {
+        if (disconnected) break;
+        send({ type: 'delta', text: fullText.slice(i, i + 18) });
+      }
+    }
+
+    if (disconnected || controller.signal.aborted) return res.end();
+    if (!fullText.trim()) {
+      send({ type: 'error', error: 'The AI returned an empty response.' });
+      return res.end();
+    }
+
+    const latencyMs = Date.now() - startTime;
+    const estimatedInputTokens = Math.max(1, Math.round((systemInstructions.length + userMessage.content.length) / 4));
+    const estimatedOutputTokens = Math.max(1, Math.round(fullText.length / 4));
+    const modelUsed = targetModel.startsWith('gemini')
+      ? (targetModel.includes('pro') ? 'gemini-2.5-pro' : 'gemini-2.5-flash')
+      : targetModel;
+
+    if (!privateChat) {
+      messages.push({
+        id: 'msg_' + Math.random().toString(36).substring(2, 9),
+        conversation_id: convId!,
+        role: 'assistant',
+        model_used: modelUsed,
+        sources,
+        content: fullText,
+        created_at: new Date().toISOString()
+      });
+
+      if (existingConv) {
+        existingConv.message_count = (existingConv.message_count || 0) + 2;
+        existingConv.tokens_used = (existingConv.tokens_used || 0) + estimatedInputTokens + estimatedOutputTokens;
+        existingConv.updated_at = new Date().toISOString();
+      }
+    }
+
+    telemetry.totalRequests += 1;
+    telemetry.successfulRequests += 1;
+    telemetry.totalLatencyMs += latencyMs;
+    telemetry.inputTokens += estimatedInputTokens;
+    telemetry.outputTokens += estimatedOutputTokens;
+
+    send({
+      type: 'done',
+      text: fullText,
+      modelUsed,
+      sources,
+      latencyMs,
+      inputTokens: estimatedInputTokens,
+      outputTokens: estimatedOutputTokens,
+      privateChat
+    });
+    return res.end();
+  } catch (err: any) {
+    if (controller.signal.aborted || disconnected || err?.name === 'AbortError') {
+      return res.end();
+    }
+    console.error('Chat stream error:', err);
+    send({ type: 'error', error: err?.message || 'Failed to process chat message.' });
+    return res.end();
+  }
+});
 
 // GET /api/models
 app.get('/api/models', (_req, res) => {

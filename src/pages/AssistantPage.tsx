@@ -313,6 +313,7 @@ interface CompactFloatingComposerProps {
   value: string;
   setValue: (v: string) => void;
   onSend: () => void;
+  onStop: () => void;
   onOpenVoice: () => void;
   busy: boolean;
   selectedModel: string;
@@ -345,6 +346,7 @@ const CompactFloatingComposer = React.forwardRef<
     value,
     setValue,
     onSend,
+    onStop,
     onOpenVoice,
     busy,
     selectedModel,
@@ -582,12 +584,22 @@ const CompactFloatingComposer = React.forwardRef<
                 - User types text: `↑ Send` in white pill -> sends prompt
                 - Text cleared: returns to `|||| Speak`
             */}
-            {hasText ? (
+            {busy ? (
               <button
                 type="button"
-                disabled={busy}
+                onClick={onStop}
+                className="flex h-9 items-center gap-1.5 rounded-full border border-white/[.12] bg-[#242428] hover:bg-[#2d2d32] text-zinc-100 px-4 text-xs sm:text-sm font-medium shadow-sm transition-all"
+                title="Stop generating"
+                aria-label="Stop generating"
+              >
+                <span className="h-2.5 w-2.5 rounded-[3px] bg-zinc-100" />
+                <span>Stop</span>
+              </button>
+            ) : hasText ? (
+              <button
+                type="button"
                 onClick={onSend}
-                className="flex h-9 items-center gap-1.5 rounded-full bg-white hover:bg-zinc-200 text-black px-4 text-xs sm:text-sm font-semibold shadow-sm transition-all disabled:opacity-30"
+                className="flex h-9 items-center gap-1.5 rounded-full bg-white hover:bg-zinc-200 text-black px-4 text-xs sm:text-sm font-semibold shadow-sm transition-all"
                 title="Send message (Enter)"
               >
                 <ArrowUp size={16} strokeWidth={2.5} />
@@ -1520,6 +1532,7 @@ export function AssistantPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const generationControllerRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
 
@@ -1698,6 +1711,10 @@ export function AssistantPage() {
     );
   };
 
+  const stopGeneration = () => {
+    generationControllerRef.current?.abort();
+  };
+
   const handleSend = async (overridePrompt?: string) => {
     const text = overridePrompt || input.trim();
     if (!text || busy || isStreaming) return;
@@ -1731,8 +1748,12 @@ export function AssistantPage() {
       }
     ]);
 
+    const controller = new AbortController();
+    generationControllerRef.current = controller;
+
     try {
       const response = await fetch('/api/chat/stream', {
+        signal: controller.signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1857,22 +1878,47 @@ export function AssistantPage() {
       if (!privateChat) loadConversations();
       setTimeout(() => scrollToBottom('smooth'), 30);
     } catch (err: any) {
+      const cancelled = err?.name === 'AbortError' || controller.signal.aborted;
       setBusy(false);
       setIsStreaming(false);
       setThinkingStatus(null);
-      setMessages((curr) => {
-        const updated = [...curr];
-        const existing = updated[assistantMsgIndex];
-        if (existing) {
-          updated[assistantMsgIndex] = {
-            ...existing,
-            content: err.message || 'Unable to connect to AI engine.',
-            isStreaming: false
-          };
-        }
-        return updated;
-      });
+
+      if (cancelled) {
+        setMessages((curr) => {
+          const updated = [...curr];
+          const existing = updated[assistantMsgIndex];
+          if (existing) {
+            if (existing.content.trim()) {
+              updated[assistantMsgIndex] = {
+                ...existing,
+                isStreaming: false
+              };
+            } else {
+              updated.splice(assistantMsgIndex, 1);
+            }
+          }
+          return updated;
+        });
+      } else {
+        setMessages((curr) => {
+          const updated = [...curr];
+          const existing = updated[assistantMsgIndex];
+          if (existing) {
+            updated[assistantMsgIndex] = {
+              ...existing,
+              content: err.message || 'Unable to connect to AI engine.',
+              isStreaming: false
+            };
+          }
+          return updated;
+        });
+      }
+
       setTimeout(() => scrollToBottom('smooth'), 30);
+    } finally {
+      if (generationControllerRef.current === controller) {
+        generationControllerRef.current = null;
+      }
     }
   };
 
@@ -2076,6 +2122,7 @@ export function AssistantPage() {
                   value={input}
                   setValue={setInput}
                   onSend={() => handleSend()}
+                  onStop={stopGeneration}
                   onOpenVoice={() => navigate('/assistant/voice')}
                   busy={busy || isStreaming}
                   selectedModel={selectedModel}
