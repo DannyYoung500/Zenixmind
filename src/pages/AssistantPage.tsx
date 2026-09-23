@@ -1764,10 +1764,10 @@ export function AssistantPage() {
           webSearch,
           deepThink,
           preferences: {
-            memory: localStorage.getItem('zenixmind-memory') !== 'off',
-            personality: localStorage.getItem('zenixmind-personality') || 'Balanced',
-            responseLength: localStorage.getItem('zenixmind-response-length') || 'Adaptive',
-            customInstructions: localStorage.getItem('zenixmind-custom-instructions') || ''
+            memory: privateChat ? false : localStorage.getItem('zenixmind-memory') !== 'off',
+            personality: privateChat ? 'Balanced' : localStorage.getItem('zenixmind-personality') || 'Balanced',
+            responseLength: privateChat ? 'Adaptive' : localStorage.getItem('zenixmind-response-length') || 'Adaptive',
+            customInstructions: privateChat ? '' : localStorage.getItem('zenixmind-custom-instructions') || ''
           }
         })
       });

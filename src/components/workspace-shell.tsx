@@ -16,7 +16,7 @@ import {
   MoreHorizontal,
   X,
   Menu,
-  Mic,
+  VenetianMask,
   Shield,
   CreditCard,
   LogOut,
@@ -544,7 +544,7 @@ export function WorkspaceShell({
                     onClick={() => setShowProfileMenu(false)}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-zinc-300 hover:bg-[#1c1c1f]"
                   >
-                    <Mic size={14} className="text-amber-400" />
+                    <VenetianMask size={14} className="text-amber-400" />
                     <span>Voice Assistant</span>
                   </Link>
 
@@ -632,13 +632,7 @@ export function WorkspaceShell({
                 title={privateChat ? 'Private chat is on — messages are not saved to chat history' : 'Start a private chat'}
                 aria-label={privateChat ? 'Private chat is on' : 'Start a private chat'}
               >
-                <span className="relative block h-5 w-6" aria-hidden="true">
-                  <span className="absolute left-[18%] top-0 h-[34%] w-[64%] rounded-t-full rounded-b-sm bg-current" />
-                  <span className="absolute left-0 top-[30%] h-[12%] w-full rounded-sm bg-current" />
-                  <span className="absolute left-[5%] top-[49%] h-[48%] w-[40%] rounded-full border-[3px] border-current" />
-                  <span className="absolute right-[5%] top-[49%] h-[48%] w-[40%] rounded-full border-[3px] border-current" />
-                  <span className="absolute left-[43%] top-[61%] h-[7%] w-[14%] rounded-full bg-current" />
-                </span>
+                <VenetianMask size={18} strokeWidth={1.8} />
               </button>
             </div>
           </header>
