@@ -1,27 +1,8 @@
 import React from 'react';
-import { ArrowRight, Plus, Paperclip, Mic, Zap, ChevronDown, Image as ImageIcon, MessageSquare, AudioLines, FolderOpen, LockKeyhole, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { BrandMark } from '../components/brand-mark';
 import { useAuth } from '../lib/auth-context';
-import {
-  Bell,
-  Bot,
-  FolderOpen,
-  Image as ImageIcon,
-  Menu,
-  MessageSquare,
-  Mic,
-  Paperclip,
-  Search,
-  Sparkles,
-  X
-} from 'lucide-react';
-
-const features = [
-  { title: 'Chat', text: 'Reason, write, research, code and plan.', icon: MessageSquare },
-  { title: 'Voice', text: 'Talk naturally with your assistant.', icon: Mic },
-  { title: 'Images', text: 'Create visual work in one workspace.', icon: ImageIcon },
-  { title: 'Library', text: 'Keep your work organized and accessible.', icon: FolderOpen }
-];
+import { ArrowRight, Plus, Paperclip, Mic, Zap, ChevronDown, Image as ImageIcon, MessageSquare, AudioLines, FolderOpen, LockKeyhole } from 'lucide-react';
 
 function LandingComposer() {
   return (
