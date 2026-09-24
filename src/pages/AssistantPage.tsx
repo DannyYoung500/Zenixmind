@@ -2087,9 +2087,7 @@ export function AssistantPage() {
                   <h1 className="max-w-xl text-2xl sm:text-3xl font-light tracking-[-.03em] text-zinc-100 min-h-[42px]">
                     {emptyGreeting || " "}
                   </h1>
-                </div>              ) : (
-                <div className="flex h-full flex-col items-center justify-center px-4 text-center max-w-2xl mx-auto py-8"><div className="mb-6 grid h-14 w-14 place-items-center rounded-2xl border border-white/[.08] bg-[#0c0c0e] shadow-xl"><BrandMark size={32} /></div><h1 className="max-w-xl text-2xl sm:text-3xl font-light tracking-[-.03em] text-zinc-100 min-h-[42px]">{emptyGreeting || " "}</h1></div>
-                )
+                </div>
               ) : (
                 <div ref={messagesContainerRef} className="mx-auto max-w-3xl space-y-6">
                   {messages.map((m, idx) => (
