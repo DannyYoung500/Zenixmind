@@ -192,14 +192,20 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed bottom-[132px] left-1/2 z-[70] -translate-x-1/2 sm:bottom-[148px]"
+      className="pointer-events-none fixed bottom-[128px] left-1/2 z-[70] -translate-x-1/2 sm:bottom-[144px]"
     >
-      <VoiceSunOrb
-        state={state === 'muted' ? 'listening' : state}
-        audioLevel={state === 'listening' ? 0.32 : state === 'speaking' ? 0.68 : state === 'thinking' ? 0.18 : 0.08}
-        size={128}
-        className="[filter:hue-rotate(165deg)_saturate(1.35)_brightness(1.08)]"
-      />
+      <div className="relative grid h-[158px] w-[158px] place-items-center">
+        <div className="absolute inset-[7px] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,.20),rgba(139,92,246,.10)_42%,transparent_70%)] blur-xl" />
+        <div className="absolute inset-[8px] rounded-full border border-cyan-300/15 [box-shadow:0_0_35px_rgba(59,130,246,.16),inset_0_0_28px_rgba(139,92,246,.10)]" />
+        <div className="absolute inset-[2px] rounded-full border border-transparent bg-[conic-gradient(from_180deg,rgba(6,182,212,.55),rgba(139,92,246,.42),rgba(59,130,246,.08),rgba(6,182,212,.55))] [mask:linear-gradient(#000_0_0)_content-box,linear-gradient(#000_0_0)] [mask-composite:exclude] opacity-80 animate-[spin_9s_linear_infinite]" />
+        <div className="absolute inset-[18px] rounded-full bg-blue-500/10 blur-2xl animate-pulse" />
+        <VoiceSunOrb
+          state={state === 'muted' ? 'listening' : state}
+          audioLevel={state === 'listening' ? 0.38 : state === 'speaking' ? 0.78 : state === 'thinking' ? 0.22 : 0.08}
+          size={126}
+          className="[filter:hue-rotate(168deg)_saturate(1.55)_brightness(1.12)_drop-shadow(0_0_22px_rgba(59,130,246,.28))]"
+        />
+      </div>
     </div>
   );
 }

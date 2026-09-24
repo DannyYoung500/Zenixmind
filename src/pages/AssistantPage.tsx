@@ -325,6 +325,8 @@ interface CompactFloatingComposerProps {
   onSend: () => void;
   onStop: () => void;
   onOpenVoice: () => void;
+  onCloseVoice?: () => void;
+  voiceOpen?: boolean;
   busy: boolean;
   selectedModel: string;
   onSelectModel: (modelId: string) => void;
@@ -358,6 +360,8 @@ export const CompactFloatingComposer = React.forwardRef<
     onSend,
     onStop,
     onOpenVoice,
+    onCloseVoice,
+    voiceOpen = false,
     busy,
     selectedModel,
     onSelectModel,
@@ -615,15 +619,25 @@ export const CompactFloatingComposer = React.forwardRef<
                 <ArrowUp size={16} strokeWidth={2.5} />
                 <span>Send</span>
               </button>
+            ) : voiceOpen ? (
+              <button
+                type="button"
+                onClick={onCloseVoice}
+                className="grid h-9 w-9 place-items-center rounded-full border border-white/[.1] bg-[#29292e] text-zinc-100 shadow-sm transition-all hover:bg-[#3a3a40] hover:text-white"
+                title="Cancel voice"
+                aria-label="Cancel voice"
+              >
+                <X size={17} strokeWidth={2.2} />
+              </button>
             ) : (
               <button
                 type="button"
                 onClick={onOpenVoice}
                 className="flex h-9 items-center gap-2 rounded-full bg-[#e4e4e7] hover:bg-white text-black px-4 text-xs sm:text-sm font-semibold shadow-sm transition-all"
                 title="Speak with ZenixMind Voice"
+                aria-label="Speak with ZenixMind Voice"
               >
-                {/* 4 audio waveform bars exactly matching the screenshot */}
-                <div className="flex items-center gap-[2.5px] h-3.5">
+                <div className="flex items-center gap-[2.5px] h-3.5" aria-hidden="true">
                   <span className="w-[2px] h-2 bg-black rounded-full" />
                   <span className="w-[2px] h-3.5 bg-black rounded-full" />
                   <span className="w-[2px] h-2.5 bg-black rounded-full" />
@@ -2168,6 +2182,8 @@ export function AssistantPage() {
                   onSend={() => handleSend()}
                   onStop={stopGeneration}
                   onOpenVoice={() => setVoiceTalkOpen(true)}
+                  onCloseVoice={() => setVoiceTalkOpen(false)}
+                  voiceOpen={voiceTalkOpen}
                   busy={busy || isStreaming}
                   selectedModel={selectedModel}
                   onSelectModel={handleModelChange}
