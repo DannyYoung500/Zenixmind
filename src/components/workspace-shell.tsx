@@ -84,7 +84,6 @@ export function WorkspaceShell({
   });
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
-  const [showPluginsModal, setShowPluginsModal] = useState(false);
   const [showAllChatsModal, setShowAllChatsModal] = useState(false);
   const [activeMenuChatId, setActiveMenuChatId] = useState<string | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -676,42 +675,6 @@ export function WorkspaceShell({
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Plugins Modal */}
-      {showPluginsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-white/[.1] bg-[#0e0e11] p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-white/[.06]">
-              <div className="flex items-center gap-2">
-                <LayoutGrid size={18} className="text-cyan-400" />
-                <h3 className="text-sm font-semibold text-white">ZenixMind Plugins & Capabilities</h3>
-              </div>
-              <button onClick={() => setShowPluginsModal(false)} className="text-zinc-400 hover:text-white">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="mt-4 space-y-3">
-              {[
-                { name: 'Live Web Search', desc: 'Real-time grounded internet search with citations', active: true },
-                { name: 'Deep Reasoning Engine', desc: 'Extended multi-step chain-of-thought analysis', active: true },
-                { name: 'Code Interpreter & Syntax', desc: 'Syntax highlighted code execution & LaTeX', active: true },
-                { name: 'Voice & Speech Synthesizer', desc: 'Low-latency natural conversational speech orb', active: true },
-                { name: 'Imagine Studio', desc: 'Concept visualizer and image generation', active: true }
-              ].map((plugin) => (
-                <div key={plugin.name} className="flex items-center justify-between p-3 rounded-xl border border-white/[.05] bg-[#141417]">
-                  <div>
-                    <div className="text-xs font-medium text-zinc-200">{plugin.name}</div>
-                    <div className="text-[11px] text-zinc-500">{plugin.desc}</div>
-                  </div>
-                  <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                    Active
-                  </span>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       )}
