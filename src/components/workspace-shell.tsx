@@ -25,8 +25,7 @@ import {
   FolderPlus,
   Shield,
   VenetianMask,
-  Blocks
-} from 'lucide-react';
+ } from 'lucide-react';
 
 export interface Conversation {
   id: string;
@@ -325,21 +324,13 @@ export function WorkspaceShell({
                 icon: FolderClosed,
                 badge: null
               },
-              ...(isOwner ? [{
-                id: 'plugins',
-                label: 'Plugins',
-                to: '/owner',
-                icon: Blocks,
-                badge: null
-              }] : [])
-            ].map((item) => {
+             ].map((item) => {
               const IconComp = item.icon;
               const isItemActive =
                 (item.id === 'chat' && location.pathname === '/assistant' && !location.search.includes('view=')) ||
                 (item.id === 'images' && location.search.includes('view=images')) ||
                 (item.id === 'library' && location.search.includes('view=library')) ||
-                (item.id === 'automations' && location.search.includes('view=automations')) ||
-                (item.id === 'plugins' && location.pathname === '/owner');
+                (item.id === 'automations' && location.search.includes('view=automations')) ;
 
               return (
                 <Link

@@ -126,7 +126,7 @@ const MENU_ITEMS: MenuItem[] = [
   { id: 'security', label: 'Security & Access', group: 'Trust & Operations', icon: Shield },
   { id: 'audit-log', label: 'Audit Log', group: 'Trust & Operations', icon: FileText },
   { id: 'health', label: 'System Health', group: 'Trust & Operations', icon: Activity },
-  { id: 'integrations', label: 'Integrations', group: 'Operations', icon: Blocks },
+  { id: 'integrations', label: 'Plugins', group: 'Operations', icon: Blocks },
   { id: 'env-config', label: 'Environment', group: 'Operations', icon: Terminal },
   { id: 'database', label: 'Database', group: 'Operations', icon: Database },
   { id: 'deployments', label: 'Deployments', group: 'Operations', icon: Rocket },
@@ -243,7 +243,7 @@ export function OwnerPage() {
   const [pluginsList, setPluginsList] = useState<any[]>([]);
   const [pluginSearchTerm, setPluginSearchTerm] = useState('');
   const [pluginCategoryFilter, setPluginCategoryFilter] = useState('ALL');
-  const [pluginActiveTab, setPluginActiveTab] = useState<'installed' | 'online'>('installed');
+  const [pluginActiveTab, setPluginActiveTab] = useState<'installed' | 'online'>('online');
   const [onlinePluginsList, setOnlinePluginsList] = useState<any[]>([]);
   const [searchingOnlinePlugins, setSearchingOnlinePlugins] = useState(false);
   const [togglingPluginId, setTogglingPluginId] = useState<string | null>(null);
@@ -4394,7 +4394,7 @@ export function OwnerPage() {
           )}
 
           {/* =========================================================================
-              SECTION 18: INTEGRATIONS & PLUGINS (WITH ONLINE SEARCH & DISCOVERY)
+              SECTION 18: PLUGINS MARKETPLACE & INTEGRATIONS
              ========================================================================= */}
           {activeSection === 'integrations' && (
             <div className="space-y-6 max-w-6xl mx-auto">
@@ -4402,17 +4402,17 @@ export function OwnerPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-base font-semibold text-white">Platform Integrations & Plugin Ecosystem</h2>
+                    <h2 className="text-base font-semibold text-white">Plugins & Integrations</h2>
                     <span className="rounded-full bg-amber-400/10 border border-amber-400/20 px-2.5 py-0.5 text-[10px] font-mono text-amber-300">
                       {pluginsList.filter(p => p.status === 'installed').length} Plugins Active
                     </span>
                   </div>
                   <p className="text-xs text-zinc-400 font-light mt-0.5">
-                    Connect infrastructure providers and search online to improve platform plugins, grounding tools, and developer extensions.
+                    Manage installed plugins and discover new plugins, MCP servers, integrations, and developer tools from live public sources.
                   </p>
                 </div>
 
-                {/* Sub-tabs: Platform Integrations vs Installed Plugins vs Search Online Marketplace */}
+                {/* Plugin workspace: installed plugins and live online marketplace */}
                 <div className="flex items-center bg-[#0c0c10] border border-white/[.08] p-1 rounded-2xl gap-1 text-xs">
                   <button
                     onClick={() => setPluginActiveTab('installed')}
@@ -4447,7 +4447,7 @@ export function OwnerPage() {
                     }`}
                   >
                     <Globe size={13} />
-                    <span>Search Online</span>
+                    <span>Search marketplace</span>
                   </button>
                 </div>
               </div>
@@ -4455,7 +4455,7 @@ export function OwnerPage() {
               {/* Verified Backend Service Connectors */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-400">Core Infrastructure Providers</h3>
+                  <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-400">Connected services</h3>
                   <span className="text-[11px] text-zinc-500 font-mono">
                     {integrationsList.filter(i => i.status === 'Connected').length} / {integrationsList.length} Connected
                   </span>
@@ -4565,7 +4565,7 @@ export function OwnerPage() {
                   <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 border-t border-white/[.04]">
                     <span className="flex items-center gap-1.5">
                       <Globe size={12} className="text-amber-400" />
-                      <span>Live sources: GitHub + npm</span>
+                      <span>Live marketplace sources: GitHub + npm</span>
                     </span>
                     <span className="text-zinc-500 font-mono">Source-backed discovery</span>
                   </div>
