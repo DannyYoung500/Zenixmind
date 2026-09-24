@@ -3018,6 +3018,7 @@ app.get('/api/admin/plugins/search-online', requireOwner, async (req, res) => {
       verified: false,
       capabilities: Array.isArray(repo.topics) ? repo.topics.slice(0, 6) : [],
       onlineRepositoryUrl: repo.html_url,
+      logoUrl: repo.owner?.avatar_url || `https://github.com/${encodeURIComponent(repo.owner?.login || '')}.png?size=96`,
       source: 'GitHub',
       sourceUrl: repo.html_url,
       updatedAt: repo.updated_at || null
@@ -3042,6 +3043,7 @@ app.get('/api/admin/plugins/search-online', requireOwner, async (req, res) => {
         verified: false,
         capabilities: Array.isArray(pkg.keywords) ? pkg.keywords.slice(0, 6) : [],
         onlineRepositoryUrl: links.repository || links.homepage || links.npm || `https://www.npmjs.com/package/${encodeURIComponent(pkg.name || '')}`,
+        logoUrl: `https://www.google.com/s2/favicons?domain=npmjs.com&sz=96`,
         source: 'npm',
         sourceUrl: links.repository || links.homepage || `https://www.npmjs.com/package/${encodeURIComponent(pkg.name || '')}`,
         updatedAt: pkg.date || null
