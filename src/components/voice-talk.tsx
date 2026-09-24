@@ -95,6 +95,19 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
   }, [open, muted, handleFinal, startRecognition]);
 
   useEffect(() => {
+    if (!open) return;
+    listeningRef.current = true;
+    setActive(true);
+    setMuted(false);
+    setReply('');
+    setHeard('');
+    setState('listening');
+    setStatus('Listening…');
+    const timer = window.setTimeout(() => startRecognition(), 120);
+    return () => window.clearTimeout(timer);
+  }, [open, startRecognition]);
+
+  useEffect(() => {
     if (open && active && !muted && !busy) startRecognition();
   }, [open, active, muted, busy, startRecognition]);
 
