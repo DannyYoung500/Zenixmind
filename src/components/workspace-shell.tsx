@@ -21,10 +21,11 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeft,
-  LayoutGrid,
   Trash2,
   Edit2,
-  FolderPlus
+  FolderPlus,
+  Shield,
+  VenetianMask
 } from 'lucide-react';
 
 export interface Conversation {
@@ -475,21 +476,8 @@ export function WorkspaceShell({
             </>
           )}
 
-          {/* Bottom Area: Plugins + User Profile */}
+          {/* Bottom Area: User Profile */}
           <div className="border-t border-white/[.06] pt-2 mt-auto space-y-1">
-            {/* Plugins Item */}
-            <button
-              type="button"
-              onClick={() => setShowPluginsModal(true)}
-              className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs text-zinc-400 hover:bg-[#141416] hover:text-zinc-200 transition-colors ${
-                sidebarCollapsed ? 'justify-center px-1.5' : ''
-              }`}
-              title="Plugins & Extensions"
-            >
-              <LayoutGrid size={15} className="text-zinc-400 shrink-0" />
-              {!sidebarCollapsed && <span>Plugins</span>}
-            </button>
-
             {/* User Profile Item */}
             <div className="relative">
               <button
