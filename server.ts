@@ -1116,13 +1116,26 @@ app.post('/api/chat/stream', async (req, res) => {
       model = aiControlState.defaultModel || 'gemini-2.5-flash',
       preferences = {},
       webSearch = false,
-      deepThink = false
+      deepThink = false,
+      attachment = null
     } = req.body;
 
     const userMessage = [...incomingMessages].reverse().find((m: any) => m.role === 'user' && m.content?.trim());
     if (!userMessage) {
       send({ type: 'error', error: 'A message is required.' });
       return res.end();
+    }
+
+    const safeAttachment = attachment && typeof attachment === 'object'
+      ? {
+          name: typeof attachment.name === 'string' ? attachment.name.slice(0, 160) : 'attachment',
+          mimeType: typeof attachment.mimeType === 'string' ? attachment.mimeType.slice(0, 120) : 'application/octet-stream',
+          data: typeof attachment.data === 'string' ? attachment.data.slice(0, 14_000_000) : '',
+          text: typeof attachment.text === 'string' ? attachment.text.slice(0, 200_000) : ''
+        }
+      : null;
+    if (safeAttachment?.data && !safeAttachment.data.startsWith('data:')) {
+      safeAttachment.data = '';
     }
 
     send({ type: 'status', status: webSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking' });
@@ -1200,7 +1213,10 @@ app.post('/api/chat/stream', async (req, res) => {
     const promptHistory = convHistory
       .map((m: any) => `${m.role === 'user' ? 'User' : 'ZenixMind'}: ${m.content}`)
       .join('\\n\\n');
-    const fullPrompt = `${systemInstructions}\\n\\nChat History:\\n${promptHistory}\\n\\nUser: ${userMessage.content.trim()}\\n\\nZenixMind:`;
+    const attachmentText = safeAttachment?.text
+      ? `\\n\\nAttached file content (${safeAttachment.name}):\\n${safeAttachment.text}`
+      : '';
+    const fullPrompt = `${systemInstructions}\\n\\nChat History:\\n${promptHistory}\\n\\nUser: ${userMessage.content.trim()}${attachmentText}\\n\\nZenixMind:`;
 
     const gemini = getGeminiClient();
     let fullText = '';
@@ -1210,9 +1226,24 @@ app.post('/api/chat/stream', async (req, res) => {
 
     if (targetModel.startsWith('gemini') && gemini) {
       const geminiModel = targetModel.includes('pro') ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+      const geminiContents: any = safeAttachment?.data && /^(image\\/|application\\/pdf$)/i.test(safeAttachment.mimeType)
+        ? [{
+            role: 'user',
+            parts: [
+              { text: fullPrompt },
+              {
+                inlineData: {
+                  mimeType: safeAttachment.mimeType,
+                  data: safeAttachment.data.replace(/^data:[^;]+;base64,/, '')
+                }
+              }
+            ]
+          }]
+        : fullPrompt;
+
       const stream = await gemini.models.generateContentStream({
         model: geminiModel,
-        contents: fullPrompt,
+        contents: geminiContents,
         ...(webSearch ? { config: { tools: [{ googleSearch: {} }] } } : {})
       });
 
@@ -1322,7 +1353,8 @@ app.post('/api/chat', async (req, res) => {
       model = aiControlState.defaultModel || 'gemini-2.5-flash',
       preferences = {},
       webSearch = false,
-      deepThink = false
+      deepThink = false,
+      attachment = null
     } = req.body;
 
     const userMessage = [...incomingMessages].reverse().find((m: any) => m.role === 'user' && m.content?.trim());
@@ -1338,6 +1370,16 @@ app.post('/api/chat', async (req, res) => {
       if (error) throw error;
       existingConv = data;
     }
+
+    const safeAttachment = attachment && typeof attachment === 'object'
+      ? {
+          name: typeof attachment.name === 'string' ? attachment.name.slice(0, 160) : 'attachment',
+          mimeType: typeof attachment.mimeType === 'string' ? attachment.mimeType.slice(0, 120) : 'application/octet-stream',
+          data: typeof attachment.data === 'string' ? attachment.data.slice(0, 14_000_000) : '',
+          text: typeof attachment.text === 'string' ? attachment.text.slice(0, 200_000) : ''
+        }
+      : null;
+    if (safeAttachment?.data && !safeAttachment.data.startsWith('data:')) safeAttachment.data = '';
 
     if (!existingConv) {
       const { data, error } = await supabase.from('conversations')
