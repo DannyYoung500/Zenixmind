@@ -94,6 +94,7 @@ export function WorkspaceShell({
   const location = useLocation();
 
   const userEmail = user?.email || 'dannyyoungofficial1@gmail.com';
+  const userAvatar = user?.avatarUrl || '';
   const userName = user?.name || 'Danny Young';
   const isOwner = user?.isOwner || isOwnerEmail(userEmail);
 
@@ -499,13 +500,17 @@ export function WorkspaceShell({
                   sidebarCollapsed ? 'justify-center px-1' : ''
                 }`}
               >
-                {/* Styled mask avatar matching the screenshot */}
-                <div className="grid h-7 w-7 place-items-center rounded-full bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30 font-semibold text-xs shrink-0">
-                  {initials}
+                <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30">
+                  {userAvatar ? (
+                    <img src={userAvatar} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center font-semibold text-xs">{initials}</div>
+                  )}
                 </div>
                 {!sidebarCollapsed && (
-                  <div className="min-w-0 flex-1 truncate text-xs font-medium text-zinc-200">
-                    {userName}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-medium text-zinc-100">{userName}</div>
+                    <div className="truncate text-[10px] text-zinc-500">{userEmail}</div>
                   </div>
                 )}
               </button>
@@ -513,8 +518,12 @@ export function WorkspaceShell({
               {/* Profile Dropdown Menu */}
               {showProfileMenu && (
                 <div className="absolute bottom-full left-0 right-0 mb-2 rounded-2xl border border-white/[.08] bg-[#121214] p-1.5 shadow-2xl z-50">
-                  <div className="px-3 py-2 border-b border-white/[.05] mb-1">
-                    <div className="text-xs font-medium text-white truncate">{userName}</div>
+                  <div className="flex items-center gap-2.5 px-3 py-2 border-b border-white/[.05] mb-1">
+                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30">
+                      {userAvatar ? <img src={userAvatar} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" /> : <div className="grid h-full w-full place-items-center text-xs font-semibold">{initials}</div>}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium text-white truncate">{userName}</div>
                     <div className="text-[10px] text-zinc-500 truncate">{userEmail}</div>
                   </div>
 

@@ -243,7 +243,7 @@ export function OwnerPage() {
   const [pluginsList, setPluginsList] = useState<any[]>([]);
   const [pluginSearchTerm, setPluginSearchTerm] = useState('');
   const [pluginCategoryFilter, setPluginCategoryFilter] = useState('ALL');
-  const [pluginActiveTab, setPluginActiveTab] = useState<'installed' | 'online'>('installed');
+  const [pluginActiveTab, setPluginActiveTab] = useState<'installed' | 'online'>('online');
   const [onlinePluginsList, setOnlinePluginsList] = useState<any[]>([]);
   const [searchingOnlinePlugins, setSearchingOnlinePlugins] = useState(false);
   const [togglingPluginId, setTogglingPluginId] = useState<string | null>(null);
@@ -4412,7 +4412,7 @@ export function OwnerPage() {
                   </p>
                 </div>
 
-                {/* Sub-tabs: Platform Integrations vs Installed Plugins vs Search Online Marketplace */}
+                {/* Sub-tabs: Platform Integrations vs Installed Plugins vs Online Plugin Marketplace */}
                 <div className="flex items-center bg-[#0c0c10] border border-white/[.08] p-1 rounded-2xl gap-1 text-xs">
                   <button
                     onClick={() => setPluginActiveTab('installed')}
@@ -4502,7 +4502,7 @@ export function OwnerPage() {
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                     <input
                       type="text"
-                      placeholder={pluginActiveTab === 'online' ? "Search plugins, MCP servers, integrations, or tools online..." : "Filter installed plugins by name or capability..."}
+                      placeholder={pluginActiveTab === 'online' ? "Search the live internet for plugins, MCP servers, integrations, and tools..." : "Filter installed plugins by name or capability..."}
                       value={pluginSearchTerm}
                       onChange={(e) => setPluginSearchTerm(e.target.value)}
                       onKeyDown={async (e) => {
@@ -4565,9 +4565,9 @@ export function OwnerPage() {
                   <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 border-t border-white/[.04]">
                     <span className="flex items-center gap-1.5">
                       <Globe size={12} className="text-amber-400" />
-                      <span>Live sources: GitHub + npm</span>
+                      <span>Live sources: GitHub repositories + npm packages</span>
                     </span>
-                    <span className="text-zinc-500 font-mono">Source-backed discovery</span>
+                    <span className="text-zinc-500 font-mono">Real online discovery • source-backed</span>
                   </div>
                 )}
               </div>
@@ -4576,7 +4576,7 @@ export function OwnerPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-400">
-                    {pluginActiveTab === 'online' ? 'Online Community Plugins & Enhancements' : 'Installed Modular Plugins'}
+                    {pluginActiveTab === 'online' ? 'Online Plugin Marketplace' : 'Installed Modular Plugins'}
                   </h3>
                   <span className="text-[11px] text-zinc-500 font-mono">
                     {pluginActiveTab === 'online' ? `${onlinePluginsList.length} Found Online` : `${pluginsList.length} Total`}

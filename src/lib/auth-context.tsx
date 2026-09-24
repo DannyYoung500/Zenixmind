@@ -6,6 +6,7 @@ export interface User {
   id: string;
   email: string;
   name?: string;
+  avatarUrl?: string;
   isOwner?: boolean;
 }
 
@@ -25,6 +26,7 @@ function mapSupabaseUser(sbUser: any): User {
     id: sbUser.id,
     email: sbUser.email || '',
     name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
+    avatarUrl: sbUser.user_metadata?.avatar_url || sbUser.user_metadata?.picture || sbUser.user_metadata?.photo_url || '',
     isOwner: isOwnerEmail(sbUser.email)
   };
 }
