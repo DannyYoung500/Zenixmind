@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getSupabase } from '../lib/supabase';
 import { ArrowLeft, MessageSquare, Mic, MicOff, X, Sparkles, Sliders, Volume2, Check } from 'lucide-react';
 import { VoiceSunOrb, VoiceState } from '../components/voice-sun-orb';
 
@@ -24,7 +25,7 @@ export function VoicePage() {
   const [voiceState, setVoiceState] = useState<VoiceState>('listening');
   const [isMuted, setIsMuted] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [assistantResponse, setAssistantResponse] = useState("Hey, what can I do for you today?");
+  const [assistantResponse, setAssistantResponse] = useState("");
   const [audioLevel, setAudioLevel] = useState(0.2);
   const [selectedPersona, setSelectedPersona] = useState<VoicePersona>(VOICE_PERSONAS[0]);
   const [showSettings, setShowSettings] = useState(false);
@@ -74,13 +75,26 @@ export function VoicePage() {
     setTranscript(text);
 
     try {
+      const { data: { session } } = await getSupabase().auth.getSession();
+      if (!session?.access_token) {
+        setVoiceState('listening');
+        setAssistantResponse('Please sign in again so I can continue the voice conversation.');
+        return;
+      }
+
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           messages: [{ role: 'user', content: text }],
           model: 'gemini-2.5-flash',
-          preferences: { responseLength: 'Brief spoken conversational reply' }
+          preferences: {
+            voiceMode: true,
+            responseLength: 'Brief spoken conversational reply'
+          }
         })
       });
 
