@@ -1,95 +1,189 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSupabase } from '../lib/supabase';
-import { ArrowLeft, MessageSquare, Mic, MicOff, X, Sparkles, Sliders, Volume2, Check } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Mic, MicOff, X, Sparkles, Sliders, Volume2 } from 'lucide-react';
 import { VoiceSunOrb, VoiceState } from '../components/voice-sun-orb';
 
-export interface VoicePersona {
+type VoicePersona = {
   id: string;
   name: string;
   description: string;
   pitch: number;
   rate: number;
-  accent: string;
-}
+};
 
-const VOICE_PERSONAS: VoicePersona[] = [
-  { id: 'nova', name: 'Nova (Warm & Friendly)', description: 'Balanced, conversational, and welcoming.', pitch: 1.1, rate: 1.05, accent: 'from-amber-400 to-orange-500' },
-  { id: 'aria', name: 'Aria (Professional & Crisp)', description: 'Articulate, clear, and executive tone.', pitch: 1.2, rate: 1.0, accent: 'from-blue-400 to-indigo-500' },
-  { id: 'echo', name: 'Echo (Deep & Authoritative)', description: 'Resonant, grounded, and deep presence.', pitch: 0.8, rate: 0.95, accent: 'from-purple-400 to-pink-500' },
-  { id: 'sol', name: 'Sol (Energetic & Bright)', description: 'High-energy, expressive, and dynamic.', pitch: 1.3, rate: 1.15, accent: 'from-yellow-300 to-amber-500' }
+const PERSONAS: VoicePersona[] = [
+  { id: 'nova', name: 'Nova', description: 'Warm, natural and conversational.', pitch: 1.05, rate: 1.02 },
+  { id: 'aria', name: 'Aria', description: 'Clear, calm and articulate.', pitch: 1.12, rate: 0.98 },
+  { id: 'echo', name: 'Echo', description: 'Deeper, slower and grounded.', pitch: 0.88, rate: 0.94 },
+  { id: 'sol', name: 'Sol', description: 'Bright, expressive and energetic.', pitch: 1.18, rate: 1.08 }
 ];
 
 export function VoicePage() {
   const navigate = useNavigate();
-  const [voiceState, setVoiceState] = useState<VoiceState>('listening');
-  const [isMuted, setIsMuted] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [assistantResponse, setAssistantResponse] = useState("");
-  const [audioLevel, setAudioLevel] = useState(0.2);
-  const [selectedPersona, setSelectedPersona] = useState<VoicePersona>(VOICE_PERSONAS[0]);
-  const [showSettings, setShowSettings] = useState(false);
-  
+  const [state, setState] = useState<VoiceState>('muted');
+  const [active, setActive] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [supported, setSupported] = useState(true);
+  const [status, setStatus] = useState('Tap the microphone to talk');
+  const [heard, setHeard] = useState('');
+  const [reply, setReply] = useState('');
+  const [error, setError] = useState('');
+  const [level, setLevel] = useState(0);
+  const [persona, setPersona] = useState(PERSONAS[0]);
+  const [settings, setSettings] = useState(false);
+
   const recognitionRef = useRef<any>(null);
-  const synthRef = useRef<SpeechSynthesis | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const listeningRef = useRef(false);
+  const processingRef = useRef(false);
+  const speakingRef = useRef(false);
+  const lastFinalRef = useRef('');
 
-  // Handle Speech Synthesis & Voice Persona
-  const speakResponse = useCallback((text: string) => {
-    if (!('speechSynthesis' in window)) return;
-    synthRef.current = window.speechSynthesis;
-    synthRef.current.cancel();
+  const stopMeter = useCallback(() => {
+    if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    setLevel(0);
+  }, []);
 
-    const cleanText = text.replace(/[*#_`~]/g, '');
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = selectedPersona.rate;
-    utterance.pitch = selectedPersona.pitch;
+  const stopAudio = useCallback(() => {
+    stopMeter();
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close(); } catch {}
+    }
+    audioContextRef.current = null;
+    analyserRef.current = null;
+  }, [stopMeter]);
 
-    // Try to pick a suitable voice based on browser voices
-    const voices = synthRef.current.getVoices();
-    if (voices && voices.length > 0) {
-      const englishVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Daniel')));
-      if (englishVoice) {
-        utterance.voice = englishVoice;
-      }
+  const startMeter = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const Ctor = window.AudioContext || (window as any).webkitAudioContext;
+      if (!Ctor) return;
+      const ctx = new Ctor();
+      audioContextRef.current = ctx;
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      analyserRef.current = analyser;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteTimeDomainData(data);
+        let sum = 0;
+        for (const v of data) {
+          const n = (v - 128) / 128;
+          sum += n * n;
+        }
+        setLevel(Math.min(1, Math.sqrt(sum / data.length) * 4.5));
+        frameRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch {
+      // Speech recognition may still work without the visual meter.
+    }
+  }, []);
+
+  const stopRecognition = useCallback(() => {
+    try { recognitionRef.current?.stop(); } catch {}
+  }, []);
+
+  const startRecognition = useCallback(() => {
+    if (!listeningRef.current || muted || processingRef.current || speakingRef.current) return;
+    try {
+      recognitionRef.current?.start();
+      setState('listening');
+      setStatus('Listening…');
+      setError('');
+    } catch {
+      // Already running.
+    }
+  }, [muted]);
+
+  const speak = useCallback((text: string) => {
+    const clean = text
+      .replace(/[*#_\`~]/g, '')
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!clean || !('speechSynthesis' in window)) {
+      speakingRef.current = false;
+      processingRef.current = false;
+      startRecognition();
+      return;
     }
 
-    utterance.onboundary = () => {
-      setAudioLevel(0.4 + Math.random() * 0.5);
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.rate = persona.rate;
+    utterance.pitch = persona.pitch;
+    utterance.volume = 1;
+
+    const voices = synth.getVoices();
+    const voice = voices.find(v => /^en[-_]/i.test(v.lang) && /natural|neural|google|microsoft|siri|daniel/i.test(v.name))
+      || voices.find(v => /^en[-_]/i.test(v.lang));
+    if (voice) utterance.voice = voice;
+
+    utterance.onstart = () => {
+      speakingRef.current = true;
+      processingRef.current = false;
+      setState('speaking');
+      setStatus('ZenixMind is speaking');
     };
     utterance.onend = () => {
-      setVoiceState('listening');
-      setAudioLevel(0.2);
+      speakingRef.current = false;
+      processingRef.current = false;
+      if (listeningRef.current && !muted) {
+        setState('listening');
+        setStatus('Listening…');
+        window.setTimeout(startRecognition, 250);
+      }
     };
     utterance.onerror = () => {
-      setVoiceState('listening');
-      setAudioLevel(0.2);
+      speakingRef.current = false;
+      processingRef.current = false;
+      if (listeningRef.current && !muted) window.setTimeout(startRecognition, 250);
     };
 
-    setVoiceState('speaking');
-    synthRef.current.speak(utterance);
-  }, [selectedPersona]);
+    speakingRef.current = true;
+    setState('speaking');
+    synth.speak(utterance);
+  }, [muted, persona, startRecognition]);
 
-  const handleVoiceInput = useCallback(async (text: string) => {
-    if (!text.trim()) return;
-    setVoiceState('thinking');
-    setTranscript(text);
+  const sendToAI = useCallback(async (text: string) => {
+    const clean = text.trim();
+    if (!clean || processingRef.current) return;
+
+    processingRef.current = true;
+    stopRecognition();
+    setHeard(clean);
+    setReply('');
+    setState('thinking');
+    setStatus('Thinking…');
+    setError('');
 
     try {
       const { data: { session } } = await getSupabase().auth.getSession();
-      if (!session?.access_token) {
-        setVoiceState('listening');
-        setAssistantResponse('Please sign in again so I can continue the voice conversation.');
-        return;
-      }
+      if (!session?.access_token) throw new Error('Your session expired. Please sign in again.');
 
-      const res = await fetch('/api/chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
-          messages: [{ role: 'user', content: text }],
+          messages: [{ role: 'user', content: clean }],
           model: 'gemini-2.5-flash',
           preferences: {
             voiceMode: true,
@@ -98,280 +192,196 @@ export function VoicePage() {
         })
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const reply = data.message || "I'm here to assist you.";
-        setAssistantResponse(reply);
-        speakResponse(reply);
-      } else {
-        setVoiceState('listening');
-        setAssistantResponse("I couldn't reach the AI assistant. Please try again.");
-      }
-    } catch (err) {
-      console.warn('Voice chat error:', err);
-      setVoiceState('listening');
-      setAssistantResponse('Network or server error encountered.');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || 'I could not reach ZenixMind.');
+
+      const answer = String(data?.message || '').trim();
+      setReply(answer);
+      speak(answer);
+    } catch (err: any) {
+      processingRef.current = false;
+      setState('error');
+      setStatus('Something went wrong');
+      setError(err?.message || 'Voice chat could not connect.');
+      if (listeningRef.current && !muted) window.setTimeout(startRecognition, 900);
     }
-  }, [speakResponse]);
+  }, [muted, speak, startRecognition, stopRecognition]);
+
+  const begin = useCallback(async () => {
+    if (!supported) return;
+    setActive(true);
+    setMuted(false);
+    listeningRef.current = true;
+    setError('');
+    await startMeter();
+    startRecognition();
+  }, [supported, startMeter, startRecognition]);
+
+  const end = useCallback(() => {
+    listeningRef.current = false;
+    processingRef.current = false;
+    speakingRef.current = false;
+    stopRecognition();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    stopAudio();
+    setActive(false);
+    setMuted(false);
+    setState('muted');
+    setStatus('Tap the microphone to talk');
+  }, [stopAudio, stopRecognition]);
+
+  const toggle = useCallback(() => {
+    if (!active) {
+      begin();
+      return;
+    }
+    if (muted) {
+      setMuted(false);
+      listeningRef.current = true;
+      startRecognition();
+      return;
+    }
+    setMuted(true);
+    stopRecognition();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    speakingRef.current = false;
+    setState('muted');
+    setStatus('Microphone muted');
+  }, [active, begin, muted, startRecognition, stopRecognition]);
 
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      try {
-        const recog = new SpeechRecognition();
-        recog.continuous = true;
-        recog.interimResults = true;
-        recog.lang = 'en-US';
-
-        recog.onresult = (event: any) => {
-          if (isMuted) return;
-          const current = event.resultIndex;
-          const text = event.results[current][0].transcript;
-          setTranscript(text);
-          setAudioLevel(0.3 + Math.random() * 0.4);
-          if (event.results[current].isFinal) {
-            handleVoiceInput(text);
-          }
-        };
-
-        recog.onerror = (e: any) => {
-          console.warn('Speech recognition error:', e);
-        };
-
-        recognitionRef.current = recog;
-        if (!isMuted) {
-          recog.start();
-        }
-      } catch (err) {
-        console.warn('Speech recognition setup error:', err);
-      }
+    const Ctor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!Ctor) {
+      setSupported(false);
+      setStatus('Voice input is not supported in this browser');
+      return;
     }
 
-    const interval = setInterval(() => {
-      if (voiceState === 'listening' && !isMuted) {
-        setAudioLevel(0.15 + Math.sin(Date.now() / 300) * 0.1);
-      }
-    }, 150);
+    const recognition = new Ctor();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.lang = navigator.language?.startsWith('en') ? navigator.language : 'en-US';
 
-    return () => {
-      clearInterval(interval);
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch {}
+    recognition.onresult = (event: any) => {
+      let text = '';
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        text += event.results[i][0].transcript;
       }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+      const value = text.trim();
+      if (value) setHeard(value);
+
+      const last = event.results[event.results.length - 1];
+      if (last?.isFinal) {
+        const finalText = value || last[0].transcript.trim();
+        if (finalText && finalText !== lastFinalRef.current) {
+          lastFinalRef.current = finalText;
+          sendToAI(finalText);
+        }
       }
     };
-  }, [isMuted, handleVoiceInput, voiceState]);
 
-  const toggleMute = () => {
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    if (newMuted) {
-      setVoiceState('muted');
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch {}
+    recognition.onend = () => {
+      if (listeningRef.current && !muted && !processingRef.current && !speakingRef.current) {
+        window.setTimeout(startRecognition, 180);
       }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+    };
+
+    recognition.onerror = (event: any) => {
+      if (event?.error === 'not-allowed' || event?.error === 'service-not-allowed') {
+        listeningRef.current = false;
+        setError('Microphone permission is blocked. Allow microphone access and try again.');
+        setState('error');
+        setStatus('Microphone permission needed');
       }
-    } else {
-      setVoiceState('listening');
-      if (recognitionRef.current) {
-        try { recognitionRef.current.start(); } catch {}
-      }
-    }
-  };
+    };
+
+    recognitionRef.current = recognition;
+    return () => {
+      listeningRef.current = false;
+      try { recognition.stop(); } catch {}
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      stopAudio();
+    };
+  }, [muted, sendToAI, startRecognition, stopAudio]);
 
   return (
-    <div 
-      className="relative flex h-screen w-full flex-col justify-between overflow-hidden bg-black text-white select-none font-sans"
-      role="region"
-      aria-label="Voice Assistant Live Session"
-    >
-      {/* Background Ambient Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-amber-500/10 rounded-full blur-[160px] pointer-events-none" />
+    <div className="relative flex min-h-screen w-full flex-col overflow-hidden bg-black text-white select-none">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/[0.07] blur-[150px]" />
+      </div>
 
-      {/* Top Header Bar with ARIA labels */}
-      <header className="relative z-10 flex items-center justify-between px-6 pt-6 pb-2">
-        <button
-          onClick={() => navigate('/assistant')}
-          className="w-11 h-11 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/[0.12] flex items-center justify-center text-zinc-200 transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-400"
-          aria-label="Return to text chat assistant"
-          title="Back to Chat"
-        >
-          <ArrowLeft size={18} aria-hidden="true" />
+      <header className="relative z-10 flex items-center justify-between px-5 pt-5 sm:px-7">
+        <button onClick={() => navigate('/assistant')} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-zinc-200 hover:bg-white/10" aria-label="Return to text chat">
+          <ArrowLeft size={18} />
         </button>
-
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm font-semibold text-zinc-200 tracking-tight">Voice Assistant • {selectedPersona.name.split(' ')[0]}</h1>
-          <span className="sr-only" aria-live="polite">Current state: {voiceState}</span>
+        <div className="text-center">
+          <div className="text-sm font-semibold text-zinc-100">ZenixMind Voice</div>
+          <div className="mt-0.5 text-[10px] uppercase tracking-[0.22em] text-zinc-500">{persona.name} · {active ? 'Live' : 'Ready'}</div>
         </div>
-
-        <button
-          onClick={() => setShowSettings(!showSettings)}
-          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-400 ${
-            showSettings 
-              ? 'bg-amber-400 text-black border-amber-400' 
-              : 'bg-white/[0.08] hover:bg-white/[0.15] border-white/[0.12] text-zinc-200'
-          }`}
-          aria-label="Open AI voice persona and configuration settings"
-          aria-expanded={showSettings}
-          title="Voice Settings & Personas"
-        >
-          <Sliders size={18} aria-hidden="true" />
+        <button onClick={() => setSettings(true)} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-zinc-200 hover:bg-white/10" aria-label="Voice settings">
+          <Sliders size={18} />
         </button>
       </header>
 
-      {/* Main Center Stage: Voice Sun Orb & Conversational Output */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center -mt-6">
-        <div className="my-2 cursor-pointer transition-transform hover:scale-105" onClick={toggleMute} title="Click to mute/unmute">
-          <VoiceSunOrb 
-            state={voiceState} 
-            audioLevel={audioLevel} 
-            size={280} 
-          />
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-5 pb-5 text-center">
+        <button onClick={toggle} className="rounded-full focus:outline-none focus:ring-2 focus:ring-amber-400/70" aria-label={active && !muted ? 'Mute microphone' : 'Start voice conversation'}>
+          <VoiceSunOrb state={state} audioLevel={level} size={280} />
+        </button>
+
+        <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-xs text-zinc-300">
+          <span className={`h-2 w-2 rounded-full ${state === 'error' ? 'bg-red-400' : state === 'speaking' ? 'bg-amber-300' : active ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'}`} />
+          {status}
         </div>
 
-        {/* Status Pill */}
-        <div 
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.1] shadow-lg text-xs font-medium text-amber-300 mt-5 backdrop-blur-md"
-          role="status"
-          aria-live="polite"
-        >
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />
-          <span>
-            {voiceState === 'listening' && (isMuted ? 'Microphone muted' : 'Listening for your voice...')}
-            {voiceState === 'thinking' && 'Analyzing request...'}
-            {voiceState === 'speaking' && `Speaking (${selectedPersona.name.split(' ')[0]})...`}
-            {voiceState === 'muted' && 'Paused / Muted'}
-          </span>
+        <div className="mt-5 min-h-[112px] w-full max-w-xl px-4">
+          {reply ? <p className="text-lg font-medium leading-snug text-zinc-100 sm:text-xl">“{reply}”</p> :
+            heard ? <p className="text-sm leading-relaxed text-zinc-400">“{heard}”</p> :
+            <p className="text-sm leading-relaxed text-zinc-600">{active ? 'I’m listening.' : 'Talk naturally with ZenixMind. It listens, thinks, answers, then listens again.'}</p>}
+          {error && <p className="mt-3 text-xs text-red-300">{error}</p>}
         </div>
 
-        {/* Assistant Spoken / Text Response */}
-        <div className="mt-4 max-w-md px-4 min-h-[70px]">
-          <p 
-            className="text-lg sm:text-xl font-medium text-zinc-100 tracking-tight leading-snug"
-            aria-live="polite"
-          >
-            "{assistantResponse}"
-          </p>
-          {transcript && (
-            <p className="mt-2 text-xs text-amber-400/80 font-mono italic">
-              Heard: "{transcript}"
-            </p>
-          )}
-        </div>
+        {!active && supported && (
+          <button onClick={begin} className="mt-2 inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 text-sm font-semibold text-black hover:bg-amber-300">
+            <Mic size={17} /> Start talking
+          </button>
+        )}
       </main>
 
-      {/* Voice Configuration & Personas Modal Overlay */}
-      {showSettings && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-3xl border border-white/[0.12] bg-[#121216] p-6 text-left shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400">
-                  <Sparkles size={18} />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-white tracking-tight">AI Voice Personas</h2>
-                  <p className="text-[11px] text-zinc-400">Customize tone, pitch, and voice characteristics</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center text-zinc-300 transition-colors"
-                aria-label="Close voice settings"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="space-y-2.5 my-4">
-              {VOICE_PERSONAS.map((persona) => {
-                const isSelected = selectedPersona.id === persona.id;
-                return (
-                  <button
-                    key={persona.id}
-                    onClick={() => {
-                      setSelectedPersona(persona);
-                      speakResponse(`Switched to ${persona.name.split(' ')[0]} persona.`);
-                    }}
-                    className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all text-left ${
-                      isSelected
-                        ? 'border-amber-400/50 bg-amber-400/10 text-white shadow-md'
-                        : 'border-white/[0.08] bg-[#18181c] text-zinc-300 hover:bg-[#202025] hover:border-white/[0.15]'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-zinc-100">{persona.name}</span>
-                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
-                      </div>
-                      <div className="text-[11px] text-zinc-400 mt-0.5">{persona.description}</div>
-                    </div>
-                    {isSelected && (
-                      <div className="w-6 h-6 rounded-full bg-amber-400 text-black flex items-center justify-center">
-                        <Check size={14} strokeWidth={3} />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between">
-              <span className="text-[11px] text-zinc-500 font-mono">Pitch: {selectedPersona.pitch} | Rate: {selectedPersona.rate}</span>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="rounded-xl bg-amber-400 px-4 py-2 text-xs font-semibold text-black hover:bg-amber-300 transition-colors"
-              >
-                Apply & Resume
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom Controls Bar with full ARIA accessibility */}
-      <footer className="relative z-10 pb-10 px-8 flex items-center justify-center gap-6 max-w-md mx-auto w-full">
-        <button
-          onClick={() => navigate('/assistant')}
-          className="w-14 h-14 rounded-full bg-white/[0.08] hover:bg-white/[0.16] border border-white/[0.12] flex items-center justify-center text-zinc-200 transition-all active:scale-95 shadow-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
-          aria-label="Open text chat interface"
-          title="Open Text Chat"
-        >
-          <MessageSquare size={22} aria-hidden="true" />
+      <footer className="relative z-10 flex items-center justify-center gap-5 px-6 pb-7">
+        <button onClick={() => navigate('/assistant')} className="grid h-14 w-14 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-zinc-200 hover:bg-white/10" aria-label="Open text chat">
+          <MessageSquare size={21} />
         </button>
-
-        <button
-          onClick={toggleMute}
-          className={`w-20 h-20 rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-95 focus:outline-none focus:ring-4 focus:ring-amber-400 ${
-            isMuted 
-              ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' 
-              : 'bg-amber-400 text-black hover:bg-amber-300'
-          }`}
-          aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
-          aria-pressed={isMuted}
-          title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
-        >
-          {isMuted ? <MicOff size={30} aria-hidden="true" /> : <Mic size={30} aria-hidden="true" />}
+        <button onClick={active ? toggle : begin} disabled={!supported} className={`grid h-[76px] w-[76px] place-items-center rounded-full transition active:scale-95 disabled:opacity-40 ${active && !muted ? 'bg-amber-400 text-black' : 'border border-white/10 bg-white/[0.08] text-zinc-200'}`} aria-label={active && !muted ? 'Mute microphone' : 'Start voice conversation'}>
+          {active && !muted ? <Mic size={29} /> : <MicOff size={27} />}
         </button>
-
-        <button
-          onClick={() => navigate('/assistant')}
-          className="w-14 h-14 rounded-full bg-white/[0.08] hover:bg-white/[0.16] border border-white/[0.12] flex items-center justify-center text-zinc-200 transition-all active:scale-95 shadow-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
-          aria-label="Close voice assistant and return to dashboard"
-          title="Close Voice Assistant"
-        >
-          <X size={22} aria-hidden="true" />
+        <button onClick={active ? end : () => navigate('/assistant')} className="grid h-14 w-14 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-zinc-200 hover:bg-white/10" aria-label={active ? 'End voice conversation' : 'Close voice assistant'}>
+          <X size={21} />
         </button>
       </footer>
 
-      {/* Bottom Home Indicator */}
-      <div className="relative z-10 pb-2 flex justify-center">
-        <span className="w-32 h-1 rounded-full bg-zinc-700/50" aria-hidden="true" />
-      </div>
+      {settings && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#101012] p-5 shadow-2xl">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-2xl border border-amber-400/20 bg-amber-400/10 text-amber-300"><Sparkles size={18} /></div>
+                <div><h2 className="text-sm font-semibold text-white">Voice style</h2><p className="mt-1 text-[11px] text-zinc-500">Choose how ZenixMind sounds in this browser.</p></div>
+              </div>
+              <button onClick={() => setSettings(false)} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 hover:bg-white/10 hover:text-white" aria-label="Close settings"><X size={16} /></button>
+            </div>
+            <div className="mt-5 space-y-2">
+              {PERSONAS.map(p => (
+                <button key={p.id} onClick={() => { setPersona(p); if ('speechSynthesis' in window && active) speak(`Voice style changed to ${p.name}.`); }} className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left ${persona.id === p.id ? 'border-amber-400/40 bg-amber-400/10' : 'border-white/[0.07] bg-white/[0.02] hover:bg-white/[0.05]'}`}>
+                  <div><div className="text-xs font-semibold text-zinc-100">{p.name}</div><div className="mt-1 text-[11px] text-zinc-500">{p.description}</div></div>
+                  {persona.id === p.id && <Volume2 size={16} className="text-amber-300" />}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end"><button onClick={() => setSettings(false)} className="rounded-xl bg-amber-400 px-4 py-2 text-xs font-semibold text-black hover:bg-amber-300">Done</button></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
