@@ -41,7 +41,7 @@ export function VoiceSunOrb({
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       aria-label={onClick ? 'ZenixMind voice ' + visualState : undefined}
-      className={'relative inline-flex items-center justify-center select-none ' + (onClick ? 'cursor-pointer' : 'pointer-events-none') + ' ' + className}
+      className={'relative inline-flex items-center justify-center select-none voice-orb-aurora ' + (onClick ? 'cursor-pointer' : 'pointer-events-none') + ' ' + className}
       style={{ width: size, height: size }}
     >
       <div
@@ -132,4 +132,3 @@ export function VoiceSunOrb({
     </div>
   );
 }
-
