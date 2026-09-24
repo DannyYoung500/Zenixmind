@@ -124,26 +124,23 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
   };
 
   if (!open) return null;
+
   return (
-    <div className="absolute inset-0 z-[80] flex items-end justify-center bg-black/45 backdrop-blur-[2px]">
-      <div className="w-full border-t border-white/[.08] bg-[#08080a]/95 px-4 pb-5 pt-3 shadow-[0_-20px_70px_rgba(0,0,0,.65)] backdrop-blur-xl sm:rounded-t-[28px] sm:px-6 sm:pb-6">
-        <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <div><div className="text-sm font-medium text-zinc-100">Voice Talk</div><div className="mt-0.5 text-[11px] text-zinc-500">{status}</div></div>
-          <button onClick={close} className="grid h-9 w-9 place-items-center rounded-full bg-white/[.06] text-zinc-400 hover:text-white" aria-label="Close Voice Talk"><X size={16}/></button>
-        </div>
-        <div className="mx-auto mt-1 flex max-w-3xl flex-col items-center">
-          <button onClick={toggle} className="rounded-full focus:outline-none focus:ring-2 focus:ring-amber-400/70" aria-label="Toggle Voice Talk">
-            <VoiceSunOrb state={state} audioLevel={state === 'listening' ? 0.35 : state === 'speaking' ? 0.7 : 0.12} size={150}/>
-          </button>
-          <div className="min-h-[58px] w-full max-w-xl text-center">
-            {reply ? <p className="text-sm leading-relaxed text-zinc-100">“{reply}”</p> : heard ? <p className="text-sm leading-relaxed text-zinc-400">“{heard}”</p> : <p className="text-xs text-zinc-600">Talk naturally. ZenixMind will answer and keep listening.</p>}
-          </div>
-          <div className="mt-1 flex items-center gap-3">
-            <button onClick={toggle} className={`grid h-12 w-12 place-items-center rounded-full border ${active && !muted ? 'border-amber-400/40 bg-amber-400 text-black' : 'border-white/10 bg-white/[.06] text-zinc-300'}`} aria-label={active && !muted ? 'Mute' : 'Start'}>{active && !muted ? <Mic size={20}/> : <MicOff size={20}/>}</button>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/[.07] bg-white/[.03] px-3 py-2 text-[10px] uppercase tracking-[.16em] text-zinc-500"><Volume2 size={13}/>{state === 'speaking' ? 'Speaking' : state === 'thinking' ? 'Thinking' : state === 'muted' ? 'Paused' : 'Listening'}</div>
-            <button onClick={close} className="grid h-12 w-12 place-items-center rounded-full border border-white/10 bg-white/[.06] text-zinc-300 hover:text-white" aria-label="End Voice Talk"><X size={20}/></button>
-          </div>
-        </div>
+    <div
+      className="absolute inset-0 z-[80] flex items-center justify-center bg-black/35 backdrop-blur-[1px]"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) close();
+      }}
+    >
+      <div className="flex flex-col items-center justify-center px-6 py-8">
+        <button
+          onClick={toggle}
+          className="grid h-20 w-20 place-items-center rounded-full bg-white text-black shadow-[0_0_45px_rgba(255,255,255,.12)] transition-transform hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-white/60"
+          aria-label="Tap the microphone to talk"
+        >
+          <Mic size={30} strokeWidth={2.2} />
+        </button>
+        <p className="mt-5 text-sm font-medium text-white">Tap the microphone to talk</p>
       </div>
     </div>
   );
