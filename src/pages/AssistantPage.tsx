@@ -1730,13 +1730,52 @@ export function AssistantPage() {
     generationControllerRef.current?.abort();
   };
 
+  const prepareAttachment = async (file: File) => {
+    const maxBytes = 8 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      throw new Error('That file is larger than 8 MB. Please choose a smaller file.');
+    }
+
+    const textLike = file.type.startsWith('text/') ||
+      /^(application\\/(json|csv)|text\\/(csv|markdown)|application\\/javascript)$/i.test(file.type) ||
+      /\\.(txt|md|markdown|csv|json|ts|tsx|js|jsx|py|html|css|xml|yaml|yml)$/i.test(file.name);
+
+    if (textLike) {
+      const text = await file.text();
+      return {
+        name: file.name,
+        mimeType: file.type || 'text/plain',
+        text: text.slice(0, 200000)
+      };
+    }
+
+    if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+      const data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Unable to read that file.'));
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.readAsDataURL(file);
+      });
+      return { name: file.name, mimeType: file.type, data };
+    }
+
+    throw new Error('ZenixMind currently supports text files, PDFs, and images in the chat composer.');
+  };
+
   const handleSend = async (overridePrompt?: string) => {
     const text = overridePrompt || input.trim();
     if (!text || busy || isStreaming) return;
 
     let fullPrompt = text;
+    let attachmentPayload: any = null;
     if (attachedFile) {
-      fullPrompt = `[Attached file: ${attachedFile.name}]\\n\\n${text}`;
+      try {
+        attachmentPayload = await prepareAttachment(attachedFile);
+        fullPrompt = `[Attached file: ${attachedFile.name}]\\n\\n${text}`;
+      } catch (error: any) {
+        window.alert(error?.message || 'Unable to read that attachment.');
+        return;
+      }
     }
 
     const nextMessages = [...messages, { role: 'user' as const, content: fullPrompt }];
@@ -1778,6 +1817,7 @@ export function AssistantPage() {
           model: selectedModel,
           webSearch,
           deepThink,
+          attachment: attachmentPayload,
           preferences: {
             memory: privateChat ? false : localStorage.getItem('zenixmind-memory') !== 'off',
             personality: privateChat ? 'Balanced' : localStorage.getItem('zenixmind-personality') || 'Balanced',
