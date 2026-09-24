@@ -176,18 +176,16 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
     if (open && active && !muted && !busy) startRecognition();
   }, [open, active, muted, busy, startRecognition]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    return () => {
       listeningRef.current = false;
       try {
         recognitionRef.current?.stop();
       } catch {}
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       if (restartRef.current) window.clearTimeout(restartRef.current);
-      onClose();
-    },
-    [onClose]
-  );
+    };
+  }, []);
 
   if (!open) return null;
 
