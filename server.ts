@@ -1140,10 +1140,10 @@ app.post('/api/chat/stream', async (req, res) => {
 
     send({ type: 'status', status: webSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking' });
 
-    let convId = privateChat ? null : conversationId;
+    let convId = conversationId;
     let existingConv: any = null;
 
-    if (!privateChat && convId) {
+    if (convId) {
       const { data, error } = await supabase
         .from('conversations')
         .select('id, user_id, title, model, created_at, updated_at')
@@ -1155,7 +1155,7 @@ app.post('/api/chat/stream', async (req, res) => {
       if (!existingConv) convId = null;
     }
 
-    if (!privateChat && !existingConv) {
+    if (!existingConv) {
       const title = userMessage.content.trim().slice(0, 60) || 'New conversation';
       const { data, error } = await supabase
         .from('conversations')
@@ -1171,7 +1171,7 @@ app.post('/api/chat/stream', async (req, res) => {
       convId = data.id;
     }
 
-    if (!privateChat) {
+    {
       const { error } = await supabase.from('messages').insert({
         conversation_id: convId,
         user_id: user.id,
@@ -1181,9 +1181,7 @@ app.post('/api/chat/stream', async (req, res) => {
       if (error) throw error;
     }
 
-    const convHistory = privateChat
-      ? incomingMessages.slice(0, -1).slice(-10)
-      : ((await supabase
+    const convHistory = ((await supabase
           .from('messages')
           .select('role, content, created_at')
           .eq('conversation_id', convId)
@@ -1292,7 +1290,7 @@ app.post('/api/chat/stream', async (req, res) => {
       ? (targetModel.includes('pro') ? 'gemini-2.5-pro' : 'gemini-2.5-flash')
       : targetModel;
 
-    if (!privateChat) {
+    {
       const { error: assistantSaveError } = await supabase.from('messages').insert({
         conversation_id: convId,
         user_id: user.id,

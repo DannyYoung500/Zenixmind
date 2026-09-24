@@ -1517,20 +1517,6 @@ function AutomationsView() {
   );
 }
 
-function PrivateChatMark({ size = 118 }: { size?: number }) {
-  return (
-    <div aria-hidden="true" className="relative shrink-0" style={{ width: size, height: size * 0.82 }}>
-      <div className="absolute left-[22%] top-[2%] h-[30%] w-[56%] rounded-t-[42%] rounded-b-[18%] bg-[#3d3d41]" />
-      <div className="absolute left-[15%] top-[29%] h-[10%] w-[70%] rounded-sm bg-[#3d3d41]" />
-      <div className="absolute left-[16%] top-[45%] h-[40%] w-[30%] rounded-full border-[7px] border-[#3d3d41]" />
-      <div className="absolute right-[16%] top-[45%] h-[40%] w-[30%] rounded-full border-[7px] border-[#3d3d41]" />
-      <div className="absolute left-[43%] top-[58%] h-[9%] w-[14%] rounded-full bg-[#3d3d41]" />
-      <div className="absolute left-[8%] top-[57%] h-[8%] w-[12%] rounded-full bg-[#3d3d41]" />
-      <div className="absolute right-[8%] top-[57%] h-[8%] w-[12%] rounded-full bg-[#3d3d41]" />
-    </div>
-  );
-}
-
 export function AssistantPage() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1612,6 +1598,7 @@ export function AssistantPage() {
   const handleStartNewChat = useCallback(() => {
     setVoiceTalkOpen(false);
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    setPrivateChat(false);
     setConversationId(null);
     setMessages([]);
     setInput('');
@@ -1619,6 +1606,7 @@ export function AssistantPage() {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('conversation');
+      next.delete('private');
       return next;
     });
     setTimeout(() => {
@@ -1626,7 +1614,7 @@ export function AssistantPage() {
     }, 50);
   }, [setSearchParams]);
 
-  const loadEmptyGreeting = useCallback(async () => { if (privateChat) return; setEmptyGreeting(''); try { const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; const response = await fetch('/api/greeting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: user?.name || user?.email?.split('@')[0] || '', timezone, localTime: new Date().toISOString() }) }); if (response.ok) { const data = await response.json(); if (data.greeting) setEmptyGreeting(data.greeting); } } catch {} }, [privateChat, user?.name, user?.email]);
+  const loadEmptyGreeting = useCallback(async () => { setEmptyGreeting(''); try { const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; const response = await fetch('/api/greeting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: user?.name || user?.email?.split('@')[0] || '', timezone, localTime: new Date().toISOString() }) }); if (response.ok) { const data = await response.json(); if (data.greeting) setEmptyGreeting(data.greeting); } } catch {} }, [user?.name, user?.email]);
 
   // Global Keyboard Shortcuts (Cmd+K / Ctrl+K, Cmd+N / Ctrl+N, Cmd+Shift+S, Cmd+Shift+D, Escape)
   useEffect(() => {
@@ -1716,6 +1704,7 @@ export function AssistantPage() {
   };
 
   useEffect(() => {
+    setPrivateChat(searchParams.get('private') === '1');
     loadConversations();
     if (urlConvId) {
       loadConversation(urlConvId);
@@ -2052,13 +2041,7 @@ export function AssistantPage() {
       onSelectModel={handleModelChange}
       onOpenSettings={() => setSettingsOpen(true)}
       privateChat={privateChat}
-      headerAction={
-        view !== 'chat'
-          ? 'none'
-          : messages.length === 0 && !input.trim()
-          ? 'private'
-          : 'new'
-      }
+      headerAction={view !== 'chat' ? 'none' : 'new'}
       onNewChat={handleStartNewChat}
       onStartPrivateChat={() => {
         setMessages([]);
@@ -2097,15 +2080,14 @@ export function AssistantPage() {
               className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 pb-44 sm:pb-32 scroll-smooth"
             >
               {!messages.length ? (
-                privateChat ? (
-                  <div className="flex h-full flex-col items-center justify-center px-4 text-center max-w-xl mx-auto pb-24 sm:pb-12">
-                    <PrivateChatMark size={118} />
-                    <h1 className="mt-12 text-[30px] sm:text-[34px] font-light tracking-[-0.025em] text-zinc-200">Private Chat</h1>
-                    <p className="mt-6 max-w-md text-[16px] sm:text-[18px] leading-relaxed font-light text-zinc-500">
-                      This chat won't appear in your history<br className="hidden sm:block" /> and will not be used to train models.
-                    </p>
+                <div className="flex h-full flex-col items-center justify-center px-4 text-center max-w-2xl mx-auto py-8">
+                  <div className="mb-6 grid h-14 w-14 place-items-center rounded-2xl border border-white/[.08] bg-[#0c0c0e] shadow-xl">
+                    <BrandMark size={32} />
                   </div>
-                ) : (
+                  <h1 className="max-w-xl text-2xl sm:text-3xl font-light tracking-[-.03em] text-zinc-100 min-h-[42px]">
+                    {emptyGreeting || " "}
+                  </h1>
+                </div>              ) : (
                 <div className="flex h-full flex-col items-center justify-center px-4 text-center max-w-2xl mx-auto py-8"><div className="mb-6 grid h-14 w-14 place-items-center rounded-2xl border border-white/[.08] bg-[#0c0c0e] shadow-xl"><BrandMark size={32} /></div><h1 className="max-w-xl text-2xl sm:text-3xl font-light tracking-[-.03em] text-zinc-100 min-h-[42px]">{emptyGreeting || " "}</h1></div>
                 )
               ) : (

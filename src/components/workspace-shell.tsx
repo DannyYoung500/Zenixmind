@@ -301,7 +301,7 @@ export function WorkspaceShell({
               {!sidebarCollapsed && <span>New chat</span>}
               {sidebarCollapsed && <span className="sr-only">New chat</span>}
             </button>
-            <button type="button" onClick={() => { if (onStartPrivateChat) onStartPrivateChat(); else if (onTogglePrivateChat) onTogglePrivateChat(); setOpen(false); }} title="Start a private chat" aria-label="Start a private chat" className={privateChat ? 'grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-amber-400/25 bg-amber-400/10 text-amber-300' : 'grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/[.07] bg-[#111113] text-zinc-400 hover:bg-[#18181b] hover:text-zinc-100'}>
+            <button type="button" onClick={() => { if (onTogglePrivateChat) onTogglePrivateChat(); else if (onStartPrivateChat) onStartPrivateChat(); setOpen(false); }} title={privateChat ? "Exit private chat" : "Enter private chat"} aria-label={privateChat ? "Exit private chat" : "Enter private chat"} className={privateChat ? 'grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-amber-400/25 bg-amber-400/10 text-amber-300' : 'grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/[.07] bg-[#111113] text-zinc-400 hover:bg-[#18181b] hover:text-zinc-100'}>
               <Shield size={15} />
             </button>
           </div>
