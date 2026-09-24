@@ -165,11 +165,43 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
     listeningRef.current = true;
     setActive(true);
     setMuted(false);
-    setState('listening');
+    setState('thinking');
     lastFinalRef.current = '';
 
-    const timer = window.setTimeout(() => startRecognition(), 120);
-    return () => window.clearTimeout(timer);
+    let cancelled = false;
+
+    const start = async () => {
+      // Give the user a natural AI welcome as soon as Voice Talk opens.
+      // The wording comes from ZenixMind's AI greeting endpoint rather than
+      // a hardcoded sentence, then the voice listener starts automatically.
+      try {
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        const localTime = new Date().toISOString();
+        const response = await fetch('/api/greeting', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: '',
+            timezone,
+            localTime,
+            voice: true
+          })
+        });
+        const data = response.ok ? await response.json() : null;
+        if (!cancelled && data?.greeting) {
+          speak(data.greeting);
+          return;
+        }
+      } catch {}
+
+      if (!cancelled) startRecognition();
+    };
+
+    void start();
+
+    return () => {
+      cancelled = true;
+    };
   }, [open, startRecognition]);
 
   useEffect(() => {
