@@ -1223,7 +1223,7 @@ app.post('/api/chat/stream', async (req, res) => {
 
     if (targetModel.startsWith('gemini') && gemini) {
       const geminiModel = targetModel.includes('pro') ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-      const geminiContents: any = safeAttachment?.data && /^(image\\/|application\\/pdf$)/i.test(safeAttachment.mimeType)
+      const geminiContents: any = safeAttachment?.data && /^(image\/|application\/pdf$)/i.test(safeAttachment.mimeType)
         ? [{
             role: 'user',
             parts: [
