@@ -4447,7 +4447,7 @@ export function OwnerPage() {
                     }`}
                   >
                     <Globe size={13} />
-                    <span>Search Online Registry</span>
+                    <span>Search Online</span>
                   </button>
                 </div>
               </div>
@@ -4502,7 +4502,7 @@ export function OwnerPage() {
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                     <input
                       type="text"
-                      placeholder={pluginActiveTab === 'online' ? "Search online plugin registry (e.g. arXiv, Sonar, Figma, Zapier)..." : "Filter installed plugins by name or capability..."}
+                      placeholder={pluginActiveTab === 'online' ? "Search plugins, MCP servers, integrations, or tools online..." : "Filter installed plugins by name or capability..."}
                       value={pluginSearchTerm}
                       onChange={(e) => setPluginSearchTerm(e.target.value)}
                       onKeyDown={async (e) => {
@@ -4545,7 +4545,7 @@ export function OwnerPage() {
                             if (res.ok) {
                               const d = await res.json();
                               setOnlinePluginsList(d.results || []);
-                              addToast('Online Search Complete', `Discovered ${d.results?.length ?? 0} community plugins.`, 'success');
+                              addToast('Online Search Complete', `Found ${d.results?.length ?? 0} source-backed results.`, 'success');
                             }
                           } finally {
                             setSearchingOnlinePlugins(false);
@@ -4565,9 +4565,9 @@ export function OwnerPage() {
                   <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 border-t border-white/[.04]">
                     <span className="flex items-center gap-1.5">
                       <Globe size={12} className="text-amber-400" />
-                      <span>Online Index: registry.zenixmind.ai/v2/catalog</span>
+                      <span>Live sources: GitHub + npm</span>
                     </span>
-                    <span className="text-emerald-400 font-mono">Live Community Verified Feed</span>
+                    <span className="text-zinc-500 font-mono">Source-backed discovery</span>
                   </div>
                 )}
               </div>
@@ -4586,7 +4586,7 @@ export function OwnerPage() {
                 {pluginActiveTab === 'online' && searchingOnlinePlugins ? (
                   <div className="p-12 text-center text-zinc-400 text-xs">
                     <RefreshCw size={24} className="mx-auto text-amber-400 animate-spin mb-2" />
-                    <p>Searching global plugin registries for real-time improvements...</p>
+                    <p>Searching live public sources...</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -4630,13 +4630,20 @@ export function OwnerPage() {
                                 </div>
 
                                 <div className="text-right shrink-0">
-                                  <div className="flex items-center gap-1 text-amber-400 text-xs font-mono font-bold">
-                                    <Star size={11} className="fill-amber-400" />
-                                    <span>{plugin.rating}</span>
-                                  </div>
-                                  <div className="text-[10px] text-zinc-500 font-mono">
-                                    {plugin.downloads?.toLocaleString()} downloads
-                                  </div>
+                                  {plugin.source === 'GitHub' ? (
+                                    <>
+                                      <div className="flex items-center justify-end gap-1 text-zinc-200 text-xs font-mono font-semibold">
+                                        <Star size={11} />
+                                        <span>{Number(plugin.stars || 0).toLocaleString()}</span>
+                                      </div>
+                                      <div className="text-[10px] text-zinc-500 font-mono">GitHub stars</div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="text-xs text-zinc-200 font-mono font-semibold">npm</div>
+                                      <div className="text-[10px] text-zinc-500 font-mono">Package registry</div>
+                                    </>
+                                  )}
                                 </div>
                               </div>
 
@@ -4660,7 +4667,9 @@ export function OwnerPage() {
                             {/* Action footer */}
                             <div className="pt-3 border-t border-white/[.04] flex items-center justify-between">
                               <span className="text-[10px] font-mono text-zinc-500">
-                                {isInstalled ? '🟢 Installed & Active' : '⚪ Available to Install'}
+                                {pluginActiveTab === 'online'
+                                  ? `Source: ${plugin.source || 'Online'}`
+                                  : (isInstalled ? '🟢 Installed & Active' : '⚪ Available to Install')}
                               </span>
 
                               <div className="flex items-center gap-2">
@@ -4676,7 +4685,18 @@ export function OwnerPage() {
                                   </a>
                                 )}
 
-                                <button
+                                {pluginActiveTab === 'online' ? (
+                                  <a
+                                    href={plugin.onlineRepositoryUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex items-center gap-1.5 rounded-xl border border-white/[.08] bg-white/[.04] px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-white/[.08] transition-colors"
+                                  >
+                                    <ExternalLink size={12} />
+                                    <span>View source</span>
+                                  </a>
+                                ) : (
+<button
                                   disabled={isBusy}
                                   onClick={async () => {
                                     setTogglingPluginId(plugin.id);
@@ -4720,6 +4740,7 @@ export function OwnerPage() {
                                     <span>Install & Improve</span>
                                   )}
                                 </button>
+                                )}
                               </div>
                             </div>
                           </div>

@@ -2976,6 +2976,102 @@ app.get('/api/admin/integrations', requireOwner, (_req, res) => {
   return res.json({ integrations });
 });
 
+/**
+ * Real online plugin discovery.
+ * Results come from public GitHub repositories and the npm registry.
+ * We do not fabricate a private/imaginary "ZenixMind registry".
+ */
+app.get('/api/admin/plugins/search-online', requireOwner, async (req, res) => {
+  const rawQuery = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 120) : '';
+  const query = rawQuery || 'mcp server plugin';
+  const encoded = encodeURIComponent(query);
+
+  try {
+    const githubUrl = `https://api.github.com/search/repositories?q=${encoded}+in:name,description,readme&sort=stars&order=desc&per_page=12`;
+    const npmUrl = `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(query)}&size=12`;
+
+    const [githubResponse, npmResponse] = await Promise.all([
+      fetch(githubUrl, {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'ZenixMind-Plugin-Discovery',
+          ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {})
+        }
+      }),
+      fetch(npmUrl, {
+        headers: { Accept: 'application/json', 'User-Agent': 'ZenixMind-Plugin-Discovery' }
+      })
+    ]);
+
+    const githubJson = githubResponse.ok ? await githubResponse.json() : { items: [] };
+    const npmJson = npmResponse.ok ? await npmResponse.json() : { objects: [] };
+
+    const githubResults = Array.isArray(githubJson.items) ? githubJson.items.map((repo: any) => ({
+      id: `github:${repo.full_name}`,
+      name: repo.name || repo.full_name,
+      version: 'Repository',
+      description: repo.description || 'No description provided.',
+      category: /security|auth|credential/i.test(`${repo.name} ${repo.description || ''}`) ? 'Security & Compliance'
+        : /search|research|mcp|knowledge/i.test(`${repo.name} ${repo.description || ''}`) ? 'Intelligence & Search'
+        : /productivity|notion|slack|calendar|email|workflow/i.test(`${repo.name} ${repo.description || ''}`) ? 'Productivity'
+        : 'Developer Tools',
+      author: repo.owner?.login || 'GitHub',
+      rating: null,
+      downloads: repo.stargazers_count || 0,
+      stars: repo.stargazers_count || 0,
+      verified: false,
+      capabilities: Array.isArray(repo.topics) ? repo.topics.slice(0, 6) : [],
+      onlineRepositoryUrl: repo.html_url,
+      source: 'GitHub',
+      sourceUrl: repo.html_url,
+      updatedAt: repo.updated_at || null
+    })) : [];
+
+    const npmResults = Array.isArray(npmJson.objects) ? npmJson.objects.map((entry: any) => {
+      const pkg = entry.package || {};
+      const links = pkg.links || {};
+      return {
+        id: `npm:${pkg.name}`,
+        name: pkg.name || 'npm package',
+        version: pkg.version || 'Unknown',
+        description: pkg.description || 'No description provided.',
+        category: /security|auth|credential/i.test(`${pkg.name} ${pkg.description || ''}`) ? 'Security & Compliance'
+          : /search|research|mcp|knowledge/i.test(`${pkg.name} ${pkg.description || ''}`) ? 'Intelligence & Search'
+          : /productivity|notion|slack|calendar|email|workflow/i.test(`${pkg.name} ${pkg.description || ''}`) ? 'Productivity'
+          : 'Developer Tools',
+        author: pkg.publisher?.username || pkg.publisher?.email || 'npm',
+        rating: null,
+        downloads: 0,
+        stars: 0,
+        verified: false,
+        capabilities: Array.isArray(pkg.keywords) ? pkg.keywords.slice(0, 6) : [],
+        onlineRepositoryUrl: links.repository || links.homepage || links.npm || `https://www.npmjs.com/package/${encodeURIComponent(pkg.name || '')}`,
+        source: 'npm',
+        sourceUrl: links.repository || links.homepage || `https://www.npmjs.com/package/${encodeURIComponent(pkg.name || '')}`,
+        updatedAt: pkg.date || null
+      };
+    }) : [];
+
+    const merged = [...githubResults, ...npmResults]
+      .filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index)
+      .slice(0, 24);
+
+    return res.json({
+      results: merged,
+      query: rawQuery,
+      sources: [
+        { name: 'GitHub', ok: githubResponse.ok },
+        { name: 'npm', ok: npmResponse.ok }
+      ],
+      generatedAt: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Online plugin discovery failed:', error?.message || error);
+    return res.status(502).json({ error: 'Online plugin discovery is temporarily unavailable.', results: [] });
+  }
+});
+
+
 // 16. API & KEYS
 app.get('/api/admin/api-keys', requireOwner, (_req, res) => {
   return res.json({ apiKeys });
