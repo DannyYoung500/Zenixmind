@@ -1,245 +1,135 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 
 export type VoiceState = 'listening' | 'thinking' | 'speaking' | 'muted' | 'reconnecting' | 'error';
 
 interface VoiceSunOrbProps {
   state: VoiceState;
-  audioLevel?: number; // 0 to 1
-  size?: number; // diameter in px
+  audioLevel?: number;
+  size?: number;
   className?: string;
   onClick?: () => void;
 }
 
 /**
- * Distinctive ZenixMind Voice Orb inspired by a shining SUN 🌞:
- * - Bright central solar core with dynamic temperature & plasma shimmer
- * - Multi-layer radiant coronal glow
- * - Gentle rotating solar rays and corona filaments
- * - Realistic reactive state physics:
- *   - Listening: gentle breathing/pulse (solar calm, soft solar wind)
- *   - Thinking: slower intelligent rotation with undulating convective cells
- *   - Speaking: rhythmic dynamic solar radiance reacting to voice volume
- *   - Muted: dimmed, cool ember state
- *   - Error: calm warm crimson warning solar flare
+ * ZenixMind Aurora Core.
+ *
+ * A completely new voice visual: no sun, no yellow, no fake controls.
+ * The orb is a passive state visualization that lives above the composer.
  */
 export function VoiceSunOrb({
   state,
   audioLevel = 0,
-  size = 360,
+  size = 160,
   className = '',
   onClick
 }: VoiceSunOrbProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animFrameRef = useRef<number | null>(null);
-  const timeRef = useRef(0);
-  const rotationRef = useRef(0);
-  const audioLevelSmoothed = useRef(0);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: true });
-    if (!ctx) return;
-
-    // Retina display scaling
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = size * dpr;
-    canvas.height = size * dpr;
-    ctx.scale(dpr, dpr);
-
-    const cx = size / 2;
-    const cy = size / 2;
-    const coreBaseRadius = size * 0.22;
-
-    const render = () => {
-      timeRef.current += 0.018;
-      const t = timeRef.current;
-
-      // Smooth audio level response
-      audioLevelSmoothed.current += (audioLevel - audioLevelSmoothed.current) * 0.2;
-      const smoothedLevel = Math.max(0, Math.min(1, audioLevelSmoothed.current));
-
-      // Rotation speed depends on state
-      let rotSpeed = 0.004;
-      if (state === 'thinking') rotSpeed = 0.009;
-      if (state === 'speaking') rotSpeed = 0.006 + smoothedLevel * 0.012;
-      if (state === 'muted') rotSpeed = 0.001;
-      rotationRef.current += rotSpeed;
-      const rot = rotationRef.current;
-
-      ctx.clearRect(0, 0, size, size);
-
-      // Color Palette based on State
-      let primaryGlow = 'rgba(251, 191, 36, '; // Amber-400
-      let secondaryGlow = 'rgba(245, 158, 11, '; // Amber-500
-      let coreColor = '#fffbeb'; // Light solar core
-      let coronaRaysColor = 'rgba(252, 211, 77, '; // Amber-300
-
-      if (state === 'thinking') {
-        // Deep intelligent golden-indigo fusion
-        primaryGlow = 'rgba(245, 158, 11, ';
-        secondaryGlow = 'rgba(217, 119, 6, ';
-        coreColor = '#fef3c7';
-        coronaRaysColor = 'rgba(251, 191, 36, ';
-      } else if (state === 'speaking') {
-        // High radiant warmth & brightness
-        primaryGlow = 'rgba(251, 191, 36, ';
-        secondaryGlow = 'rgba(249, 115, 22, '; // Orange-500
-        coreColor = '#ffffff';
-        coronaRaysColor = 'rgba(254, 240, 138, ';
-      } else if (state === 'muted') {
-        // Cool dormant ember
-        primaryGlow = 'rgba(161, 161, 170, '; // Zinc-400
-        secondaryGlow = 'rgba(113, 113, 122, ';
-        coreColor = '#e4e4e7';
-        coronaRaysColor = 'rgba(161, 161, 170, ';
-      } else if (state === 'error') {
-        // Calm warning crimson flare
-        primaryGlow = 'rgba(239, 68, 68, ';
-        secondaryGlow = 'rgba(185, 28, 28, ';
-        coreColor = '#fee2e2';
-        coronaRaysColor = 'rgba(248, 113, 113, ';
-      }
-
-      // Dynamic Pulse calculation
-      let pulse = 1;
-      if (state === 'listening') {
-        // Gentle breathing pulse
-        pulse = 1 + Math.sin(t * 1.8) * 0.035;
-      } else if (state === 'thinking') {
-        // Analytical undulating harmonic
-        pulse = 1 + Math.sin(t * 3.2) * 0.02 + Math.cos(t * 1.4) * 0.015;
-      } else if (state === 'speaking') {
-        // Rhythmic solar flare radiance
-        pulse = 1 + smoothedLevel * 0.18 + Math.sin(t * 8) * 0.02;
-      } else if (state === 'muted') {
-        pulse = 0.94;
-      } else if (state === 'error') {
-        pulse = 1 + Math.sin(t * 4) * 0.04;
-      }
-
-      const coreRadius = coreBaseRadius * pulse;
-
-      // 1. Outermost Ambient Atmospheric Radiance (Soft outer haze)
-      const outerAuraRadius = coreRadius * 2.8;
-      const outerGrad = ctx.createRadialGradient(cx, cy, coreRadius * 0.8, cx, cy, outerAuraRadius);
-      const outerAlpha = state === 'muted' ? 0.06 : state === 'speaking' ? 0.28 + smoothedLevel * 0.25 : 0.18;
-      outerGrad.addColorStop(0, primaryGlow + outerAlpha + ')');
-      outerGrad.addColorStop(0.4, secondaryGlow + (outerAlpha * 0.5) + ')');
-      outerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-      ctx.fillStyle = outerGrad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, outerAuraRadius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 2. Rotating Corona Rays and Solar Flare Filaments
-      const rayCount = 18;
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(rot);
-
-      for (let i = 0; i < rayCount; i++) {
-        const angle = (i * Math.PI * 2) / rayCount;
-        const wave = Math.sin(t * 2.5 + i * 1.2);
-        const rayLen =
-          coreRadius * 0.35 +
-          wave * (coreRadius * 0.15) +
-          (state === 'speaking' ? smoothedLevel * coreRadius * 0.45 : 0);
-        const rayAlpha = state === 'muted' ? 0.12 : 0.32 + (wave + 1) * 0.12;
-
-        ctx.save();
-        ctx.rotate(angle);
-        ctx.strokeStyle = coronaRaysColor + rayAlpha + ')';
-        ctx.lineWidth = 2.2;
-        ctx.beginPath();
-        ctx.moveTo(coreRadius * 0.95, 0);
-        ctx.lineTo(coreRadius * 0.95 + rayLen, 0);
-        ctx.stroke();
-        ctx.restore();
-      }
-      ctx.restore();
-
-      // 3. Counter-Rotating Inner Delicate Solar Prominences Ring
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(-rot * 0.65);
-      const innerRayCount = 12;
-      for (let i = 0; i < innerRayCount; i++) {
-        const angle = (i * Math.PI * 2) / innerRayCount;
-        const arcSpread = 0.18;
-        const arcRadius = coreRadius * (1.18 + Math.sin(t * 2 + i) * 0.06);
-
-        ctx.strokeStyle = primaryGlow + (state === 'muted' ? '0.15)' : '0.35)');
-        ctx.lineWidth = 1.8;
-        ctx.beginPath();
-        ctx.arc(0, 0, arcRadius, angle - arcSpread, angle + arcSpread);
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      // 4. Intermediate Solar Corona Gradient (Warm, Dense Light)
-      const midGrad = ctx.createRadialGradient(cx, cy, coreRadius * 0.4, cx, cy, coreRadius * 1.5);
-      const midAlpha = state === 'muted' ? 0.2 : 0.55 + smoothedLevel * 0.3;
-      midGrad.addColorStop(0, primaryGlow + midAlpha + ')');
-      midGrad.addColorStop(0.6, secondaryGlow + (midAlpha * 0.5) + ')');
-      midGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-      ctx.fillStyle = midGrad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, coreRadius * 1.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 5. Solid Luminous Solar Core (The Shining Sun)
-      const coreGrad = ctx.createRadialGradient(
-        cx - coreRadius * 0.15,
-        cy - coreRadius * 0.15,
-        coreRadius * 0.05,
-        cx,
-        cy,
-        coreRadius
-      );
-      coreGrad.addColorStop(0, coreColor);
-      coreGrad.addColorStop(0.35, primaryGlow + '0.98)');
-      coreGrad.addColorStop(0.75, secondaryGlow + '0.92)');
-      coreGrad.addColorStop(1, primaryGlow + '0.45)');
-
-      ctx.fillStyle = coreGrad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, coreRadius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 6. Delicate Sun Surface Convection Granulation Ring
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.arc(cx, cy, coreRadius * 0.92, 0, Math.PI * 2);
-      ctx.stroke();
-
-      animFrameRef.current = requestAnimationFrame(render);
-    };
-
-    render();
-
-    return () => {
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
-    };
-  }, [state, audioLevel, size]);
+  const level = Math.max(0, Math.min(1, audioLevel));
+  const visualState = state === 'muted' ? 'listening' : state;
+  const palettes: Record<string, { a: string; b: string; c: string }> = {
+    listening: { a: '#3b82f6', b: '#06b6d4', c: '#8b5cf6' },
+    thinking: { a: '#8b5cf6', b: '#3b82f6', c: '#06b6d4' },
+    speaking: { a: '#06b6d4', b: '#8b5cf6', c: '#3b82f6' },
+    reconnecting: { a: '#3b82f6', b: '#6366f1', c: '#8b5cf6' },
+    error: { a: '#ef4444', b: '#f97316', c: '#fb7185' }
+  };
+  const palette = palettes[visualState] || palettes.listening;
+  const scale = 1 + level * 0.06;
+  const glow = 0.32 + level * 0.42;
 
   return (
     <div
       onClick={onClick}
-      className={`relative inline-flex items-center justify-center select-none cursor-pointer transition-transform duration-300 hover:scale-[1.02] active:scale-[0.98] ${className}`}
+      role={onClick ? 'button' : undefined}
+      aria-label={onClick ? 'ZenixMind voice ' + visualState : undefined}
+      className={'relative inline-flex items-center justify-center select-none ' + (onClick ? 'cursor-pointer' : 'pointer-events-none') + ' ' + className}
       style={{ width: size, height: size }}
-      title={`ZenixMind Sun Voice Orb (${state})`}
     >
-      <canvas
-        ref={canvasRef}
-        style={{ width: size, height: size }}
-        className="pointer-events-none drop-shadow-[0_0_50px_rgba(245,158,11,0.25)]"
+      <div
+        className="absolute -inset-[4%] rounded-full animate-pulse"
+        style={{
+          background:
+            'radial-gradient(circle at 30% 28%, ' + palette.a + ' 0%, transparent 42%), ' +
+            'radial-gradient(circle at 72% 66%, ' + palette.b + ' 0%, transparent 44%), ' +
+            'radial-gradient(circle at 34% 76%, ' + palette.c + ' 0%, transparent 46%)',
+          filter: 'blur(24px)',
+          opacity: glow
+        }}
       />
+
+      <div
+        className={'absolute inset-[7%] rounded-full border animate-spin ' + (visualState === 'thinking' ? 'duration-[5s]' : 'duration-[10s]')}
+        style={{
+          borderColor: palette.a + '55',
+          boxShadow: '0 0 30px ' + palette.a + '22, inset 0 0 32px ' + palette.c + '18'
+        }}
+      />
+
+      <div
+        className="absolute inset-[15%] rounded-full border animate-[spin_12s_linear_infinite_reverse]"
+        style={{ borderColor: palette.b + '3d' }}
+      />
+
+      {visualState === 'listening' && [0, 1].map((ring) => (
+        <span
+          key={ring}
+          className="absolute rounded-full border animate-ping"
+          style={{
+            inset: (19 + ring * 7) + '%',
+            borderColor: palette.b + (ring ? '24' : '42'),
+            animationDelay: (ring * 650) + 'ms',
+            animationDuration: (ring ? '2.8s' : '2.2s')
+          }}
+        />
+      ))}
+
+      <div
+        className="relative overflow-hidden rounded-full transition-transform duration-200"
+        style={{
+          width: '54%',
+          height: '54%',
+          transform: 'scale(' + scale + ')',
+          background:
+            'radial-gradient(circle at 32% 28%, rgba(255,255,255,.96) 0%, ' +
+            palette.a + ' 12%, ' + palette.c + ' 42%, #080812 76%, #020204 100%)',
+          boxShadow:
+            '0 0 ' + (34 + level * 42) + 'px ' + palette.a + '88, inset 0 0 28px rgba(255,255,255,.12)'
+        }}
+      >
+        <div
+          className="absolute -inset-[40%] animate-[spin_5s_linear_infinite]"
+          style={{
+            background:
+              'conic-gradient(from 0deg, transparent 0 25%, ' + palette.b + '88 38%, transparent 51%, ' +
+              palette.a + '66 68%, transparent 82%)'
+          }}
+        />
+        <div
+          className="absolute inset-[17%] rounded-full blur-[5px]"
+          style={{
+            background: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,.95), ' + palette.b + 'cc 24%, transparent 70%)'
+          }}
+        />
+        <div className="absolute inset-[31%] rounded-full bg-white/80 blur-[3px]" />
+      </div>
+
+      {visualState === 'speaking' && (
+        <div
+          className="absolute rounded-full border animate-ping"
+          style={{
+            inset: (5 - level * 2) + '%',
+            borderColor: palette.b + '55',
+            animationDuration: '1.25s'
+          }}
+        />
+      )}
+
+      {visualState === 'thinking' && (
+        <div
+          className="absolute h-2.5 w-2.5 rounded-full blur-[1px] animate-ping"
+          style={{ background: palette.b, boxShadow: '0 0 18px ' + palette.b }}
+        />
+      )}
     </div>
   );
 }
+

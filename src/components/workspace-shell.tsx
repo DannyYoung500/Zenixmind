@@ -297,9 +297,9 @@ export function WorkspaceShell({
 
           {/* New Chat controls */}
           <div className="mb-2 flex items-center gap-1.5">
-            <button type="button" onClick={() => { onNewChat?.(); setOpen(false); }} title="New chat" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-zinc-300 hover:bg-[#141416] hover:text-zinc-100 transition-colors">
-              <SquarePen size={16} className="shrink-0 text-zinc-400" />
+            <button type="button" onClick={() => { onNewChat?.(); setOpen(false); }} title="New chat" className="flex min-w-0 flex-1 items-center rounded-xl px-3 py-2 text-xs text-zinc-300 hover:bg-[#141416] hover:text-zinc-100 transition-colors">
               {!sidebarCollapsed && <span>New chat</span>}
+              {sidebarCollapsed && <span className="sr-only">New chat</span>}
             </button>
             <button type="button" onClick={() => { if (onStartPrivateChat) onStartPrivateChat(); else if (onTogglePrivateChat) onTogglePrivateChat(); setOpen(false); }} title="Start a private chat" aria-label="Start a private chat" className={privateChat ? 'grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-amber-400/25 bg-amber-400/10 text-amber-300' : 'grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/[.07] bg-[#111113] text-zinc-400 hover:bg-[#18181b] hover:text-zinc-100'}>
               <Shield size={15} />

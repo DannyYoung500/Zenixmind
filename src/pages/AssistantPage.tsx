@@ -1610,6 +1610,8 @@ export function AssistantPage() {
   };
 
   const handleStartNewChat = useCallback(() => {
+    setVoiceTalkOpen(false);
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setConversationId(null);
     setMessages([]);
     setInput('');
