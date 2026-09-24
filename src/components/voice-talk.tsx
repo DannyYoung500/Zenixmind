@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, X, Volume2 } from 'lucide-react';
 import { VoiceSunOrb, VoiceState } from './voice-sun-orb';
 
 interface Props {
@@ -9,13 +8,17 @@ interface Props {
   onVoiceMessage: (text: string) => Promise<string | undefined>;
 }
 
+/**
+ * Hands-free voice layer for the normal ZenixMind chat.
+ *
+ * The chat stays visible. There is no voice screen, title, prompt, button,
+ * status label, or control bar. The only voice-mode visual is the small orb
+ * floating above the existing composer, matching the reference interaction.
+ */
 export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
   const [active, setActive] = useState(false);
   const [muted, setMuted] = useState(false);
   const [state, setState] = useState<VoiceState>('muted');
-  const [heard, setHeard] = useState('');
-  const [reply, setReply] = useState('');
-  const [status, setStatus] = useState('Tap the microphone to talk');
   const recognitionRef = useRef<any>(null);
   const speakingRef = useRef(false);
   const listeningRef = useRef(false);
@@ -23,86 +26,148 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
   const lastFinalRef = useRef('');
   const restartRef = useRef<number | null>(null);
 
-  const stopRecognition = useCallback(() => { try { recognitionRef.current?.stop(); } catch {} }, []);
+  const stopRecognition = useCallback(() => {
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+  }, []);
 
   const speak = useCallback((text: string) => {
     if (!text || !('speechSynthesis' in window)) return;
     const synth = window.speechSynthesis;
     synth.cancel();
-    const u = new SpeechSynthesisUtterance(text.replace(/[*#_\`~]/g, '').replace(/\s+/g, ' ').trim());
-    u.rate = 1.02; u.pitch = 1.05;
+    const utterance = new SpeechSynthesisUtterance(
+      text.replace(/[*#_\`~]/g, '').replace(/\s+/g, ' ').trim()
+    );
+    utterance.rate = 1.02;
+    utterance.pitch = 1.05;
+
     const voices = synth.getVoices();
-    const v = voices.find(x => /^en[-_]/i.test(x.lang) && /natural|neural|google|microsoft|siri|daniel/i.test(x.name)) || voices.find(x => /^en[-_]/i.test(x.lang));
-    if (v) u.voice = v;
-    u.onstart = () => { speakingRef.current = true; setState('speaking'); setStatus('ZenixMind is speaking'); };
-    u.onend = () => {
+    const preferred = voices.find(
+      (voice) =>
+        /^en[-_]/i.test(voice.lang) &&
+        /natural|neural|google|microsoft|siri|daniel/i.test(voice.name)
+    );
+    const english = voices.find((voice) => /^en[-_]/i.test(voice.lang));
+    if (preferred || english) utterance.voice = preferred || english;
+
+    utterance.onstart = () => {
+      speakingRef.current = true;
+      setState('speaking');
+    };
+    utterance.onend = () => {
       speakingRef.current = false;
       if (listeningRef.current && !muted) {
-        setState('listening'); setStatus('Listening…');
-        restartRef.current = window.setTimeout(() => { try { recognitionRef.current?.start(); } catch {} }, 220);
+        setState('listening');
+        restartRef.current = window.setTimeout(() => {
+          try {
+            recognitionRef.current?.start();
+          } catch {}
+        }, 180);
       }
     };
-    u.onerror = () => { speakingRef.current = false; if (listeningRef.current && !muted) { setState('listening'); setStatus('Listening…'); } };
-    speakingRef.current = true; setState('speaking'); setStatus('ZenixMind is speaking'); synth.speak(u);
+    utterance.onerror = () => {
+      speakingRef.current = false;
+      if (listeningRef.current && !muted) setState('listening');
+    };
+
+    speakingRef.current = true;
+    setState('speaking');
+    synth.speak(utterance);
   }, [muted]);
 
-  const handleFinal = useCallback(async (text: string) => {
-    const clean = text.trim();
-    if (!clean || busyRef.current || speakingRef.current || clean === lastFinalRef.current) return;
-    lastFinalRef.current = clean;
-    busyRef.current = true;
-    stopRecognition();
-    setHeard(clean); setReply(''); setState('thinking'); setStatus('Thinking…');
-    try {
-      const answer = await onVoiceMessage(clean);
-      if (answer) { setReply(answer); speak(answer); }
-      else { setState('listening'); setStatus('Listening…'); }
-    } catch { setState('error'); setStatus('Voice response failed'); }
-    finally { busyRef.current = false; }
-  }, [onVoiceMessage, speak, stopRecognition]);
+  const handleFinal = useCallback(
+    async (text: string) => {
+      const clean = text.trim();
+      if (!clean || busyRef.current || speakingRef.current || clean === lastFinalRef.current) return;
+
+      lastFinalRef.current = clean;
+      busyRef.current = true;
+      stopRecognition();
+      setState('thinking');
+
+      try {
+        const answer = await onVoiceMessage(clean);
+        if (answer) {
+          speak(answer);
+        } else {
+          setState('listening');
+        }
+      } catch {
+        setState('error');
+      } finally {
+        busyRef.current = false;
+        lastFinalRef.current = '';
+      }
+    },
+    [onVoiceMessage, speak, stopRecognition]
+  );
 
   const startRecognition = useCallback(() => {
     if (!active || muted || busyRef.current || speakingRef.current) return;
-    try { recognitionRef.current?.start(); setState('listening'); setStatus('Listening…'); } catch {}
+    try {
+      recognitionRef.current?.start();
+      setState('listening');
+    } catch {}
   }, [active, muted]);
 
   useEffect(() => {
     if (!open) return;
-    const Ctor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!Ctor) { setState('error'); setStatus('Voice input is not supported in this browser'); return; }
-    const r = new Ctor();
-    r.continuous = true; r.interimResults = true; r.maxAlternatives = 1; r.lang = 'en-US';
-    r.onresult = (event: any) => {
-      let text = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) text += event.results[i][0].transcript;
-      text = text.trim();
-      if (text) setHeard(text);
-      const last = event.results[event.results.length - 1];
-      if (last?.isFinal && text) handleFinal(text);
+
+    const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!Recognition) {
+      setState('error');
+      return;
+    }
+
+    const recognition = new Recognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      let finalText = '';
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        if (result?.isFinal) finalText += result[0]?.transcript || '';
+      }
+      if (finalText.trim()) void handleFinal(finalText);
     };
-    r.onend = () => {
+
+    recognition.onend = () => {
       if (listeningRef.current && !muted && !busyRef.current && !speakingRef.current) {
-        restartRef.current = window.setTimeout(startRecognition, 180);
+        restartRef.current = window.setTimeout(startRecognition, 160);
       }
     };
-    r.onerror = (e: any) => {
-      if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
-        setState('error'); setStatus('Microphone permission required');
+
+    recognition.onerror = (event: any) => {
+      if (event?.error === 'not-allowed' || event?.error === 'service-not-allowed') {
+        setState('error');
+        listeningRef.current = false;
       }
     };
-    recognitionRef.current = r;
-    return () => { if (restartRef.current) window.clearTimeout(restartRef.current); try { r.stop(); } catch {} };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      if (restartRef.current) window.clearTimeout(restartRef.current);
+      try {
+        recognition.stop();
+      } catch {}
+      recognitionRef.current = null;
+    };
   }, [open, muted, handleFinal, startRecognition]);
 
   useEffect(() => {
     if (!open) return;
+
     listeningRef.current = true;
     setActive(true);
     setMuted(false);
-    setReply('');
-    setHeard('');
     setState('listening');
-    setStatus('Listening…');
+    lastFinalRef.current = '';
+
     const timer = window.setTimeout(() => startRecognition(), 120);
     return () => window.clearTimeout(timer);
   }, [open, startRecognition]);
@@ -111,46 +176,32 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
     if (open && active && !muted && !busy) startRecognition();
   }, [open, active, muted, busy, startRecognition]);
 
-  useEffect(() => () => {
-    listeningRef.current = false;
-    try { recognitionRef.current?.stop(); } catch {}
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-  }, [open]);
-
-  const begin = () => {
-    listeningRef.current = true; setActive(true); setMuted(false); setReply(''); setHeard('');
-    setState('listening'); setStatus('Listening…'); setTimeout(startRecognition, 60);
-  };
-
-  const toggle = () => {
-    if (!active) return begin();
-    if (muted) { setMuted(false); listeningRef.current = true; setState('listening'); setStatus('Listening…'); setTimeout(startRecognition, 60); return; }
-    setMuted(true); stopRecognition(); if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    speakingRef.current = false; setState('muted'); setStatus('Microphone muted');
-  };
-
-  const close = () => {
-    listeningRef.current = false; setActive(false); setMuted(false); stopRecognition();
-    if (restartRef.current) window.clearTimeout(restartRef.current);
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    onClose();
-  };
+  useEffect(
+    () => () => {
+      listeningRef.current = false;
+      try {
+        recognitionRef.current?.stop();
+      } catch {}
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      if (restartRef.current) window.clearTimeout(restartRef.current);
+      onClose();
+    },
+    [onClose]
+  );
 
   if (!open) return null;
 
   return (
-    <div className="absolute inset-0 z-[80] flex items-center justify-center bg-black">
-      <div className="flex w-full max-w-2xl flex-col items-center justify-center px-6 text-center">
-        <VoiceSunOrb
-          state={state === 'muted' ? 'listening' : state}
-          audioLevel={state === 'listening' ? 0.38 : state === 'speaking' ? 0.72 : state === 'thinking' ? 0.2 : 0.12}
-          size={260}
-        />
-        <div className="mt-10">
-          <p className="text-xl font-light tracking-[0.08em] text-white">Listening...</p>
-          <p className="mt-2 text-sm text-zinc-500">I’m listening. Go ahead, speak.</p>
-        </div>
-      </div>
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed bottom-[132px] left-1/2 z-[70] -translate-x-1/2 sm:bottom-[148px]"
+    >
+      <VoiceSunOrb
+        state={state === 'muted' ? 'listening' : state}
+        audioLevel={state === 'listening' ? 0.32 : state === 'speaking' ? 0.68 : state === 'thinking' ? 0.18 : 0.08}
+        size={128}
+        className="[filter:hue-rotate(165deg)_saturate(1.35)_brightness(1.08)]"
+      />
     </div>
   );
 }
