@@ -6,6 +6,7 @@ import { ModelSelector } from '../components/model-selector';
 import { MessageRenderer } from '../components/message-renderer';
 import { useAuth } from '../lib/auth-context';
 import { getSupabase } from '../lib/supabase';
+import { VoiceTalk } from '../components/voice-talk';
 import {
   Send,
   Mic,
@@ -1538,6 +1539,7 @@ export function AssistantPage() {
   const [isListening, setIsListening] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [emptyGreeting, setEmptyGreeting] = useState('');
+  const [voiceTalkOpen, setVoiceTalkOpen] = useState(false);
 
   const isAtBottomRef = useRef(true);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -1762,7 +1764,7 @@ export function AssistantPage() {
     throw new Error('ZenixMind currently supports text files, PDFs, and images in the chat composer.');
   };
 
-  const handleSend = async (overridePrompt?: string) => {
+  const handleSend = async (overridePrompt?: string, voiceMode = false): Promise<string | undefined> => {
     const text = overridePrompt || input.trim();
     if (!text || busy || isStreaming) return;
 
@@ -1932,6 +1934,7 @@ export function AssistantPage() {
       setThinkingStatus(null);
       if (!privateChat) loadConversations();
       setTimeout(() => scrollToBottom('smooth'), 30);
+      if (voiceMode) return assistantText;
     } catch (err: any) {
       const cancelled = err?.name === 'AbortError' || controller.signal.aborted;
       setBusy(false);
@@ -2164,7 +2167,7 @@ export function AssistantPage() {
                   setValue={setInput}
                   onSend={() => handleSend()}
                   onStop={stopGeneration}
-                  onOpenVoice={() => navigate('/assistant/voice')}
+                  onOpenVoice={() => setVoiceTalkOpen(true)}
                   busy={busy || isStreaming}
                   selectedModel={selectedModel}
                   onSelectModel={handleModelChange}
@@ -2183,6 +2186,13 @@ export function AssistantPage() {
           </div>
         )}
       </div>
+
+      <VoiceTalk
+        open={voiceTalkOpen}
+        busy={busy || isStreaming}
+        onClose={() => setVoiceTalkOpen(false)}
+        onVoiceMessage={(text) => handleSend(text, true)}
+      />
 
       {settingsOpen && (
         <SettingsModal
