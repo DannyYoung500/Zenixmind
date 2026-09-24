@@ -4611,12 +4611,21 @@ export function OwnerPage() {
                           >
                             <div className="space-y-2">
                               <div className="flex items-start justify-between gap-3">
-                                <div className="flex min-w-0 items-start gap-3">
-                                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-white/[.08] bg-[#15151a] grid place-items-center shadow-inner">
-                                    {plugin.logoUrl ? <img src={plugin.logoUrl} alt="" className="h-full w-full object-cover" loading="lazy" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} /> : <span className="text-sm font-bold text-zinc-300">{String(plugin.name || '?').slice(0,1).toUpperCase()}</span>}
-                                  </div>
-                                  <div className="min-w-0">
+                                <div>
                                   <div className="flex items-center gap-2 flex-wrap">
+                                    {plugin.logoUrl ? (
+                                      <img
+                                        src={plugin.logoUrl}
+                                        alt=""
+                                        className="h-8 w-8 shrink-0 rounded-xl object-cover border border-white/[.08] bg-[#15151a]"
+                                        loading="lazy"
+                                        referrerPolicy="no-referrer"
+                                      />
+                                    ) : (
+                                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-white/[.08] bg-[#15151a] text-xs font-bold text-zinc-300">
+                                        {String(plugin.name || '?').slice(0, 1).toUpperCase()}
+                                      </span>
+                                    )}
                                     <h4 className="text-sm font-bold text-white">{plugin.name}</h4>
                                     <span className="text-[10px] font-mono text-zinc-400 bg-white/[.06] px-2 py-0.5 rounded">
                                       v{plugin.version}
@@ -4630,7 +4639,6 @@ export function OwnerPage() {
                                   </div>
                                   <div className="text-[11px] text-zinc-500 font-mono mt-0.5">
                                     By {plugin.author} · {plugin.category}
-                                  </div>
                                 </div>
 
                                 <div className="text-right shrink-0">
