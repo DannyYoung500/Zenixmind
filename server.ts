@@ -755,31 +755,12 @@ const getGeminiClient = () => {
 // =========================================================================
 // REAL SEARCH RESEARCH ENGINE
 // =========================================================================
-async function executeWebSearch(query: string): Promise<Array<{ title: string; url: string; snippet?: string }>> {
+async function executeWebSearch(_query: string): Promise<Array<{ title: string; url: string; snippet?: string }>> {
   telemetry.webSearches += 1;
-  const cleanTerm = query.replace(/[^\w\s]/gi, '').trim().slice(0, 40);
-  const encoded = encodeURIComponent(cleanTerm);
-
-  // Return real, grounded query references
-  return [
-    {
-      title: `${query.slice(0, 45)} - Wikipedia Fact Index`,
-      url: `https://en.wikipedia.org/wiki/Special:Search?search=${encoded}`,
-      snippet: `Comprehensive open-knowledge references and encyclopedic context for "${cleanTerm}".`
-    },
-    {
-      title: `${cleanTerm} Technical Documentation & Repositories`,
-      url: `https://github.com/search?q=${encoded}`,
-      snippet: `Open source implementations, specifications, and code repositories related to "${cleanTerm}".`
-    },
-    {
-      title: `${cleanTerm} Scientific & Research Overview`,
-      url: `https://scholar.google.com/scholar?q=${encoded}`,
-      snippet: `Peer-reviewed scientific publications, patents, and academic citations.`
-    }
-  ];
+  // Source links are supplied by Gemini grounding metadata when the model is
+  // using its built-in Google Search tool. Never fabricate search-result URLs.
+  return [];
 }
-
 // =========================================================================
 // UNIFIED MULTI-MODEL INFERENCE ENGINE
 // =========================================================================
@@ -843,7 +824,8 @@ async function executeModelInference({
 
       const response = await gemini.models.generateContent({
         model: geminiModel,
-        contents: fullPrompt
+        contents: fullPrompt,
+        ...(webSearch ? { config: { tools: [{ googleSearch: {} }] } } : {})
       });
 
       const responseText = response.text || '';
@@ -1230,7 +1212,8 @@ app.post('/api/chat/stream', async (req, res) => {
       const geminiModel = targetModel.includes('pro') ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
       const stream = await gemini.models.generateContentStream({
         model: geminiModel,
-        contents: fullPrompt
+        contents: fullPrompt,
+        ...(webSearch ? { config: { tools: [{ googleSearch: {} }] } } : {})
       });
 
       send({ type: 'status', status: 'writing' });
