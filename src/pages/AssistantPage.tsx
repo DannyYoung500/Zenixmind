@@ -1739,8 +1739,8 @@ export function AssistantPage() {
     }
 
     const textLike = file.type.startsWith('text/') ||
-      /^(application\\/(json|csv)|text\\/(csv|markdown)|application\\/javascript)$/i.test(file.type) ||
-      /\\.(txt|md|markdown|csv|json|ts|tsx|js|jsx|py|html|css|xml|yaml|yml)$/i.test(file.name);
+      /^(application\/(json|csv)|text\/(csv|markdown)|application\/javascript)$/i.test(file.type) ||
+      /\.(txt|md|markdown|csv|json|ts|tsx|js|jsx|py|html|css|xml|yaml|yml)$/i.test(file.name);
 
     if (textLike) {
       const text = await file.text();
