@@ -16,8 +16,6 @@ import {
   MoreHorizontal,
   X,
   Menu,
-  VenetianMask,
-  Shield,
   CreditCard,
   LogOut,
   Settings,
@@ -38,27 +36,6 @@ export interface Conversation {
   pinned?: boolean;
 }
 
-function PrivateChatIcon({ size = 18, className = '' }: { size?: number; className?: string }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M5 10.5H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M7 10.5C7.35 7.55 9.05 5.5 12 5.5C14.95 5.5 16.65 7.55 17 10.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <rect x="4.75" y="11.25" width="5.9" height="4.6" rx="1.9" stroke="currentColor" strokeWidth="1.8" />
-      <rect x="13.35" y="11.25" width="5.9" height="4.6" rx="1.9" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M10.65 13.55H13.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M8 15.85L6.7 18.2M16 15.85L17.3 18.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 interface WorkspaceShellProps {
   active?: 'home' | 'chat' | 'images' | 'library' | 'automations' | 'plans' | 'owner';
   children: React.ReactNode;
@@ -68,11 +45,8 @@ interface WorkspaceShellProps {
   onSelectModel?: (modelId: string) => void;
   onRefreshConversations?: () => void;
   onOpenSettings?: () => void;
-  privateChat?: boolean;
-  onTogglePrivateChat?: () => void;
-  onStartPrivateChat?: () => void;
   onNewChat?: () => void;
-  headerAction?: 'private' | 'new' | 'none';
+  headerAction?: 'new' | 'none';
 }
 
 export function WorkspaceShell({
@@ -84,11 +58,8 @@ export function WorkspaceShell({
   onSelectModel,
   onRefreshConversations,
   onOpenSettings,
-  privateChat = false,
-  onTogglePrivateChat,
-  onStartPrivateChat,
   onNewChat,
-  headerAction = 'private'
+  headerAction = 'none'
 }: WorkspaceShellProps) {
   const [open, setOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -300,9 +271,6 @@ export function WorkspaceShell({
             <button type="button" onClick={() => { onNewChat?.(); setOpen(false); }} title="New chat" className="flex min-w-0 flex-1 items-center rounded-xl px-3 py-2 text-xs text-zinc-300 hover:bg-[#141416] hover:text-zinc-100 transition-colors">
               {!sidebarCollapsed && <span>New chat</span>}
               {sidebarCollapsed && <span className="sr-only">New chat</span>}
-            </button>
-            <button type="button" onClick={() => { if (onTogglePrivateChat) onTogglePrivateChat(); else if (onStartPrivateChat) onStartPrivateChat(); setOpen(false); }} title={privateChat ? "Exit private chat" : "Enter private chat"} aria-label={privateChat ? "Exit private chat" : "Enter private chat"} className={privateChat ? 'grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-amber-400/25 bg-amber-400/10 text-amber-300' : 'grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/[.07] bg-[#111113] text-zinc-400 hover:bg-[#18181b] hover:text-zinc-100'}>
-              <Shield size={15} />
             </button>
           </div>
 
@@ -640,22 +608,6 @@ export function WorkspaceShell({
               >
                 <span>Upgrade</span>
               </Link>
-
-              {headerAction === 'private' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onStartPrivateChat) onStartPrivateChat();
-                    else if (onTogglePrivateChat) onTogglePrivateChat();
-                    else navigate('/assistant?private=1');
-                  }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[.08] bg-[#121215] text-zinc-100 hover:bg-[#18181c] transition-colors"
-                  title="Start a private chat"
-                  aria-label="Start a private chat"
-                >
-                  <PrivateChatIcon size={21} />
-                </button>
-              )}
               {headerAction === 'new' && (
                 <button
                   type="button"

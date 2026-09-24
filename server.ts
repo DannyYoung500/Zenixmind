@@ -1112,7 +1112,6 @@ app.post('/api/chat/stream', async (req, res) => {
     const {
       messages: incomingMessages = [],
       conversationId,
-      privateChat = false,
       model = aiControlState.defaultModel || 'gemini-2.5-flash',
       preferences = {},
       webSearch = false,
@@ -1190,7 +1189,7 @@ app.post('/api/chat/stream', async (req, res) => {
           .limit(10)).data || []).slice(0, -1);
 
     const targetModel = model || aiControlState.defaultModel || 'gemini-2.5-flash';
-    const memories = preferences?.memory && !privateChat ? await getUserMemories(supabase, user.id) : [];
+    const memories = preferences?.memory ? await getUserMemories(supabase, user.id) : [];
     const memoryContext = buildMemoryContext(memories);
     const sources = webSearch ? await executeWebSearch(userMessage.content.trim()) : undefined;
 
@@ -1297,9 +1296,9 @@ app.post('/api/chat/stream', async (req, res) => {
         role: 'assistant',
         content: fullText
       });
-      if (assistantSaveError) throw assistantSaveError;
+    if (assistantSaveError) throw assistantSaveError;
 
-      const { error: conversationUpdateError } = await supabase
+    const { error: conversationUpdateError } = await supabase
         .from('conversations')
         .update({
           model: modelUsed,
@@ -1323,8 +1322,7 @@ app.post('/api/chat/stream', async (req, res) => {
       sources,
       latencyMs,
       inputTokens: estimatedInputTokens,
-      outputTokens: estimatedOutputTokens,
-      privateChat
+      outputTokens: estimatedOutputTokens 
     });
     return res.end();
   } catch (err: any) {

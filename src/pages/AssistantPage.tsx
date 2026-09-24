@@ -1529,7 +1529,6 @@ export function AssistantPage() {
   const [webSearch, setWebSearch] = useState(false);
   const [deepThink, setDeepThink] = useState(false);
   const [input, setInput] = useState('');
-  const [privateChat, setPrivateChat] = useState(() => new URLSearchParams(window.location.search).get('private') === '1');
   const [busy, setBusy] = useState(false);
   const [thinkingStatus, setThinkingStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1819,17 +1818,16 @@ export function AssistantPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: nextMessages,
-          conversationId: privateChat ? null : conversationId,
-          privateChat,
+          conversationId,
           model: selectedModel,
           webSearch,
           deepThink,
           attachment: attachmentPayload,
           preferences: {
-            memory: privateChat ? false : localStorage.getItem('zenixmind-memory') !== 'off',
-            personality: privateChat ? 'Balanced' : localStorage.getItem('zenixmind-personality') || 'Balanced',
-            responseLength: privateChat ? 'Adaptive' : localStorage.getItem('zenixmind-response-length') || 'Adaptive',
-            customInstructions: privateChat ? '' : localStorage.getItem('zenixmind-custom-instructions') || ''
+            memory: localStorage.getItem('zenixmind-memory') !== 'off',
+            personality: localStorage.getItem('zenixmind-personality') || 'Balanced',
+            responseLength: localStorage.getItem('zenixmind-response-length') || 'Adaptive',
+            customInstructions: localStorage.getItem('zenixmind-custom-instructions') || ''
           }
         })
       });
@@ -1854,7 +1852,7 @@ export function AssistantPage() {
         }
         if (event.type === 'meta') {
           meta = event;
-          if (event.conversationId && !privateChat) {
+          if (event.conversationId) {
             setConversationId(event.conversationId);
             setSearchParams((prev) => {
               const next = new URLSearchParams(prev);
@@ -1937,7 +1935,7 @@ export function AssistantPage() {
       setBusy(false);
       setIsStreaming(false);
       setThinkingStatus(null);
-      if (!privateChat) loadConversations();
+      loadConversations();
       setTimeout(() => scrollToBottom('smooth'), 30);
       if (voiceMode) return assistantText;
     } catch (err: any) {
@@ -2040,31 +2038,8 @@ export function AssistantPage() {
       selectedModel={selectedModel}
       onSelectModel={handleModelChange}
       onOpenSettings={() => setSettingsOpen(true)}
-      privateChat={privateChat}
       headerAction={view !== 'chat' ? 'none' : 'new'}
       onNewChat={handleStartNewChat}
-      onStartPrivateChat={() => {
-        setMessages([]);
-        setConversationId(null);
-        setInput('');
-        setAttachedFile(null);
-        setPrivateChat(true);
-        navigate('/assistant?private=1');
-      }}
-      onTogglePrivateChat={() => {
-        setPrivateChat((current) => {
-          const next = !current;
-          if (next) {
-            setMessages([]);
-            setConversationId(null);
-            navigate('/assistant?private=1');
-          } else {
-            navigate('/assistant');
-            loadConversations();
-          }
-          return next;
-        });
-      }}
     >
       <div className="relative flex-1 flex flex-col h-[calc(100vh-56px)] overflow-hidden bg-[#050506]">
         {view === 'images' && <ImagesView />}
