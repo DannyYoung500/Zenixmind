@@ -996,26 +996,74 @@ function ImagesView() {
     {
       id: 'cinematic',
       title: 'Cinematic 35mm',
-      prompt: 'A cinematic movie still shot on 35mm anamorphic lens with dramatic depth of field and atmospheric lighting',
+      prompt: 'A cinematic movie still shot on 35mm anamorphic lens with dramatic depth of field, atmospheric lighting, subtle film grain, and rich contrast',
       image: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=600&q=80'
     },
     {
       id: 'anime',
       title: 'Anime Aesthetic',
-      prompt: 'Studio Ghibli inspired vibrant anime landscape with fluffy clouds and lush green hills',
+      prompt: 'A vibrant hand-painted anime landscape with expressive clouds, lush green hills, atmospheric perspective, and beautiful cinematic light',
       image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'
     },
     {
       id: 'isometric',
       title: '3D Isometric Room',
-      prompt: 'Isometric 3D render of a futuristic cyberpunk workstation room with glowing screens and plants',
+      prompt: 'A polished 3D isometric futuristic workstation with glowing screens, plants, desk accessories, soft volumetric lighting, and clean composition',
       image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80'
     },
     {
-      id: 'oil',
-      title: 'Oil Painting',
-      prompt: 'Classic Renaissance impressionist oil painting with visible rich brushstrokes and textured canvas',
-      image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80'
+      id: 'fashion-editorial',
+      title: 'Fashion Editorial',
+      prompt: 'High-fashion editorial campaign photographed in a minimalist studio, dramatic directional lighting, premium styling, realistic skin texture, luxury magazine composition',
+      image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=600&q=80'
+    },
+    {
+      id: 'product',
+      title: 'Product Showcase',
+      prompt: 'Premium studio product photograph on a sculptural surface with soft reflections, controlled shadows, clean background, commercial lighting, and luxury advertising detail',
+      image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80'
+    },
+    {
+      id: 'architecture',
+      title: 'Modern Architecture',
+      prompt: 'Striking contemporary architecture photographed at blue hour, geometric lines, dramatic perspective, subtle interior glow, and editorial architectural photography',
+      image: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=600&q=80'
+    },
+    {
+      id: 'nature',
+      title: 'Nature Film',
+      prompt: 'Epic natural landscape with layered mountains, mist, soft morning light, realistic atmospheric depth, cinematic color grading, and fine environmental detail',
+      image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=80'
+    },
+    {
+      id: 'neon-city',
+      title: 'Neon City',
+      prompt: 'Futuristic night city street after rain, luminous signs reflected on wet pavement, atmospheric haze, cinematic depth, and detailed urban architecture',
+      image: 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=600&q=80'
+    },
+    {
+      id: 'minimal',
+      title: 'Minimal Poster',
+      prompt: 'Minimalist contemporary poster design with bold geometric forms, generous negative space, refined typography area, premium art-direction, and balanced composition',
+      image: 'https://images.unsplash.com/photo-1549490349-8643362247b5?auto=format&fit=crop&w=600&q=80'
+    },
+    {
+      id: 'food',
+      title: 'Food Photography',
+      prompt: 'Editorial food photography of an elegant plated dish, natural window light, rich textures, shallow depth of field, premium restaurant styling, and appetizing detail',
+      image: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=600&q=80'
+    },
+    {
+      id: 'travel',
+      title: 'Travel Postcard',
+      prompt: 'Dream travel destination photographed like a premium editorial postcard, beautiful architecture, local atmosphere, golden-hour light, realistic detail, and inviting composition',
+      image: 'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=600&q=80'
+    },
+    {
+      id: 'portrait',
+      title: 'Cinematic Portrait',
+      prompt: 'Intimate cinematic portrait with natural expression, soft directional light, shallow depth of field, realistic skin texture, subtle film grain, and moody background',
+      image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=600&q=80'
     }
   ];
 
@@ -2054,9 +2102,6 @@ export function AssistantPage() {
             >
               {!messages.length ? (
                 <div className="flex h-full flex-col items-center justify-center px-4 text-center max-w-2xl mx-auto py-8">
-                  <div className="mb-6 grid h-14 w-14 place-items-center rounded-2xl border border-white/[.08] bg-[#0c0c0e] shadow-xl">
-                    <BrandMark size={32} />
-                  </div>
                   <h1 className="max-w-xl text-2xl sm:text-3xl font-light tracking-[-.03em] text-zinc-100 min-h-[42px]">
                     {emptyGreeting || " "}
                   </h1>
@@ -2083,10 +2128,6 @@ export function AssistantPage() {
 
                   {thinkingStatus && (
                     <div className="flex items-center gap-3 py-1.5 animate-in fade-in duration-200">
-                      <div className="relative grid h-7 w-7 place-items-center">
-                        <span className="absolute inset-0 rounded-full bg-amber-400/10 blur-md animate-pulse" />
-                        <BrandMark size={24} className="relative text-zinc-300" />
-                      </div>
                       <div className="flex items-center gap-2.5 rounded-full border border-white/[.065] bg-[#0d0d10] px-3.5 py-2 text-[11px] text-zinc-400 shadow-sm">
                         <span className="flex items-center gap-1">
                           <span className="h-1 w-1 rounded-full bg-zinc-500 animate-pulse" />

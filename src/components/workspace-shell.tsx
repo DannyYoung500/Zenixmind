@@ -11,8 +11,7 @@ import {
   SquarePen,
   Sparkles,
   FolderClosed,
-  Zap,
-  Pin,
+    Pin,
   MoreHorizontal,
   X,
   Menu,
@@ -25,7 +24,8 @@ import {
   Edit2,
   FolderPlus,
   Shield,
-  VenetianMask
+  VenetianMask,
+  Blocks
 } from 'lucide-react';
 
 export interface Conversation {
@@ -325,20 +325,21 @@ export function WorkspaceShell({
                 icon: FolderClosed,
                 badge: null
               },
-              {
-                id: 'automations',
-                label: 'Automations',
-                to: '/assistant?view=automations',
-                icon: Zap,
+              ...(isOwner ? [{
+                id: 'plugins',
+                label: 'Plugins',
+                to: '/owner',
+                icon: Blocks,
                 badge: null
-              }
+              }] : [])
             ].map((item) => {
               const IconComp = item.icon;
               const isItemActive =
                 (item.id === 'chat' && location.pathname === '/assistant' && !location.search.includes('view=')) ||
                 (item.id === 'images' && location.search.includes('view=images')) ||
                 (item.id === 'library' && location.search.includes('view=library')) ||
-                (item.id === 'automations' && location.search.includes('view=automations'));
+                (item.id === 'automations' && location.search.includes('view=automations')) ||
+                (item.id === 'plugins' && location.pathname === '/owner');
 
               return (
                 <Link
