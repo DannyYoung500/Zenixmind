@@ -126,21 +126,17 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
   if (!open) return null;
 
   return (
-    <div
-      className="absolute inset-0 z-[80] flex items-center justify-center bg-black/35 backdrop-blur-[1px]"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) close();
-      }}
-    >
-      <div className="flex flex-col items-center justify-center px-6 py-8">
-        <button
-          onClick={toggle}
-          className="grid h-20 w-20 place-items-center rounded-full bg-white text-black shadow-[0_0_45px_rgba(255,255,255,.12)] transition-transform hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-white/60"
-          aria-label="Tap the microphone to talk"
-        >
-          <Mic size={30} strokeWidth={2.2} />
-        </button>
-        <p className="mt-5 text-sm font-medium text-white">Tap the microphone to talk</p>
+    <div className="absolute inset-0 z-[80] flex items-center justify-center bg-black">
+      <div className="flex w-full max-w-2xl flex-col items-center justify-center px-6 text-center">
+        <VoiceSunOrb
+          state={state === 'muted' ? 'listening' : state}
+          audioLevel={state === 'listening' ? 0.38 : state === 'speaking' ? 0.72 : state === 'thinking' ? 0.2 : 0.12}
+          size={260}
+        />
+        <div className="mt-10">
+          <p className="text-xl font-light tracking-[0.08em] text-white">Listening...</p>
+          <p className="mt-2 text-sm text-zinc-500">I’m listening. Go ahead, speak.</p>
+        </div>
       </div>
     </div>
   );
