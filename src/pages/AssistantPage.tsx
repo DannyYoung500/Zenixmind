@@ -1597,7 +1597,6 @@ export function AssistantPage() {
   const handleStartNewChat = useCallback(() => {
     setVoiceTalkOpen(false);
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    setPrivateChat(false);
     setConversationId(null);
     setMessages([]);
     setInput('');
@@ -1703,7 +1702,6 @@ export function AssistantPage() {
   };
 
   useEffect(() => {
-    setPrivateChat(searchParams.get('private') === '1');
     loadConversations();
     if (urlConvId) {
       loadConversation(urlConvId);
