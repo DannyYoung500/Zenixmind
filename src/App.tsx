@@ -9,6 +9,7 @@ import { VoicePage } from './pages/VoicePage';
 import { PricingPage } from './pages/PricingPage';
 import { LoginPage, SignupPage } from './pages/LoginPage';
 import { OwnerPage } from './pages/OwnerPage';
+import { OwnerActivityPage } from './pages/OwnerActivityPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -46,6 +47,7 @@ export function App() {
           <Route path="/assistant" element={<ProtectedRoute><AssistantPage /></ProtectedRoute>} />
           <Route path="/assistant/voice" element={<ProtectedRoute><VoicePage /></ProtectedRoute>} />
           <Route path="/owner" element={<ProtectedRoute><OwnerPage /></ProtectedRoute>} />
+          <Route path="/owner/activity" element={<ProtectedRoute><OwnerActivityPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
