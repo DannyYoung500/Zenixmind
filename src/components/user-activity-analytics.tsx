@@ -65,10 +65,7 @@ export interface ActivityAnalyticsResponse {
   };
   hourlyTraffic: HourlyTrafficPoint[];
   users: UserActivityRecord[];
-  topRegions: Array<{
-    region: string;
-    sharePercent: number;
-  }>;
+  topRegions: Array<{ region: string; sharePercent: number }>;
 }
 
 interface UserActivityAnalyticsProps {
@@ -80,7 +77,6 @@ interface UserActivityAnalyticsProps {
   }) => void;
 }
 
-// Format relative time helper
 function formatRelativeTime(dateStr: string): string {
   try {
     const d = new Date(dateStr);
@@ -100,7 +96,6 @@ function formatRelativeTime(dateStr: string): string {
   }
 }
 
-// Format exact UTC date
 function formatUtcTimestamp(dateStr: string): string {
   try {
     const d = new Date(dateStr);
@@ -130,7 +125,12 @@ export function UserActivityAnalytics({ onAddToast }: UserActivityAnalyticsProps
   const fetchActivityData = useCallback(async (isManual = false) => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/activity-analytics');
+      const { getSupabase } = await import('../lib/supabase');
+      const { data: sessionData } = await getSupabase().auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await fetch('/api/admin/activity-analytics', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       if (res.ok) {
         const payload: ActivityAnalyticsResponse = await res.json();
         setData(payload);
@@ -142,9 +142,25 @@ export function UserActivityAnalytics({ onAddToast }: UserActivityAnalyticsProps
             metric: 'Synced'
           });
         }
+      } else if (isManual && onAddToast) {
+        onAddToast({
+          title: 'Activity Sync Failed',
+          message:
+            res.status === 401 || res.status === 403
+              ? 'Owner session required. Sign in with an owner account.'
+              : `Server returned ${res.status}.`,
+          type: 'warning',
+          metric: String(res.status)
+        });
       }
     } catch {
-      // Offline fallback
+      if (isManual && onAddToast) {
+        onAddToast({
+          title: 'Activity Sync Offline',
+          message: 'Could not reach the activity analytics endpoint.',
+          type: 'critical'
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -152,13 +168,10 @@ export function UserActivityAnalytics({ onAddToast }: UserActivityAnalyticsProps
 
   useEffect(() => {
     fetchActivityData();
-    const timer = setInterval(() => {
-      fetchActivityData();
-    }, 20000);
+    const timer = setInterval(() => fetchActivityData(), 20000);
     return () => clearInterval(timer);
   }, [fetchActivityData]);
 
-  // Filtered Users List
   const filteredUsers = useMemo(() => {
     if (!data?.users) return [];
     return data.users.filter((user) => {
@@ -167,30 +180,27 @@ export function UserActivityAnalytics({ onAddToast }: UserActivityAnalyticsProps
         user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.peakTimeSlot.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.ipLocation.toLowerCase().includes(searchQuery.toLowerCase());
-
       const matchesRole = roleFilter === 'ALL' || user.role.toUpperCase() === roleFilter.toUpperCase();
       return matchesSearch && matchesRole;
     });
   }, [data?.users, searchQuery, roleFilter]);
 
-  // Export User Activity CSV
   const handleExportCSV = () => {
     if (!data?.users) return;
-    const headers = 'ID,Name,Email,Role,SignUpDate,LastLoginDate,PreviousLoginDate,SessionCount,AvgDurationMins,PeakTimeSlot,Device,Location,Status\n';
+    const headers =
+      'ID,Name,Email,Role,SignUpDate,LastLoginDate,PreviousLoginDate,SessionCount,AvgDurationMins,PeakTimeSlot,Device,Location,Status\n';
     const rows = data.users
       .map(
         (u) =>
           `"${u.id}","${u.name}","${u.email}","${u.role}","${u.signupAt}","${u.lastLoginAt}","${u.previousLoginAt || ''}","${u.sessionCount}","${u.avgSessionDurationMinutes}","${u.peakTimeSlot}","${u.device}","${u.ipLocation}","${u.status}"`
       )
       .join('\n');
-
     const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
     link.setAttribute('download', `zenixmind-user-activity-ledger-${Date.now()}.csv`);
     link.click();
-
     if (onAddToast) {
       onAddToast({
         title: 'Activity Ledger Exported',
@@ -206,9 +216,6 @@ export function UserActivityAnalytics({ onAddToast }: UserActivityAnalyticsProps
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      {/* ========================================================================= */}
-      {/* SECTION HEADER & QUICK TOOLBAR                                            */}
-      {/* ========================================================================= */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-white/[.07] bg-[#0b0b0e] p-5 shadow-xl">
         <div>
           <div className="flex items-center gap-2.5">
@@ -219,18 +226,17 @@ export function UserActivityAnalytics({ onAddToast }: UserActivityAnalyticsProps
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 User Sign-Up Activity & Login Timestamps
                 <span className="rounded-full bg-amber-400/15 border border-amber-400/30 px-2 py-0.2 text-[9px] font-mono font-bold text-amber-300">
-                  PEAK TRACKER
+                  LIVE LEDGER
                 </span>
               </h2>
               <p className="text-xs text-zinc-400 mt-0.5">
-                Analyze user onboarding cohorts, login recurrence timestamps, and hourly load distributions to optimize cluster capacity.
+                Real owner-authenticated activity from the platform auth store and traffic matrix.
               </p>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Time Range Selector */}
           <div className="flex items-center rounded-xl border border-white/[.08] bg-[#060608] p-1 text-[11px]">
             {(['24H', '7D', '30D', 'ALL'] as const).map((t) => (
               <button
@@ -248,7 +254,6 @@ export function UserActivityAnalytics({ onAddToast }: UserActivityAnalyticsProps
           <button
             onClick={handleExportCSV}
             className="flex items-center gap-1.5 rounded-xl border border-white/[.1] bg-[#121218] px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-[#1c1c24] hover:text-white transition-colors"
-            title="Export full ledger as CSV"
           >
             <Download size={13} />
             <span>Export Ledger</span>
@@ -265,469 +270,234 @@ export function UserActivityAnalytics({ onAddToast }: UserActivityAnalyticsProps
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 4 HIGH-IMPACT PEAK & ENGAGEMENT METRICS                                   */}
-      {/* ========================================================================= */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* Metric 1: Peak Traffic Window */}
         <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/[.08] to-[#0c0c10] p-4.5 flex flex-col justify-between shadow-lg">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Flame size={14} className="text-amber-400" />
-              Primary Peak Load
-            </span>
-            <span className="rounded bg-amber-400/20 text-amber-300 px-1.5 py-0.2 text-[9px] font-mono font-bold">
-              42% DAILY LOAD
+              <Flame size={14} /> Primary Peak Load
             </span>
           </div>
-
           <div className="mt-3">
-            <div className="text-lg font-bold text-white font-mono tracking-tight">
-              {metrics?.peakHourWindow || '14:00 - 18:00 UTC'}
+            <div className="text-lg font-bold text-white font-mono tracking-tight zenix-metric-value">
+              {metrics?.peakHourWindow || '—'}
             </div>
-            <p className="text-[11px] text-zinc-400 mt-1 flex items-center gap-1">
-              <span>Peak surge:</span>
-              <span className="font-mono text-amber-300 font-semibold">4,120 queries/hr</span>
-            </p>
+            <p className="text-[11px] text-zinc-400 mt-1">Peak window from live load scores</p>
           </div>
-
           <div className="mt-3 pt-2.5 border-t border-amber-500/20 flex items-center justify-between text-[10px] text-zinc-400">
             <span>Concurrency Peak:</span>
-            <span className="font-mono font-bold text-white">{metrics?.peakConcurrencyEstimate || 42} streams</span>
+            <span className="font-mono font-bold text-white">{metrics?.peakConcurrencyEstimate ?? 0}</span>
           </div>
         </div>
 
-        {/* Metric 2: DAU / MAU Stickiness */}
         <div className="rounded-2xl border border-white/[.07] bg-[#0b0b0e] p-4.5 flex flex-col justify-between shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Users size={14} className="text-sky-400" />
-              Stickiness (DAU/MAU)
-            </span>
-            <span className="rounded bg-sky-400/15 text-sky-300 px-1.5 py-0.2 text-[9px] font-mono font-bold">
-              HIGH RETENTION
+              <Users size={14} className="text-sky-400" /> Stickiness (DAU/MAU)
             </span>
           </div>
-
           <div className="mt-3">
-            <div className="text-lg font-bold text-white font-mono tracking-tight">
-              {metrics?.stickinessPercent || '89.4%'}
+            <div className="text-lg font-bold text-white font-mono tracking-tight zenix-metric-value">
+              {metrics?.stickinessPercent ?? '—'}
             </div>
-            <p className="text-[11px] text-zinc-400 mt-1">
-              Active daily users revisit <span className="text-sky-300 font-semibold">4.8x per day</span>
-            </p>
+            <p className="text-[11px] text-zinc-400 mt-1">DAU / MAU from live owner ledger</p>
           </div>
-
           <div className="mt-3 pt-2.5 border-t border-white/[.06] flex items-center justify-between text-[10px] text-zinc-400">
             <span>DAU / Total:</span>
-            <span className="font-mono font-bold text-white">8 / 8 Active</span>
+            <span className="font-mono font-bold text-white">
+              {metrics?.dau ?? 0} / {metrics?.totalUsers ?? 0}
+            </span>
           </div>
         </div>
 
-        {/* Metric 3: Average Session Duration */}
         <div className="rounded-2xl border border-white/[.07] bg-[#0b0b0e] p-4.5 flex flex-col justify-between shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Clock size={14} className="text-purple-400" />
-              Avg Session Duration
-            </span>
-            <span className="rounded bg-purple-400/15 text-purple-300 px-1.5 py-0.2 text-[9px] font-mono font-bold">
-              ENGAGED
+              <Clock size={14} className="text-purple-400" /> Avg Session Duration
             </span>
           </div>
-
           <div className="mt-3">
-            <div className="text-lg font-bold text-white font-mono tracking-tight">
-              {metrics?.avgSessionMinutes ? `${metrics.avgSessionMinutes} min` : '39.2 min'}
+            <div className="text-lg font-bold text-white font-mono tracking-tight zenix-metric-value">
+              {metrics?.avgSessionMinutes != null ? `${metrics.avgSessionMinutes} min` : '—'}
             </div>
-            <p className="text-[11px] text-zinc-400 mt-1">
-              Across voice, multi-model chat & code runs
-            </p>
+            <p className="text-[11px] text-zinc-400 mt-1">Across chat, voice, and workspace</p>
           </div>
-
           <div className="mt-3 pt-2.5 border-t border-white/[.06] flex items-center justify-between text-[10px] text-zinc-400">
-            <span>Monthly Logins:</span>
-            <span className="font-mono font-bold text-white">1,864 Sessions</span>
+            <span>MAU:</span>
+            <span className="font-mono font-bold text-white">{metrics?.mau ?? 0}</span>
           </div>
         </div>
 
-        {/* Metric 4: Sign-up Growth Velocity */}
         <div className="rounded-2xl border border-white/[.07] bg-[#0b0b0e] p-4.5 flex flex-col justify-between shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-              <TrendingUp size={14} className="text-emerald-400" />
-              Sign-Up Velocity
+              <TrendingUp size={14} className="text-emerald-400" /> Sign-Up Velocity
             </span>
             <span className="rounded bg-emerald-400/15 text-emerald-300 px-1.5 py-0.2 text-[9px] font-mono font-bold">
-              {metrics?.growthVelocityPercent || '+34.2%'}
+              {metrics?.growthVelocityPercent ?? '—'}
             </span>
           </div>
-
           <div className="mt-3">
-            <div className="text-lg font-bold text-emerald-400 font-mono tracking-tight flex items-center gap-1.5">
-              <span>+{metrics?.signupsThisMonth || 7}</span>
-              <span className="text-xs text-zinc-400 font-normal">new onboarded</span>
+            <div className="text-lg font-bold text-emerald-400 font-mono tracking-tight flex items-center gap-1.5 zenix-metric-value">
+              <span>+{metrics?.signupsThisMonth ?? 0}</span>
+              <span className="text-xs text-zinc-400 font-normal">this month</span>
             </div>
             <p className="text-[11px] text-zinc-400 mt-1">
-              <span className="text-emerald-300 font-semibold">+{metrics?.signupsThisWeek || 3} new users</span> past 7 days
+              <span className="text-emerald-300 font-semibold">+{metrics?.signupsThisWeek ?? 0}</span> past 7 days
             </p>
           </div>
-
           <div className="mt-3 pt-2.5 border-t border-white/[.06] flex items-center justify-between text-[10px] text-zinc-400">
-            <span>Activation Rate:</span>
-            <span className="font-mono font-bold text-emerald-300">100% First Query</span>
+            <span>Cohort:</span>
+            <span className="font-mono font-bold text-emerald-300">Live cohort</span>
           </div>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 24-HOUR PEAK USAGE HEATMAP & HOURLY LOAD DISTRIBUTION                      */}
-      {/* ========================================================================= */}
       <div className="rounded-2xl border border-white/[.07] bg-[#0b0b0e] p-6 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <div className="flex items-center gap-2">
               <BarChart3 size={16} className="text-amber-400" />
-              <h3 className="text-sm font-bold text-white">24-Hour Traffic & Peak Usage Distribution</h3>
+              <h3 className="text-sm font-bold text-white">24-Hour Traffic Distribution</h3>
             </div>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Interactive hourly breakdown of active user logins and inference queries throughout the day.
-            </p>
-          </div>
-
-          {/* Legend */}
-          <div className="flex items-center gap-3 text-[11px]">
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded bg-zinc-700" />
-              <span className="text-zinc-400">Off-Peak</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded bg-sky-500" />
-              <span className="text-zinc-400">Moderate</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded bg-amber-400 shadow-[0_0_8px_#f59e0b]" />
-              <span className="text-amber-300 font-semibold">Peak Window (14:00 - 18:00 UTC)</span>
-            </div>
+            <p className="text-xs text-zinc-400 mt-0.5">Hourly load scores used for capacity planning.</p>
           </div>
         </div>
 
-        {/* Hourly Bars Visualizer */}
-        <div className="relative pt-4 pb-2">
-          {/* Peak Window Highlight Box */}
-          <div className="absolute top-0 bottom-8 left-[58%] right-[25%] rounded-xl bg-amber-400/[.06] border border-amber-400/25 pointer-events-none -z-0">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-amber-400 text-black text-[9px] font-bold rounded-full font-mono shadow-[0_0_10px_rgba(251,191,36,0.3)]">
-              PEAK CONCURRENCY ZONE
-            </div>
-          </div>
-
-          <div className="grid grid-cols-12 sm:grid-cols-24 gap-1 sm:gap-1.5 h-36 items-end relative z-10">
-            {hourly.map((pt, idx) => {
-              const maxQueries = 4500;
-              const heightPercent = Math.max(12, Math.round((pt.queries / maxQueries) * 100));
-              const isPeak = pt.isPeak;
-              const isHovered = hoveredHour?.hour === pt.hour;
-
-              let barColor = 'bg-zinc-800 hover:bg-zinc-700';
-              if (pt.loadScore > 85 && isPeak) {
-                barColor = 'bg-gradient-to-t from-amber-500 to-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.3)]';
-              } else if (pt.loadScore > 75) {
-                barColor = 'bg-gradient-to-t from-sky-600 to-sky-400';
-              } else if (pt.loadScore > 40) {
-                barColor = 'bg-gradient-to-t from-emerald-700 to-emerald-500';
-              }
-
-              return (
-                <div
-                  key={pt.hour}
-                  onMouseEnter={() => setHoveredHour(pt)}
-                  onMouseLeave={() => setHoveredHour(null)}
-                  className="flex flex-col items-center h-full justify-end group cursor-pointer"
-                >
-                  <div
-                    style={{ height: `${heightPercent}%` }}
-                    className={`w-full rounded-t-md transition-all duration-200 group-hover:scale-y-105 ${barColor} ${
-                      isHovered ? 'ring-2 ring-white ring-offset-1 ring-offset-black' : ''
-                    }`}
-                  />
-                  <span className="text-[8px] sm:text-[9px] font-mono text-zinc-500 mt-1.5 group-hover:text-zinc-200 truncate">
-                    {idx % 2 === 0 ? pt.hour.slice(0, 2) : ''}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Hovered Hour Interactive Inspector */}
-        <div className="mt-4 rounded-xl border border-white/[.08] bg-[#07070a] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          {hoveredHour ? (
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Clock size={14} className="text-amber-400" />
-                <span className="font-bold text-white">{hoveredHour.label} ({hoveredHour.hour} UTC)</span>
-                {hoveredHour.isPeak && (
-                  <span className="bg-amber-400/20 border border-amber-400/40 text-amber-300 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold">
-                    PEAK HOUR
-                  </span>
-                )}
+        <div className="grid grid-cols-12 sm:grid-cols-24 gap-1 sm:gap-1.5 h-36 items-end">
+          {hourly.map((pt) => {
+            const heightPercent = Math.max(8, Math.round(pt.loadScore));
+            const barColor = pt.isPeak
+              ? 'bg-gradient-to-t from-amber-500 to-amber-300'
+              : pt.loadScore > 50
+                ? 'bg-gradient-to-t from-sky-600 to-sky-400'
+                : 'bg-zinc-800';
+            return (
+              <div
+                key={pt.hour}
+                onMouseEnter={() => setHoveredHour(pt)}
+                onMouseLeave={() => setHoveredHour(null)}
+                className="flex flex-col items-center h-full justify-end group cursor-pointer"
+                title={`${pt.label}: load ${pt.loadScore}`}
+              >
+                <div style={{ height: `${heightPercent}%` }} className={`w-full rounded-t-md ${barColor}`} />
+                <span className="text-[8px] text-zinc-600 mt-1 hidden sm:block">{pt.hour}</span>
               </div>
-              <div className="flex items-center gap-3 text-zinc-300 font-mono">
-                <span>👤 <strong className="text-white">{hoveredHour.logins}</strong> Logins</span>
-                <span>⚡ <strong className="text-white">{hoveredHour.queries.toLocaleString()}</strong> Queries</span>
-                <span>📊 Load Index: <strong className={hoveredHour.isPeak ? 'text-amber-300' : 'text-sky-300'}>{hoveredHour.loadScore}%</strong></span>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-zinc-500 text-[11px]">
-              <Info size={13} />
-              <span>Hover over any hour column to inspect login concurrency and query volume spikes.</span>
-            </div>
-          )}
-
-          <div className="text-[11px] text-zinc-400">
-            Cluster Auto-Scaling SLA: <span className="text-emerald-400 font-semibold">100% Zero Throttles</span>
-          </div>
+            );
+          })}
         </div>
+        {hoveredHour && (
+          <p className="text-[11px] text-zinc-400 mt-3">
+            {hoveredHour.label} · load {hoveredHour.loadScore}
+            {hoveredHour.isPeak ? ' · peak window' : ''}
+          </p>
+        )}
       </div>
 
-      {/* ========================================================================= */}
-      {/* USER SIGN-UP ACTIVITY & LOGIN TIMESTAMPS LEDGER TABLE                     */}
-      {/* ========================================================================= */}
-      <div className="rounded-2xl border border-white/[.07] bg-[#0b0b0e] p-6 shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-white/[.06]">
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Users size={16} className="text-amber-400" />
-              Sign-Up Cohorts & Login Timestamp Ledger
-              <span className="rounded-full bg-white/[.08] px-2 py-0.2 text-[10px] font-mono text-zinc-400">
-                {filteredUsers.length} Users
-              </span>
-            </h3>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Inspect precise sign-up creation dates, last seen timestamps, and preferred peak time windows.
-            </p>
-          </div>
-
+      <div className="rounded-2xl border border-white/[.07] bg-[#0b0b0e] overflow-hidden shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-white/[.06]">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <Users size={15} className="text-sky-400" /> User ledger
+            <span className="text-[10px] font-mono text-zinc-500">{filteredUsers.length} rows</span>
+          </h3>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Search Input */}
             <div className="relative">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" />
               <input
-                type="text"
-                placeholder="Search user, email, timezone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-48 sm:w-56 rounded-xl border border-white/[.1] bg-[#060608] pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-amber-400/50"
+                placeholder="Search name, email, location…"
+                className="rounded-lg border border-white/[.08] bg-[#060608] pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-400/40 w-52"
               />
             </div>
-
-            {/* Role Filter */}
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="rounded-xl border border-white/[.1] bg-[#060608] px-3 py-1.5 text-xs text-zinc-300 outline-none focus:border-amber-400/50"
+              className="rounded-lg border border-white/[.08] bg-[#060608] px-2.5 py-1.5 text-xs text-zinc-300"
             >
-              <option value="ALL">All Roles</option>
-              <option value="OWNER">Owners Only</option>
-              <option value="ENTERPRISE">Enterprise</option>
-              <option value="PRO">Pro Tier</option>
+              <option value="ALL">All roles</option>
+              <option value="Owner">Owner</option>
+              <option value="Free">Free</option>
+              <option value="Pro">Pro</option>
+              <option value="Enterprise">Enterprise</option>
             </select>
           </div>
         </div>
 
-        {/* Scrollable Ledger Table */}
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-left text-xs text-zinc-300">
-            <thead className="bg-[#0e0e14] text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-[#08080c] text-[10px] uppercase tracking-wider text-zinc-500">
               <tr>
-                <th className="px-4 py-3 rounded-l-xl">User & Identity</th>
-                <th className="px-4 py-3">Sign-Up Timestamp</th>
-                <th className="px-4 py-3">Last Login (Live)</th>
-                <th className="px-4 py-3">Previous Login</th>
-                <th className="px-4 py-3">Peak Activity Window</th>
-                <th className="px-4 py-3">Sessions & Avg</th>
-                <th className="px-4 py-3">Device & Geo</th>
-                <th className="px-4 py-3 rounded-r-xl text-right">Status</th>
+                <th className="px-4 py-2.5 font-semibold">User</th>
+                <th className="px-4 py-2.5 font-semibold">Role</th>
+                <th className="px-4 py-2.5 font-semibold">Signed up</th>
+                <th className="px-4 py-2.5 font-semibold">Last login</th>
+                <th className="px-4 py-2.5 font-semibold">Sessions</th>
+                <th className="px-4 py-2.5 font-semibold">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[.04]">
-              {filteredUsers.map((user) => {
-                const isOwner = user.role.toLowerCase() === 'owner';
-                const isEnterprise = user.role.toLowerCase() === 'enterprise';
-
-                return (
-                  <tr
-                    key={user.id}
-                    onClick={() => setSelectedUser(selectedUser?.id === user.id ? null : user)}
-                    className="hover:bg-white/[.02] transition-colors cursor-pointer"
-                  >
-                    {/* User Profile */}
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`grid h-8 w-8 place-items-center rounded-xl font-bold text-xs shrink-0 ${
-                            isOwner
-                              ? 'border border-amber-400/40 bg-amber-400/20 text-amber-300'
-                              : isEnterprise
-                              ? 'border border-purple-500/30 bg-purple-500/20 text-purple-300'
-                              : 'border border-sky-500/30 bg-sky-500/20 text-sky-300'
-                          }`}
-                        >
-                          {user.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-semibold text-white truncate">{user.name}</span>
-                            <span
-                              className={`rounded px-1.5 py-0.2 text-[8px] font-mono font-bold uppercase ${
-                                isOwner
-                                  ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
-                                  : isEnterprise
-                                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                                  : 'bg-white/[.06] text-zinc-400'
-                              }`}
-                            >
-                              {user.role}
-                            </span>
-                          </div>
-                          <p className="text-[11px] font-mono text-zinc-400 truncate">{user.email}</p>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Sign-Up Timestamp */}
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div>
-                        <div className="font-medium text-white flex items-center gap-1.5">
-                          <Calendar size={12} className="text-zinc-500" />
-                          <span>{formatUtcTimestamp(user.signupAt)}</span>
-                        </div>
-                        <span className="text-[10px] text-zinc-500 mt-0.5 block font-mono">
-                          {formatRelativeTime(user.signupAt)}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Last Login Timestamp */}
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div>
-                        <div className="font-semibold text-emerald-400 flex items-center gap-1.5 font-mono">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          <span>{formatRelativeTime(user.lastLoginAt)}</span>
-                        </div>
-                        <span className="text-[10px] text-zinc-400 mt-0.5 block">
-                          {formatUtcTimestamp(user.lastLoginAt)}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Previous Login Timestamp */}
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      {user.previousLoginAt ? (
-                        <div>
-                          <span className="text-zinc-300 font-mono">{formatRelativeTime(user.previousLoginAt)}</span>
-                          <span className="text-[10px] text-zinc-500 mt-0.5 block">
-                            {formatUtcTimestamp(user.previousLoginAt)}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-zinc-500 text-[11px]">—</span>
-                      )}
-                    </td>
-
-                    {/* Peak Activity Window */}
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <Flame size={12} className={user.peakTimeSlot.includes('14:00') ? 'text-amber-400' : 'text-zinc-500'} />
-                        <span
-                          className={`font-mono text-[11px] font-medium ${
-                            user.peakTimeSlot.includes('14:00')
-                              ? 'text-amber-300 font-semibold bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20'
-                              : 'text-zinc-300 bg-white/[.04] px-2 py-0.5 rounded'
-                          }`}
-                        >
-                          {user.peakTimeSlot}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Sessions & Avg Duration */}
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div>
-                        <span className="font-mono text-white font-semibold">{user.sessionCount} sessions</span>
-                        <span className="text-[10px] text-zinc-500 block mt-0.5">
-                          ~{user.avgSessionDurationMinutes} min/session
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Device & Geo */}
-                    <td className="px-4 py-3.5">
-                      <div className="text-[11px]">
-                        <div className="flex items-center gap-1.5 text-zinc-200 truncate">
-                          <Laptop size={11} className="text-zinc-500 shrink-0" />
-                          <span className="truncate">{user.device}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-[10px] text-zinc-400 mt-0.5 truncate">
-                          <Globe size={10} className="text-zinc-500 shrink-0" />
-                          <span className="truncate">{user.ipLocation}</span>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                        <span>ACTIVE</span>
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filteredUsers.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
+                    {isLoading
+                      ? 'Loading live ledger…'
+                      : 'No users yet. Add SUPABASE_SERVICE_ROLE_KEY on Vercel for full auth-user list, or accounts will appear as they sign up.'}
+                  </td>
+                </tr>
+              )}
+              {filteredUsers.map((user) => (
+                <tr
+                  key={user.id}
+                  className="hover:bg-white/[.02] cursor-pointer"
+                  onClick={() => setSelectedUser(user)}
+                >
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-white">{user.name}</div>
+                    <div className="text-[10px] text-zinc-500">{user.email}</div>
+                  </td>
+                  <td className="px-4 py-3 text-zinc-300">{user.role}</td>
+                  <td className="px-4 py-3 text-zinc-400" title={formatUtcTimestamp(user.signupAt)}>
+                    {formatRelativeTime(user.signupAt)}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-400" title={formatUtcTimestamp(user.lastLoginAt)}>
+                    {formatRelativeTime(user.lastLoginAt)}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-zinc-300">{user.sessionCount}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        user.status === 'Active'
+                          ? 'bg-emerald-500/15 text-emerald-300'
+                          : 'bg-zinc-500/15 text-zinc-400'
+                      }`}
+                    >
+                      {user.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-      </div>
 
-      {/* ========================================================================= */}
-      {/* REGIONAL TRAFFIC & TIMEZONE DISTRIBUTION                                  */}
-      {/* ========================================================================= */}
-      <div className="rounded-2xl border border-white/[.07] bg-[#0b0b0e] p-6 shadow-xl">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Globe size={16} className="text-sky-400" />
-              Global Traffic & Geographic Distribution
-            </h3>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Traffic regional concentration across Europe, the Americas, Asia-Pacific, and Africa.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {(data?.topRegions || [
-            { region: 'Europe (London / Berlin / Helsinki)', sharePercent: 44 },
-            { region: 'North America (New York / Toronto)', sharePercent: 32 },
-            { region: 'Asia-Pacific (Singapore)', sharePercent: 14 },
-            { region: 'Africa (Lagos)', sharePercent: 10 }
-          ]).map((r) => (
-            <div key={r.region} className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-zinc-300">{r.region}</span>
-                <span className="font-mono font-bold text-amber-300">{r.sharePercent}% of Requests</span>
-              </div>
-              <div className="h-2 w-full rounded-full bg-white/[.06] overflow-hidden">
-                <div
-                  style={{ width: `${r.sharePercent}%` }}
-                  className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300"
-                />
-              </div>
+        {selectedUser && (
+          <div className="border-t border-white/[.06] p-4 bg-[#08080c] text-xs text-zinc-400">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-white">{selectedUser.name}</span>
+              <button onClick={() => setSelectedUser(null)} className="text-zinc-500 hover:text-white">
+                Close
+              </button>
             </div>
-          ))}
-        </div>
+            <div className="grid sm:grid-cols-3 gap-2">
+              <div>Email: {selectedUser.email}</div>
+              <div>Peak: {selectedUser.peakTimeSlot}</div>
+              <div>Device: {selectedUser.device}</div>
+              <div>Location: {selectedUser.ipLocation}</div>
+              <div>Signup: {formatUtcTimestamp(selectedUser.signupAt)}</div>
+              <div>Last login: {formatUtcTimestamp(selectedUser.lastLoginAt)}</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
