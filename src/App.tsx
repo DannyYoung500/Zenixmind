@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth-context';
+import { BrandMark } from './components/brand-mark';
 import { HomePage } from './pages/HomePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AssistantPage } from './pages/AssistantPage';
@@ -15,8 +16,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050506] text-zinc-500 grid place-items-center">
-        <div className="h-7 w-7 rounded-full border-2 border-white/10 border-t-white/80 animate-spin" />
+      <div className="min-h-screen bg-[#050506] text-zinc-400 grid place-items-center">
+        <div className="flex flex-col items-center gap-4">
+          <BrandMark size={48} className="logo-mark opacity-90" />
+          <div className="h-6 w-6 rounded-full border-2 border-white/10 border-t-white/75 animate-spin" />
+          <p className="text-xs text-zinc-500 font-light tracking-wide">Loading ZenixMind…</p>
+        </div>
       </div>
     );
   }
