@@ -12,6 +12,8 @@ import { LoginPage, SignupPage } from './pages/LoginPage';
 import { OwnerPage } from './pages/OwnerPage';
 import { OwnerActivityPage } from './pages/OwnerActivityPage';
 import { OwnerSecurityPage } from './pages/OwnerSecurityPage';
+import { OwnerUsagePage } from './pages/OwnerUsagePage';
+import { StatusPage } from './pages/StatusPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -44,6 +46,7 @@ export function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/status" element={<StatusPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
@@ -51,6 +54,7 @@ export function App() {
             <Route path="/assistant/voice" element={<ProtectedRoute><VoicePage /></ProtectedRoute>} />
             <Route path="/owner" element={<ProtectedRoute><OwnerPage /></ProtectedRoute>} />
             <Route path="/owner/activity" element={<ProtectedRoute><OwnerActivityPage /></ProtectedRoute>} />
+            <Route path="/owner/usage" element={<ProtectedRoute><OwnerUsagePage /></ProtectedRoute>} />
             <Route path="/owner/security" element={<ProtectedRoute><OwnerSecurityPage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BrandMark } from './brand-mark';
-import { ArrowLeft, Activity, Shield, LayoutDashboard, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Activity, Shield, LayoutDashboard, BarChart3 } from 'lucide-react';
 
 const NAV = [
   { to: '/owner', label: 'Console', icon: LayoutDashboard, exact: true },
   { to: '/owner/activity', label: 'Activity', icon: Activity },
+  { to: '/owner/usage', label: 'Usage', icon: BarChart3 },
   { to: '/owner/security', label: 'Security', icon: Shield }
 ];
 
@@ -43,7 +44,7 @@ export function OwnerShell({
             </div>
           </div>
 
-          <nav className="flex items-center gap-1 rounded-xl border border-white/[.08] bg-[#0a0a0e] p-1">
+          <nav className="flex items-center gap-1 rounded-xl border border-white/[.08] bg-[#0a0a0e] p-1 overflow-x-auto">
             {NAV.map((item) => {
               const active = item.exact
                 ? location.pathname === item.to
@@ -53,10 +54,8 @@ export function OwnerShell({
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
-                    active
-                      ? 'bg-amber-400 text-black'
-                      : 'text-zinc-400 hover:text-white'
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap ${
+                    active ? 'bg-amber-400 text-black' : 'text-zinc-400 hover:text-white'
                   }`}
                 >
                   <Icon size={13} />
@@ -69,18 +68,6 @@ export function OwnerShell({
       </header>
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6">{children}</main>
-
-      <footer className="border-t border-white/[.05] py-4">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 flex items-center justify-between text-[10px] text-zinc-600">
-          <span>ZenixMind Owner</span>
-          <a
-            href="https://zenixmind.vercel.app/owner"
-            className="inline-flex items-center gap-1 hover:text-zinc-400"
-          >
-            Full console <ExternalLink size={10} />
-          </a>
-        </div>
-      </footer>
     </div>
   );
 }
