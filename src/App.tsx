@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth-context';
 import { BrandMark } from './components/brand-mark';
+import { ErrorBoundary } from './components/error-boundary';
 import { HomePage } from './pages/HomePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AssistantPage } from './pages/AssistantPage';
@@ -10,6 +11,7 @@ import { PricingPage } from './pages/PricingPage';
 import { LoginPage, SignupPage } from './pages/LoginPage';
 import { OwnerPage } from './pages/OwnerPage';
 import { OwnerActivityPage } from './pages/OwnerActivityPage';
+import { OwnerSecurityPage } from './pages/OwnerSecurityPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -36,22 +38,25 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-          <Route path="/assistant" element={<ProtectedRoute><AssistantPage /></ProtectedRoute>} />
-          <Route path="/assistant/voice" element={<ProtectedRoute><VoicePage /></ProtectedRoute>} />
-          <Route path="/owner" element={<ProtectedRoute><OwnerPage /></ProtectedRoute>} />
-          <Route path="/owner/activity" element={<ProtectedRoute><OwnerActivityPage /></ProtectedRoute>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="/assistant" element={<ProtectedRoute><AssistantPage /></ProtectedRoute>} />
+            <Route path="/assistant/voice" element={<ProtectedRoute><VoicePage /></ProtectedRoute>} />
+            <Route path="/owner" element={<ProtectedRoute><OwnerPage /></ProtectedRoute>} />
+            <Route path="/owner/activity" element={<ProtectedRoute><OwnerActivityPage /></ProtectedRoute>} />
+            <Route path="/owner/security" element={<ProtectedRoute><OwnerSecurityPage /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
