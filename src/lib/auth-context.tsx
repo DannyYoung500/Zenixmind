@@ -23,6 +23,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const CLIENT_SESSION_KEY = 'zenixmind_client_session_id';
 
 function mapSupabaseUser(sbUser: any): User {
   const meta = sbUser?.user_metadata || {};
@@ -40,11 +41,47 @@ function mapSupabaseUser(sbUser: any): User {
   };
 }
 
+function getOrCreateClientSessionId(): string {
+  try {
+    const existing = localStorage.getItem(CLIENT_SESSION_KEY);
+    if (existing) return existing;
+    const id = `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem(CLIENT_SESSION_KEY, id);
+    return id;
+  } catch {
+    return `sess_${Date.now().toString(36)}`;
+  }
+}
+
+async function postSessionHeartbeat(accessToken: string) {
+  try {
+    await fetch('/api/session/heartbeat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({ clientSessionId: getOrCreateClientSessionId() })
+    });
+  } catch {
+    // Non-blocking
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const refreshInFlight = useRef<Promise<string | null> | null>(null);
+  const lastHeartbeat = useRef(0);
+
+  const maybeHeartbeat = useCallback((token: string | null | undefined) => {
+    if (!token) return;
+    const now = Date.now();
+    if (now - lastHeartbeat.current < 60000) return;
+    lastHeartbeat.current = now;
+    void postSessionHeartbeat(token);
+  }, []);
 
   useEffect(() => {
     const supabase = getSupabase();
@@ -57,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ? mapSupabaseUser(session.user) : null);
         setAccessToken(session?.access_token || null);
         setLoading(false);
+        if (session?.access_token) maybeHeartbeat(session.access_token);
       })
       .catch(() => {
         if (mounted) {
@@ -73,13 +111,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ? mapSupabaseUser(session.user) : null);
       setAccessToken(session?.access_token || null);
       setLoading(false);
+      if (session?.access_token) maybeHeartbeat(session.access_token);
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [maybeHeartbeat]);
 
   const setUserDirect = (newUser: User | null) => {
     setUser(newUser);
@@ -93,7 +132,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (error) throw error;
     if (data.user) setUser(mapSupabaseUser(data.user));
-    if (data.session?.access_token) setAccessToken(data.session.access_token);
+    if (data.session?.access_token) {
+      setAccessToken(data.session.access_token);
+      lastHeartbeat.current = 0;
+      maybeHeartbeat(data.session.access_token);
+    }
   };
 
   const signUp = async (email: string, pass: string, name?: string) => {
@@ -108,7 +151,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (error) throw error;
     if (data.user) setUser(mapSupabaseUser(data.user));
-    if (data.session?.access_token) setAccessToken(data.session.access_token);
+    if (data.session?.access_token) {
+      setAccessToken(data.session.access_token);
+      lastHeartbeat.current = 0;
+      maybeHeartbeat(data.session.access_token);
+    }
   };
 
   const signOut = async () => {
@@ -116,6 +163,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setAccessToken(null);
+    try {
+      localStorage.removeItem(CLIENT_SESSION_KEY);
+    } catch {}
   };
 
   const refreshSession = useCallback(async (): Promise<string | null> => {
@@ -131,6 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         if (data.user) setUser(mapSupabaseUser(data.user));
         setAccessToken(data.session.access_token);
+        maybeHeartbeat(data.session.access_token);
         return data.session.access_token;
       } catch {
         setAccessToken(null);
@@ -142,7 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     refreshInFlight.current = work;
     return work;
-  }, []);
+  }, [maybeHeartbeat]);
 
   const getAccessToken = useCallback(async (): Promise<string | null> => {
     if (accessToken) return accessToken;
