@@ -119,7 +119,12 @@ export function OwnerUsagePage() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Metric icon={<Cpu size={14} />} label="Requests" value={data?.totalRequests ?? 0} />
-          <Metric icon={<DollarSign size={14} />} label="Est. AI cost" value={`$${(data?.estimatedAiCostUSD ?? 0).toFixed(4)}`} accent />
+          <Metric
+            icon={<DollarSign size={14} />}
+            label="Est. AI cost"
+            value={`$${(data?.estimatedAiCostUSD ?? 0).toFixed(4)}`}
+            accent
+          />
           <Metric icon={<Mic size={14} />} label="Voice minutes" value={data?.voiceMinutes ?? 0} />
           <Metric icon={<Globe size={14} />} label="Web searches" value={data?.webSearches ?? 0} />
         </div>
@@ -155,9 +160,7 @@ export function OwnerUsagePage() {
                       <td className="px-4 py-2.5 text-zinc-400">{m.provider || '—'}</td>
                       <td className="px-4 py-2.5 font-mono">{m.requests ?? 0}</td>
                       <td className="px-4 py-2.5 font-mono">{(m.totalTokens ?? 0).toLocaleString()}</td>
-                      <td className="px-4 py-2.5 font-mono text-amber-300/90">
-                        ${(m.cost ?? 0).toFixed(4)}
-                      </td>
+                      <td className="px-4 py-2.5 font-mono text-amber-300/90">${(m.cost ?? 0).toFixed(4)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -177,7 +180,7 @@ export function OwnerUsagePage() {
                 >
                   <div className="font-medium text-white">{p.displayName || p.provider}</div>
                   <div className="mt-1 text-zinc-500">
-                    {p.requestCount} req · {(p.inputTokens + p.outputTokens).toLocaleString()} tokens · $'
+                    {p.requestCount} req · {(p.inputTokens + p.outputTokens).toLocaleString()} tokens · $
                     {p.totalCost.toFixed(4)}
                   </div>
                 </div>
