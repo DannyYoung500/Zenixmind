@@ -13,6 +13,8 @@ import { OwnerPage } from './pages/OwnerPage';
 import { OwnerActivityPage } from './pages/OwnerActivityPage';
 import { OwnerSecurityPage } from './pages/OwnerSecurityPage';
 import { OwnerUsagePage } from './pages/OwnerUsagePage';
+import { OwnerMemoryPage } from './pages/OwnerMemoryPage';
+import { OwnerBroadcastsPage } from './pages/OwnerBroadcastsPage';
 import { StatusPage } from './pages/StatusPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -55,6 +57,8 @@ export function App() {
             <Route path="/owner" element={<ProtectedRoute><OwnerPage /></ProtectedRoute>} />
             <Route path="/owner/activity" element={<ProtectedRoute><OwnerActivityPage /></ProtectedRoute>} />
             <Route path="/owner/usage" element={<ProtectedRoute><OwnerUsagePage /></ProtectedRoute>} />
+            <Route path="/owner/memory" element={<ProtectedRoute><OwnerMemoryPage /></ProtectedRoute>} />
+            <Route path="/owner/broadcasts" element={<ProtectedRoute><OwnerBroadcastsPage /></ProtectedRoute>} />
             <Route path="/owner/security" element={<ProtectedRoute><OwnerSecurityPage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

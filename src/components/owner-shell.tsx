@@ -1,12 +1,22 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BrandMark } from './brand-mark';
-import { ArrowLeft, Activity, Shield, LayoutDashboard, BarChart3 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Activity,
+  Shield,
+  LayoutDashboard,
+  BarChart3,
+  Brain,
+  Megaphone
+} from 'lucide-react';
 
 const NAV = [
   { to: '/owner', label: 'Console', icon: LayoutDashboard, exact: true },
   { to: '/owner/activity', label: 'Activity', icon: Activity },
   { to: '/owner/usage', label: 'Usage', icon: BarChart3 },
+  { to: '/owner/memory', label: 'Memory', icon: Brain },
+  { to: '/owner/broadcasts', label: 'Broadcasts', icon: Megaphone },
   { to: '/owner/security', label: 'Security', icon: Shield }
 ];
 
@@ -24,18 +34,18 @@ export function OwnerShell({
   return (
     <div className="min-h-screen bg-[#050506] text-zinc-100">
       <header className="sticky top-0 z-40 border-b border-white/[.06] bg-[#050506]/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:px-6">
+          <div className="flex items-center gap-2 min-w-0">
             <Link
               to="/assistant"
-              className="flex items-center gap-1.5 rounded-lg border border-white/[.08] bg-white/[.03] px-2.5 py-1.5 text-xs text-zinc-400 hover:text-white transition-colors shrink-0"
+              className="flex items-center gap-1.5 rounded-lg border border-white/[.08] bg-white/[.03] px-2 py-1.5 text-xs text-zinc-400 hover:text-white transition-colors shrink-0"
             >
               <ArrowLeft size={14} />
-              <span className="hidden sm:inline">Workspace</span>
+              <span className="hidden md:inline">Workspace</span>
             </Link>
             <div className="flex items-center gap-2 min-w-0">
-              <BrandMark size={28} />
-              <div className="min-w-0">
+              <BrandMark size={26} />
+              <div className="min-w-0 hidden sm:block">
                 <div className="text-sm font-medium text-white truncate">{title}</div>
                 {badge && (
                   <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400/90">{badge}</div>
@@ -44,7 +54,7 @@ export function OwnerShell({
             </div>
           </div>
 
-          <nav className="flex items-center gap-1 rounded-xl border border-white/[.08] bg-[#0a0a0e] p-1 overflow-x-auto">
+          <nav className="flex items-center gap-0.5 rounded-xl border border-white/[.08] bg-[#0a0a0e] p-1 overflow-x-auto max-w-[70vw]">
             {NAV.map((item) => {
               const active = item.exact
                 ? location.pathname === item.to
@@ -54,12 +64,13 @@ export function OwnerShell({
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap ${
+                  title={item.label}
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] sm:text-[11px] font-semibold transition-colors whitespace-nowrap ${
                     active ? 'bg-amber-400 text-black' : 'text-zinc-400 hover:text-white'
                   }`}
                 >
                   <Icon size={13} />
-                  <span className="hidden sm:inline">{item.label}</span>
+                  <span className="hidden lg:inline">{item.label}</span>
                 </Link>
               );
             })}
