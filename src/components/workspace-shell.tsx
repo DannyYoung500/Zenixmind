@@ -201,6 +201,12 @@ export function WorkspaceShell({
     );
   }, [chats, query]);
 
+  const searchResults = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return [];
+    return chats.filter((chat) => chat.title.toLowerCase().includes(term)).slice(0, 8);
+  }, [chats, query]);
+
   // Sort pinned first
   const sortedChats = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -289,7 +295,7 @@ export function WorkspaceShell({
                   autoFocus
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search chats..."
+                  placeholder="Search conversations..."
                   className="min-w-0 flex-1 bg-transparent text-xs text-zinc-200 outline-none placeholder:text-zinc-600 font-light"
                 />
                 {query && (
@@ -298,6 +304,25 @@ export function WorkspaceShell({
                   </button>
                 )}
               </div>
+              {query.trim() && (
+                <div className="mt-2 overflow-hidden rounded-xl border border-white/[.07] bg-[#101012] shadow-2xl">
+                  {searchResults.length ? (
+                    searchResults.map((chat) => (
+                      <Link
+                        key={chat.id}
+                        to={`/assistant?conversation=${chat.id}`}
+                        onClick={() => { setOpen(false); setSearching(false); setQuery(''); }}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-white/[.05]"
+                      >
+                        <SquarePen size={13} className="shrink-0 text-zinc-500" />
+                        <span className="truncate">{chat.title || 'New conversation'}</span>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="px-3 py-3 text-[11px] text-zinc-600">No conversations found</div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
