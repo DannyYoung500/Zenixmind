@@ -77,9 +77,9 @@ export function WorkspaceShell({
   const [projects, setProjects] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('zenixmind_projects');
-      return saved ? JSON.parse(saved) : ['Telegram Mini App Dev', 'Production AI Workflow'];
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return ['Telegram Mini App Dev', 'Production AI Workflow'];
+      return [];
     }
   });
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
@@ -92,16 +92,23 @@ export function WorkspaceShell({
   const navigate = useNavigate();
   const location = useLocation();
 
-  const userEmail = user?.email || 'dannyyoungofficial1@gmail.com';
+  const userEmail = user?.email || '';
   const userAvatar = user?.avatarUrl || '';
-  const userName = user?.name || 'Danny Young';
+  const userName = user?.name || (userEmail ? userEmail.split('@')[0] : 'ZenixMind user');
   const isOwner = user?.isOwner || isOwnerEmail(userEmail);
 
   useEffect(() => {
     let mounted = true;
     const fetchChats = async () => {
       try {
-        const response = await fetch('/api/chat', { cache: 'no-store' });
+        const { data: { session } } = await getSupabase().auth.getSession();
+        const headers = session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined;
+        const response = await fetch('/api/chat', {
+          cache: 'no-store',
+          headers
+        });
         if (response.ok && mounted) {
           const data = await response.json();
           setInternalConversations(data.conversations || []);
