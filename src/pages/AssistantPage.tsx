@@ -1318,56 +1318,121 @@ function ImagesView() {
 }
 
 function LibraryView() {
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'images' | 'documents'>('all');
-  const [items, setItems] = useState<LibraryItem[]>([
-    {
-      id: 'lib-1',
-      file_name: 'ZenixMind_Architecture_Notes.md',
-      mime_type: 'text/markdown',
-      size_bytes: 14200,
-      source: 'uploaded',
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 'lib-2',
-      file_name: 'Product_Roadmap_2026.pdf',
-      mime_type: 'application/pdf',
-      size_bytes: 84000,
-      source: 'uploaded',
-      created_at: new Date(Date.now() - 3600000).toISOString()
-    },
-    {
-      id: 'lib-3',
-      file_name: 'Neural_Workspace_Concept.png',
-      mime_type: 'image/png',
-      size_bytes: 1204000,
-      source: 'generated',
-      prompt: 'Minimalist dark neural interface diagram',
-      url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
-      created_at: new Date(Date.now() - 7200000).toISOString()
-    }
-  ]);
+  const [items, setItems] = useState<LibraryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [notice, setNotice] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = (file: File) => {
-    const newItem: LibraryItem = {
-      id: 'lib-' + Date.now(),
-      file_name: file.name,
-      mime_type: file.type,
-      size_bytes: file.size,
-      source: 'uploaded',
-      created_at: new Date().toISOString()
-    };
-    setItems((prev) => [newItem, ...prev]);
+  const loadItems = useCallback(async () => {
+    if (!user?.id) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setNotice('');
+    try {
+      const { data, error } = await getSupabase()
+        .from('library_items')
+        .select('id,file_name,mime_type,storage_path,size_bytes,source,prompt,created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setItems((data || []) as LibraryItem[]);
+    } catch (error: any) {
+      setNotice(error?.message || 'Could not load your library.');
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
+
+  const handleUpload = async (file: File) => {
+    if (!user?.id || uploading) return;
+    setUploading(true);
+    setNotice('');
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = user.id + '/' + crypto.randomUUID() + '-' + safeName;
+      const { error: uploadError } = await getSupabase()
+        .storage
+        .from('library')
+        .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { error: rowError } = await getSupabase()
+        .from('library_items')
+        .insert({
+          user_id: user.id,
+          file_name: file.name,
+          mime_type: file.type || null,
+          storage_path: path,
+          size_bytes: file.size,
+          source: 'uploaded'
+        });
+      if (rowError) {
+        await getSupabase().storage.from('library').remove([path]);
+        throw rowError;
+      }
+
+      await loadItems();
+    } catch (error: any) {
+      setNotice(error?.message || 'Upload failed.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (item: LibraryItem) => {
+    setNotice('');
+    try {
+      if (item.storage_path) {
+        const { error: storageError } = await getSupabase()
+          .storage
+          .from('library')
+          .remove([item.storage_path]);
+        if (storageError) throw storageError;
+      }
+      const { error } = await getSupabase()
+        .from('library_items')
+        .delete()
+        .eq('id', item.id)
+        .eq('user_id', user?.id || '');
+      if (error) throw error;
+      setItems((prev) => prev.filter((x) => x.id !== item.id));
+    } catch (error: any) {
+      setNotice(error?.message || 'Could not delete that file.');
+    }
+  };
+
+  const handleOpen = async (item: LibraryItem) => {
+    if (!item.storage_path) return;
+    const { data, error } = await getSupabase()
+      .storage
+      .from('library')
+      .createSignedUrl(item.storage_path, 60 * 10);
+    if (error || !data?.signedUrl) {
+      setNotice(error?.message || 'Could not open this file.');
+      return;
+    }
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
   };
 
   const filteredItems = useMemo(() => {
+    const term = query.trim().toLowerCase();
     return items.filter((item) => {
       const matchQuery =
-        item.file_name.toLowerCase().includes(query.toLowerCase()) ||
-        (item.prompt && item.prompt.toLowerCase().includes(query.toLowerCase()));
-      if (filter === 'images') return matchQuery && item.mime_type?.startsWith('image/');
+        !term ||
+        item.file_name.toLowerCase().includes(term) ||
+        (item.prompt || '').toLowerCase().includes(term);
+      if (filter === 'images') return matchQuery && !!item.mime_type?.startsWith('image/');
       if (filter === 'documents') return matchQuery && !item.mime_type?.startsWith('image/');
       return matchQuery;
     });
@@ -1385,7 +1450,7 @@ function LibraryView() {
       <div className="flex items-center justify-between pb-6 border-b border-white/[.06]">
         <div>
           <h1 className="text-lg font-semibold text-zinc-100">Library</h1>
-          <p className="text-xs text-zinc-500">Your documents, reference images, and generated artifacts.</p>
+          <p className="text-xs text-zinc-500">Files you uploaded or generated with ZenixMind.</p>
         </div>
         <div>
           <input
@@ -1394,18 +1459,26 @@ function LibraryView() {
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) handleUpload(file);
+              e.currentTarget.value = '';
+              if (file) void handleUpload(file);
             }}
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3.5 py-2 text-xs font-semibold text-black hover:bg-white transition-all shadow-sm"
+            disabled={uploading || !user}
+            className="flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3.5 py-2 text-xs font-semibold text-black hover:bg-white transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Paperclip size={13} />
-            <span>Upload file</span>
+            <span>{uploading ? 'Uploading…' : 'Upload file'}</span>
           </button>
         </div>
       </div>
+
+      {notice && (
+        <div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 px-3 py-2 text-xs text-red-300">
+          {notice}
+        </div>
+      )}
 
       <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 bg-[#0e0e11] p-1 rounded-xl border border-white/[.07]">
@@ -1435,11 +1508,10 @@ function LibraryView() {
       </div>
 
       <div className="mt-6 divide-y divide-white/[.05] rounded-2xl border border-white/[.07] bg-[#0c0c0e] overflow-hidden">
-        {filteredItems.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-center justify-between p-4 hover:bg-[#121215] transition-colors"
-          >
+        {loading ? (
+          <div className="p-12 text-center text-xs text-zinc-600">Loading your library…</div>
+        ) : filteredItems.map((item) => (
+          <div key={item.id} className="flex items-center justify-between p-4 hover:bg-[#121215] transition-colors">
             <div className="flex items-center gap-3.5 min-w-0">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#18181c] text-zinc-400">
                 {item.mime_type?.startsWith('image/') ? <ImageIcon size={18} /> : <FileText size={18} />}
@@ -1449,18 +1521,22 @@ function LibraryView() {
                 <div className="flex items-center gap-2 text-[10px] text-zinc-500 mt-0.5">
                   <span>{formatSize(item.size_bytes)}</span>
                   <span>•</span>
-                  <span className="capitalize">{item.source}</span>
+                  <span className="capitalize">{item.source || 'uploaded'}</span>
                   <span>•</span>
                   <span>{new Date(item.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
-                onClick={() => {
-                  setItems((prev) => prev.filter((x) => x.id !== item.id));
-                }}
+                onClick={() => void handleOpen(item)}
+                className="rounded-lg px-2.5 py-1.5 text-[11px] text-zinc-300 hover:bg-white/[.06] hover:text-white transition-colors"
+              >
+                Open
+              </button>
+              <button
+                onClick={() => void handleDelete(item)}
                 className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                 title="Delete item"
               >
@@ -1470,9 +1546,9 @@ function LibraryView() {
           </div>
         ))}
 
-        {!filteredItems.length && (
+        {!loading && !filteredItems.length && (
           <div className="p-12 text-center text-xs text-zinc-600">
-            No files found matching your filter.
+            {items.length ? 'No files found matching your filter.' : 'Your library is empty. Upload a file to get started.'}
           </div>
         )}
       </div>
