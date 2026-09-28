@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './lib/auth-context';
 import { BrandMark } from './components/brand-mark';
 import { ErrorBoundary } from './components/error-boundary';
+import { BroadcastBanner } from './components/broadcast-banner';
 import { HomePage } from './pages/HomePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AssistantPage } from './pages/AssistantPage';
@@ -15,6 +16,9 @@ import { OwnerSecurityPage } from './pages/OwnerSecurityPage';
 import { OwnerUsagePage } from './pages/OwnerUsagePage';
 import { OwnerMemoryPage } from './pages/OwnerMemoryPage';
 import { OwnerBroadcastsPage } from './pages/OwnerBroadcastsPage';
+import { OwnerRateLimitsPage } from './pages/OwnerRateLimitsPage';
+import { OwnerFlagsPage } from './pages/OwnerFlagsPage';
+import { OwnerAuditPage } from './pages/OwnerAuditPage';
 import { StatusPage } from './pages/StatusPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -37,7 +41,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <BroadcastBanner />
+      {children}
+    </>
+  );
 }
 
 export function App() {
@@ -60,6 +69,9 @@ export function App() {
             <Route path="/owner/memory" element={<ProtectedRoute><OwnerMemoryPage /></ProtectedRoute>} />
             <Route path="/owner/broadcasts" element={<ProtectedRoute><OwnerBroadcastsPage /></ProtectedRoute>} />
             <Route path="/owner/security" element={<ProtectedRoute><OwnerSecurityPage /></ProtectedRoute>} />
+            <Route path="/owner/rate-limits" element={<ProtectedRoute><OwnerRateLimitsPage /></ProtectedRoute>} />
+            <Route path="/owner/flags" element={<ProtectedRoute><OwnerFlagsPage /></ProtectedRoute>} />
+            <Route path="/owner/audit" element={<ProtectedRoute><OwnerAuditPage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
