@@ -62,6 +62,7 @@ export function OwnerSecurityPage() {
   const load = useCallback(async () => {
     setBusy(true);
     setError(null);
+    setMessage(null);
     try {
       const token = await withToken();
       const res = await fetch('/api/admin/security/monitor', {
@@ -89,6 +90,7 @@ export function OwnerSecurityPage() {
   const revokeOne = async (sessionId: string) => {
     setBusy(true);
     setMessage(null);
+    setError(null);
     try {
       const token = await withToken();
       const res = await fetch('/api/admin/security/sessions/revoke', {
@@ -106,13 +108,15 @@ export function OwnerSecurityPage() {
       setMessage(`Session ${sessionId.slice(0, 8)}… revoked`);
       await load();
     } catch {
-      setError('Revoke request failed');
+      setError('Revoke request failed. Check your owner session and try again.');
     } finally {
       setBusy(false);
     }
   };
 
   const revokeOthers = async () => {
+    const confirmed = window.confirm('Revoke every other active session except your current session? This will sign those devices out.');
+    if (!confirmed) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -133,7 +137,7 @@ export function OwnerSecurityPage() {
       setMessage(data.message || `Revoked ${data.revokedCount ?? 0} session(s)`);
       await load();
     } catch {
-      setError('Bulk revoke failed');
+      setError('Bulk revoke failed. Check your owner session and try again.');
     } finally {
       setBusy(false);
     }
