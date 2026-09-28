@@ -34,6 +34,7 @@ interface SessionRow {
   status: string;
   riskScore?: number;
   riskFlags?: string[];
+  source?: string;
 }
 
 function relTime(iso?: string) {
@@ -45,6 +46,28 @@ function relTime(iso?: string) {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
+}
+
+function mergeSessions(primary: SessionRow[], heartbeat: SessionRow[]): SessionRow[] {
+  const map = new Map<string, SessionRow>();
+  for (const s of primary) {
+    map.set(s.id, { ...s, source: s.source || 'monitor' });
+  }
+  for (const s of heartbeat) {
+    if (!map.has(s.id)) {
+      map.set(s.id, { ...s, source: 'heartbeat' });
+    } else {
+      const existing = map.get(s.id)!;
+      const a = new Date(existing.lastActiveAt || existing.startedAt || 0).getTime();
+      const b = new Date(s.lastActiveAt || s.startedAt || 0).getTime();
+      if (b > a) map.set(s.id, { ...existing, ...s, source: existing.source });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    const ta = new Date(a.lastActiveAt || a.startedAt || 0).getTime();
+    const tb = new Date(b.lastActiveAt || b.startedAt || 0).getTime();
+    return tb - ta;
+  });
 }
 
 export function OwnerSecurityPage() {
@@ -63,21 +86,37 @@ export function OwnerSecurityPage() {
   const load = useCallback(async () => {
     setBusy(true);
     setError(null);
-    setMessage(null);
     try {
       const token = await withToken();
-      const res = await fetch('/api/admin/security/monitor', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
-      if (!res.ok) {
-        setError(res.status === 401 || res.status === 403 ? 'Owner session required.' : `HTTP ${res.status}`);
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      const [monitorRes, heartbeatRes] = await Promise.all([
+        fetch('/api/admin/security/monitor', { headers }),
+        fetch('/api/admin/sessions', { headers })
+      ]);
+
+      let primary: SessionRow[] = [];
+      let heartbeat: SessionRow[] = [];
+
+      if (monitorRes.ok) {
+        const data = await monitorRes.json();
+        primary = Array.isArray(data.sessions) ? data.sessions : Array.isArray(data) ? data : [];
+      } else if (monitorRes.status === 401 || monitorRes.status === 403) {
+        setError('Owner session required.');
         setSessions([]);
         return;
       }
-      const data = await res.json();
-      const list = Array.isArray(data.sessions) ? data.sessions : Array.isArray(data) ? data : [];
-      setSessions(list);
+
+      if (heartbeatRes.ok) {
+        const data = await heartbeatRes.json();
+        heartbeat = Array.isArray(data.sessions) ? data.sessions : [];
+      }
+
+      setSessions(mergeSessions(primary, heartbeat));
       setLastRefreshAt(new Date().toISOString());
+      if (!monitorRes.ok && !heartbeatRes.ok) {
+        setError(`Could not load sessions (${monitorRes.status})`);
+      }
     } catch {
       setError('Could not reach security monitor.');
     } finally {
@@ -113,14 +152,16 @@ export function OwnerSecurityPage() {
       setMessage(`Session ${sessionId.slice(0, 8)}… revoked`);
       await load();
     } catch {
-      setError('Revoke request failed. Check your owner session and try again.');
+      setError('Revoke request failed.');
     } finally {
       setBusy(false);
     }
   };
 
   const revokeOthers = async () => {
-    const confirmed = window.confirm('Revoke every other active session except your current session? This will sign those devices out.');
+    const confirmed = window.confirm(
+      'Revoke every other active session except your current session?'
+    );
     if (!confirmed) return;
     setBusy(true);
     setMessage(null);
@@ -142,7 +183,7 @@ export function OwnerSecurityPage() {
       setMessage(data.message || `Revoked ${data.revokedCount ?? 0} session(s)`);
       await load();
     } catch {
-      setError('Bulk revoke failed. Check your owner session and try again.');
+      setError('Bulk revoke failed.');
     } finally {
       setBusy(false);
     }
@@ -175,7 +216,7 @@ export function OwnerSecurityPage() {
             <div>
               <h1 className="text-sm font-bold text-white">Active sessions & risk</h1>
               <p className="text-xs text-zinc-400 mt-0.5">
-                Live session ledger from the owner security API. Revoke devices without leaving the page.
+                Merged ledger: security monitor + login heartbeat sessions.
               </p>
             </div>
           </div>
@@ -243,7 +284,7 @@ export function OwnerSecurityPage() {
             <div className="px-4 py-10 text-center text-xs text-zinc-500">
               {busy
                 ? 'Loading sessions…'
-                : 'No tracked sessions yet. Sessions appear as users authenticate against the platform.'}
+                : 'No tracked sessions yet. Log in once to register a heartbeat session.'}
             </div>
           )}
 
@@ -263,6 +304,11 @@ export function OwnerSecurityPage() {
                         {s.isCurrent && (
                           <span className="ml-2 rounded-full bg-emerald-500/15 text-emerald-300 px-1.5 py-0.5 text-[9px] font-semibold">
                             CURRENT
+                          </span>
+                        )}
+                        {s.source === 'heartbeat' && (
+                          <span className="ml-2 rounded-full bg-sky-500/15 text-sky-300 px-1.5 py-0.5 text-[9px] font-semibold">
+                            HEARTBEAT
                           </span>
                         )}
                       </div>
