@@ -53,6 +53,7 @@ export function OwnerSecurityPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
 
   const withToken = useCallback(async () => {
     const { data } = await getSupabase().auth.getSession();
@@ -76,6 +77,7 @@ export function OwnerSecurityPage() {
       const data = await res.json();
       const list = Array.isArray(data.sessions) ? data.sessions : Array.isArray(data) ? data : [];
       setSessions(list);
+      setLastRefreshAt(new Date().toISOString());
     } catch {
       setError('Could not reach security monitor.');
     } finally {
@@ -84,7 +86,10 @@ export function OwnerSecurityPage() {
   }, [withToken]);
 
   useEffect(() => {
-    if (user && isOwnerEmail(user.email)) void load();
+    if (!user || !isOwnerEmail(user.email)) return;
+    void load();
+    const timer = window.setInterval(() => void load(), 60_000);
+    return () => window.clearInterval(timer);
   }, [user, load]);
 
   const revokeOne = async (sessionId: string) => {
@@ -226,7 +231,12 @@ export function OwnerSecurityPage() {
         <div className="rounded-2xl border border-white/[.07] bg-[#0b0b0e] overflow-hidden">
           <div className="px-4 py-3 border-b border-white/[.06] flex items-center justify-between">
             <span className="text-sm font-semibold text-white">Session ledger</span>
-            <span className="text-[10px] font-mono text-zinc-500">{sessions.length} rows</span>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-mono text-zinc-500">{sessions.length} rows</span>
+              <span className="text-[10px] text-zinc-600">
+                {lastRefreshAt ? `Updated ${relTime(lastRefreshAt)}` : 'Not checked yet'}
+              </span>
+            </div>
           </div>
 
           {sessions.length === 0 && (
