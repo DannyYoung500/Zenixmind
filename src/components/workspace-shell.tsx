@@ -5,6 +5,7 @@ import { ModelSelector, AI_MODELS as AVAILABLE_MODELS } from './model-selector';
 export { AVAILABLE_MODELS };
 import { useAuth } from '../lib/auth-context';
 import { isOwnerEmail } from '../lib/owners';
+import { getSupabase } from '../lib/supabase';
 import {
   Plus,
   Search,
@@ -26,6 +27,13 @@ import {
   Shield,
   VenetianMask,
  } from 'lucide-react';
+
+interface Project {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface Conversation {
   id: string;
@@ -74,14 +82,8 @@ export function WorkspaceShell({
       return [];
     }
   });
-  const [projects, setProjects] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('zenixmind_projects');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [showAllChatsModal, setShowAllChatsModal] = useState(false);
@@ -96,6 +98,29 @@ export function WorkspaceShell({
   const userAvatar = user?.avatarUrl || '';
   const userName = user?.name || (userEmail ? userEmail.split('@')[0] : 'ZenixMind user');
   const isOwner = user?.isOwner || isOwnerEmail(userEmail);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadProjects = async () => {
+      if (!user?.id) {
+        if (mounted) { setProjects([]); setProjectsLoading(false); }
+        return;
+      }
+      setProjectsLoading(true);
+      try {
+        const { data, error } = await getSupabase()
+          .from('projects')
+          .select('id,name,created_at,updated_at')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false });
+        if (!error && mounted) setProjects((data || []) as Project[]);
+      } finally {
+        if (mounted) setProjectsLoading(false);
+      }
+    };
+    loadProjects();
+    return () => { mounted = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     let mounted = true;
@@ -154,14 +179,17 @@ export function WorkspaceShell({
     if (onRefreshConversations) onRefreshConversations();
   };
 
-  const handleAddProject = (e: React.FormEvent) => {
+  const handleAddProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProjectName.trim()) return;
-    const updated = [...projects, newProjectName.trim()];
-    setProjects(updated);
-    try {
-      localStorage.setItem('zenixmind_projects', JSON.stringify(updated));
-    } catch {}
+    const name = newProjectName.trim();
+    if (!name || !user?.id) return;
+    const { data, error } = await getSupabase()
+      .from('projects')
+      .insert({ user_id: user.id, name })
+      .select('id,name,created_at,updated_at')
+      .single();
+    if (error) return;
+    setProjects((prev) => [data as Project, ...prev]);
     setNewProjectName('');
     setShowAddProjectModal(false);
   };
@@ -371,15 +399,42 @@ export function WorkspaceShell({
               <div className="mt-5">
                 <div className="flex items-center justify-between px-2 py-1">
                   <span className="text-[11px] font-medium text-zinc-500">Projects</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddProjectModal(true)}
+                    className="grid h-6 w-6 place-items-center rounded-md text-zinc-500 hover:bg-[#141416] hover:text-zinc-200"
+                    title="Create project"
+                  >
+                    <Plus size={13} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAddProjectModal(true)}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-[#141416] hover:text-zinc-200 transition-colors"
-                >
-                  <Plus size={14} className="text-zinc-500" />
-                  <span>Add project</span>
-                </button>
+                <div className="space-y-0.5">
+                  {projectsLoading ? (
+                    <div className="px-2.5 py-2 text-[11px] text-zinc-600">Loading projects…</div>
+                  ) : projects.length ? (
+                    projects.slice(0, 6).map((project) => (
+                      <button
+                        key={project.id}
+                        type="button"
+                        onClick={() => setShowAddProjectModal(false)}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs text-zinc-400 hover:bg-[#141416] hover:text-zinc-200 transition-colors"
+                        title={project.name}
+                      >
+                        <FolderClosed size={13} className="text-zinc-500 shrink-0" />
+                        <span className="truncate">{project.name}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddProjectModal(true)}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-[#141416] hover:text-zinc-300 transition-colors"
+                    >
+                      <Plus size={14} className="text-zinc-600" />
+                      <span>Create your first project</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Chats Section */}
