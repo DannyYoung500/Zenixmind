@@ -15,14 +15,28 @@ interface StatusPayload {
 export function StatusPage() {
   const [data, setData] = useState<StatusPayload | null>(null);
   const [busy, setBusy] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     setBusy(true);
     try {
-      const res = await fetch('/api/status');
-      setData(await res.json());
-    } catch {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 8000);
+      const res = await fetch('/api/status', { cache: 'no-store', signal: controller.signal });
+      window.clearTimeout(timeout);
+      if (!res.ok) throw new Error(`Status endpoint returned ${res.status}`);
+      const payload = await res.json();
+      if (!payload || typeof payload.ok !== 'boolean' || !Array.isArray(payload.checks)) {
+        throw new Error('Invalid status response');
+      }
+      setData(payload);
+      setError(null);
+      setLastCheckedAt(Date.now());
+    } catch (err) {
       setData(null);
+      setError(err instanceof Error && err.name === 'AbortError' ? 'The status check timed out.' : 'The status service could not be reached.');
+      setLastCheckedAt(Date.now());
     } finally {
       setBusy(false);
     }
@@ -48,7 +62,7 @@ export function StatusPage() {
             className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white"
           >
             <RefreshCw size={13} className={busy ? 'animate-spin' : ''} />
-            Refresh
+            {busy ? 'Checking…' : 'Refresh'}
           </button>
         </div>
       </header>
@@ -70,11 +84,17 @@ export function StatusPage() {
             {data ? (data.ok ? 'All systems operational' : 'Degraded') : 'Checking…'}
           </div>
           <p className="mt-2 text-xs text-zinc-400">
-            {data?.time ? `Last check ${new Date(data.time).toLocaleString()}` : '—'}
+            {data?.time ? `Last check ${new Date(data.time).toLocaleString()}` : 'No successful check yet'}
             {data?.region ? ` · ${data.region}` : ''}
             {data?.commit ? ` · ${data.commit.slice(0, 7)}` : ''}
           </p>
         </div>
+
+        {error && (
+          <div role="alert" className="mb-6 rounded-xl border border-amber-400/20 bg-amber-400/[.05] px-4 py-3 text-xs text-amber-200">
+            {error} {lastCheckedAt ? `Checked ${new Date(lastCheckedAt).toLocaleTimeString()}.` : ''}
+          </div>
+        )}
 
         <ul className="space-y-2">
           {(data?.checks || []).map((c) => (
