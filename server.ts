@@ -1190,14 +1190,14 @@ app.post('/api/chat/stream', async (req, res) => {
     }
 
     const convHistory = privateChat
-      ? incomingMessages.slice(0, -1).slice(-10)
+      ? incomingMessages.slice(0, -1).slice(-24)
       : ((await supabase
           .from('messages')
           .select('role, content, created_at')
           .eq('conversation_id', convId)
           .eq('user_id', user.id)
-          .order('created_at', { ascending: true })
-          .limit(10)).data || []).slice(0, -1);
+          .order('created_at', { ascending: false })
+          .limit(24)).data || []).reverse().slice(0, -1);
 
     const targetModel = model || aiControlState.defaultModel || 'gemini-2.5-flash';
     const memories = preferences?.memory && !privateChat ? await getUserMemories(supabase, user.id) : [];
@@ -1416,10 +1416,10 @@ app.post('/api/chat', async (req, res) => {
       .select('role, content, created_at')
       .eq('conversation_id', convId)
       .eq('user_id', user.id)
-      .order('created_at', { ascending: true })
-      .limit(10);
+      .order('created_at', { ascending: false })
+      .limit(24);
 
-    const convHistory = (historyData || []).slice(0, -1);
+    const convHistory = (historyData || []).reverse().slice(0, -1);
 
     const inferenceResult = await executeModelInference({
       modelId: model,
