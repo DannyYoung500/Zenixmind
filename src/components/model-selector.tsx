@@ -167,7 +167,7 @@ export function ModelSelector({
 
           <div className="space-y-1 max-h-72 overflow-y-auto pr-0.5">
             {availableModels.map((model) => {
-              const isSelected = model.id === current.id;
+              const isSelected = model.id === current?.id;
               return (
                 <button
                   key={model.id}
