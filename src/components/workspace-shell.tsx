@@ -35,6 +35,15 @@ interface Project {
   updated_at: string;
 }
 
+interface LibrarySearchItem {
+  id: string;
+  file_name: string;
+  mime_type: string;
+  source: 'uploaded' | 'generated';
+  prompt?: string | null;
+  created_at: string;
+}
+
 export interface Conversation {
   id: string;
   title: string;
@@ -73,6 +82,8 @@ export function WorkspaceShell({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
+  const [librarySearchItems, setLibrarySearchItems] = useState<LibrarySearchItem[]>([]);
+  const [librarySearchLoading, setLibrarySearchLoading] = useState(false);
   const [internalConversations, setInternalConversations] = useState<Conversation[]>([]);
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
     try {
@@ -155,6 +166,54 @@ export function WorkspaceShell({
 
   const chats = externalConversations || internalConversations;
 
+  useEffect(() => {
+    let mounted = true;
+    const term = query.trim();
+    if (!term || !searching || !user?.id) {
+      setLibrarySearchItems([]);
+      setLibrarySearchLoading(false);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setLibrarySearchLoading(true);
+      try {
+        const pattern = `%${term.replace(/[%_]/g, '\\  const chats = externalConversations || internalConversations;
+
+  const togglePin')}%`;
+        const { data } = await getSupabase()
+          .from('library_items')
+          .select('id,file_name,mime_type,source,prompt,created_at')
+          .eq('user_id', user.id)
+          .or(`file_name.ilike.${pattern},prompt.ilike.${pattern}`)
+          .order('created_at', { ascending: false })
+          .limit(8);
+        if (mounted) setLibrarySearchItems((data || []) as LibrarySearchItem[]);
+      } catch {
+        if (mounted) setLibrarySearchItems([]);
+      } finally {
+        if (mounted) setLibrarySearchLoading(false);
+      }
+    }, 180);
+
+    return () => {
+      mounted = false;
+      window.clearTimeout(timer);
+    };
+  }, [query, searching, user?.id]);
+
+  const projectSearchResults = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return [];
+    return projects.filter((project) => project.name.toLowerCase().includes(term)).slice(0, 5);
+  }, [projects, query]);
+
+  const chatsSearchResults = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return [];
+    return chats.filter((chat) => chat.title.toLowerCase().includes(term)).slice(0, 8);
+  }, [chats, query]);
+
   const togglePin = (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -201,11 +260,7 @@ export function WorkspaceShell({
     );
   }, [chats, query]);
 
-  const searchResults = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return [];
-    return chats.filter((chat) => chat.title.toLowerCase().includes(term)).slice(0, 8);
-  }, [chats, query]);
+  const searchResults = chatsSearchResults;
 
   // Sort pinned first
   const sortedChats = useMemo(() => {
@@ -264,7 +319,7 @@ export function WorkspaceShell({
                   setSearching((v) => !v);
                 }}
                 className="grid h-8 w-8 place-items-center rounded-lg text-zinc-400 hover:bg-[#18181b] hover:text-zinc-200 transition-colors"
-                title="Search chats"
+                title="Search everything"
               >
                 <Search size={16} />
               </button>
@@ -286,41 +341,93 @@ export function WorkspaceShell({
             </div>
           </div>
 
-          {/* Search Bar Input when opened */}
+          {/* Universal Search */}
           {searching && !sidebarCollapsed && (
             <div className="mb-3 px-0.5">
-              <div className="flex h-8 items-center gap-2 rounded-xl bg-[#141416] px-2.5 ring-1 ring-white/[.08]">
+              <div className="flex h-9 items-center gap-2 rounded-xl bg-[#141416] px-2.5 ring-1 ring-white/[.08]">
                 <Search size={13} className="text-zinc-400" />
                 <input
                   autoFocus
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search conversations..."
+                  placeholder="Search everything..."
+                  aria-label="Search everything"
                   className="min-w-0 flex-1 bg-transparent text-xs text-zinc-200 outline-none placeholder:text-zinc-600 font-light"
                 />
                 {query && (
-                  <button onClick={() => setQuery('')} className="text-zinc-500 hover:text-zinc-300">
+                  <button type="button" onClick={() => setQuery('')} className="text-zinc-500 hover:text-zinc-300" aria-label="Clear search">
                     <X size={12} />
                   </button>
                 )}
               </div>
+
               {query.trim() && (
-                <div className="mt-2 overflow-hidden rounded-xl border border-white/[.07] bg-[#101012] shadow-2xl">
-                  {searchResults.length ? (
-                    searchResults.map((chat) => (
-                      <Link
-                        key={chat.id}
-                        to={`/assistant?conversation=${chat.id}`}
-                        onClick={() => { setOpen(false); setSearching(false); setQuery(''); }}
-                        className="flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-white/[.05]"
-                      >
-                        <SquarePen size={13} className="shrink-0 text-zinc-500" />
-                        <span className="truncate">{chat.title || 'New conversation'}</span>
-                      </Link>
-                    ))
-                  ) : (
-                    <div className="px-3 py-3 text-[11px] text-zinc-600">No conversations found</div>
+                <div className="mt-2 max-h-[min(70vh,520px)] overflow-y-auto rounded-xl border border-white/[.07] bg-[#101012] shadow-2xl">
+                  {searchResults.length > 0 && (
+                    <div className="border-b border-white/[.06] py-1.5">
+                      <div className="px-3 py-1 text-[9px] font-medium uppercase tracking-[.14em] text-zinc-600">Conversations</div>
+                      {searchResults.map((chat) => (
+                        <Link
+                          key={`chat-${chat.id}`}
+                          to={`/assistant?conversation=${chat.id}`}
+                          onClick={() => { setOpen(false); setSearching(false); setQuery(''); }}
+                          className="flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-white/[.05]"
+                        >
+                          <SquarePen size={13} className="shrink-0 text-zinc-500" />
+                          <span className="truncate">{chat.title || 'New conversation'}</span>
+                        </Link>
+                      ))}
+                    </div>
                   )}
+
+                  {projectSearchResults.length > 0 && (
+                    <div className="border-b border-white/[.06] py-1.5">
+                      <div className="px-3 py-1 text-[9px] font-medium uppercase tracking-[.14em] text-zinc-600">Projects</div>
+                      {projectSearchResults.map((project) => (
+                        <button
+                          key={`project-${project.id}`}
+                          type="button"
+                          onClick={() => { setShowAddProjectModal(false); setSearching(false); setQuery(''); }}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-white/[.05]"
+                        >
+                          <FolderClosed size={13} className="shrink-0 text-zinc-500" />
+                          <span className="truncate">{project.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {(librarySearchLoading || librarySearchItems.length > 0) && (
+                    <div className="py-1.5">
+                      <div className="px-3 py-1 text-[9px] font-medium uppercase tracking-[.14em] text-zinc-600">Library</div>
+                      {librarySearchLoading ? (
+                        <div className="px-3 py-2 text-[11px] text-zinc-600">Searching library…</div>
+                      ) : (
+                        librarySearchItems.map((item) => (
+                          <Link
+                            key={`library-${item.id}`}
+                            to="/assistant?view=library"
+                            onClick={() => { setSearching(false); setQuery(''); }}
+                            className="flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-white/[.05]"
+                          >
+                            <FolderClosed size={13} className="shrink-0 text-zinc-500" />
+                            <span className="min-w-0 truncate">{item.file_name}</span>
+                            <span className="ml-auto shrink-0 text-[9px] text-zinc-600">
+                              {item.source === 'generated' ? 'Generated' : 'File'}
+                            </span>
+                          </Link>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {!searchResults.length && !projectSearchResults.length && !librarySearchLoading && !librarySearchItems.length && (
+                    <div className="px-3 py-4 text-center text-[11px] text-zinc-600">No results found</div>
+                  )}
+
+                  <div className="border-t border-white/[.05] px-3 py-2 text-[9px] text-zinc-700">
+                    Searches conversations, projects, and your Library
+                  </div>
                 </div>
               )}
             </div>
