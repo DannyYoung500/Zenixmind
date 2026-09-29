@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, ChevronDown, Check, Sparkles, Zap, Brain, Terminal, Shield } from 'lucide-react';
+import { getSupabase } from '../lib/supabase';
 
 export interface ModelOption {
   id: string;
@@ -82,9 +83,46 @@ export function ModelSelector({
   direction = 'up'
 }: ModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const current = AI_MODELS.find((m) => m.id === selectedModel) || AI_MODELS[0];
+  useEffect(() => {
+    let cancelled = false;
+    const loadModels = async () => {
+      try {
+        const supabase = getSupabase();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+        const res = await fetch('/api/models', {
+          headers: { Authorization: 'Bearer ' + session.access_token },
+          cache: 'no-store'
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const live = Array.isArray(data.models) ? data.models.filter((m: any) => m.available) : [];
+        const mapped = live.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          provider: m.provider === 'google' ? 'Google' : m.provider === 'xai' ? 'xAI' : m.provider === 'anthropic' ? 'Anthropic' : m.provider === 'openai' ? 'OpenAI' : 'DeepSeek',
+          tag: m.tag,
+          badge: m.badge,
+          description: m.description,
+          badgeColor: m.provider === 'google' ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' : m.provider === 'xai' ? 'text-zinc-100 bg-white/10 border-white/20' : m.provider === 'anthropic' ? 'text-orange-400 bg-orange-400/10 border-orange-400/20' : m.provider === 'openai' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' : 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20'
+        }));
+        if (cancelled) return;
+        setAvailableModels(mapped);
+        setCatalogLoaded(true);
+        if (mapped.length && !mapped.some((m: ModelOption) => m.id === selectedModel)) onSelectModel(mapped[0].id);
+      } catch {
+        if (!cancelled) setCatalogLoaded(false);
+      }
+    };
+    loadModels();
+    return () => { cancelled = true; };
+  }, [onSelectModel, selectedModel]);
+
+  const current = availableModels.find((m) => m.id === selectedModel) || availableModels[0];
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -106,12 +144,12 @@ export function ModelSelector({
         title="Select AI Model"
       >
         <span className={`inline-block h-1.5 w-1.5 rounded-full ${
-          current.provider === 'Google' ? 'bg-amber-400' :
-          current.provider === 'xAI' ? 'bg-zinc-100' :
-          current.provider === 'Anthropic' ? 'bg-orange-400' :
-          current.provider === 'OpenAI' ? 'bg-emerald-400' : 'bg-cyan-400'
+          current?.provider === 'Google' ? 'bg-amber-400' :
+          current?.provider === 'xAI' ? 'bg-zinc-100' :
+          current?.provider === 'Anthropic' ? 'bg-orange-400' :
+          current?.provider === 'OpenAI' ? 'bg-emerald-400' : 'bg-cyan-400'
         }`} />
-        <span className="truncate max-w-[110px] sm:max-w-[140px]">{current.name}</span>
+        <span className="truncate max-w-[110px] sm:max-w-[140px]">{current?.name || (catalogLoaded ? 'No models available' : 'Loading models…')}</span>
         <ChevronDown size={11} className={`text-zinc-500 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
@@ -124,11 +162,11 @@ export function ModelSelector({
         >
           <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 border-b border-white/[.06] mb-1">
             <span>Select AI Intelligence</span>
-            <span className="text-[9px] text-zinc-600 font-mono">6 Models</span>
+            <span className="text-[9px] text-zinc-600 font-mono">{availableModels.length} available</span>
           </div>
 
           <div className="space-y-1 max-h-72 overflow-y-auto pr-0.5">
-            {AI_MODELS.map((model) => {
+            {availableModels.map((model) => {
               const isSelected = model.id === current.id;
               return (
                 <button
