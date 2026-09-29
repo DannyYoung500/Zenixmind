@@ -265,6 +265,35 @@ export const SUPPORTED_MODELS: ModelConfig[] = [
   }
 ];
 
+
+function providerIsConfigured(provider: ModelConfig['provider']): boolean {
+  switch (provider) {
+    case 'google': return Boolean(process.env.GEMINI_API_KEY);
+    case 'xai': return Boolean(process.env.GROK_API_KEY);
+    case 'anthropic': return Boolean(process.env.ANTHROPIC_API_KEY);
+    case 'openai': return Boolean(process.env.OPENAI_API_KEY);
+    case 'deepseek': return Boolean(process.env.DEEPSEEK_API_KEY || process.env.ZENIXMIND_AI_API_KEY);
+    default: return false;
+  }
+}
+
+async function getModelRegistry(supabase: any): Promise<Record<string, boolean>> {
+  try {
+    const { data, error } = await supabase.from('ai_model_registry').select('model_id, enabled');
+    if (error || !Array.isArray(data)) return {};
+    return Object.fromEntries(data.map((row: any) => [row.model_id, row.enabled !== false]));
+  } catch { return {}; }
+}
+
+function buildModelCatalog(registry: Record<string, boolean> = {}) {
+  return SUPPORTED_MODELS.map((model) => ({
+    ...model,
+    enabled: registry[model.id] ?? model.enabled,
+    providerConfigured: providerIsConfigured(model.provider),
+    available: (registry[model.id] ?? model.enabled) && providerIsConfigured(model.provider)
+  }));
+}
+
 // =========================================================================
 // REAL DATA STORES & PERSISTENCE
 // =========================================================================
@@ -964,13 +993,11 @@ async function executeModelInference({
     }
   }
 
-  // 4. OpenAI / Custom Provider Proxy
-  const genericApiKey = process.env.OPENAI_API_KEY || process.env.ZENIXMIND_AI_API_KEY;
-  const genericBaseUrl = (process.env.ZENIXMIND_AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
-
-  if (genericApiKey) {
+  // 4. OpenAI GPT-4o — only uses the OpenAI provider and reports the actual model.
+  if (targetModel === 'gpt-4o' && process.env.OPENAI_API_KEY) {
     try {
-      const chosenModel = process.env.ZENIXMIND_AI_MODEL || (targetModel.includes('deepseek') ? 'deepseek-chat' : 'gpt-4o');
+      const genericBaseUrl = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
+      const chosenModel = 'gpt-4o';
       const res = await fetch(`${genericBaseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -1011,7 +1038,28 @@ async function executeModelInference({
     }
   }
 
-  // 5. No configured provider can truthfully answer this request.
+  // 5. DeepSeek R1 — only uses a DeepSeek/OpenAI-compatible DeepSeek endpoint.
+  if (targetModel === 'deepseek-r1' && (process.env.DEEPSEEK_API_KEY || process.env.ZENIXMIND_AI_API_KEY)) {
+    try {
+      const baseUrl = (process.env.DEEPSEEK_API_KEY ? 'https://api.deepseek.com/v1' : (process.env.ZENIXMIND_AI_BASE_URL || '').replace(/\/$/, ''));
+      const apiKey = process.env.DEEPSEEK_API_KEY || process.env.ZENIXMIND_AI_API_KEY;
+      const chosenModel = process.env.ZENIXMIND_AI_MODEL || 'deepseek-reasoner';
+      if (baseUrl && apiKey) {
+        const res = await fetch(baseUrl + '/chat/completions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }, signal: abortSignal,
+          body: JSON.stringify({ model: chosenModel, messages: [
+            { role: 'system', content: systemInstructions }, ...history.map((m) => ({ role: m.role, content: m.content })), { role: 'user', content: userMessage }
+          ], temperature: 0.7 })
+        });
+        if (res.ok) {
+          const d = await res.json(); const content = d?.choices?.[0]?.message?.content;
+          if (content) return { text: content, modelUsed: targetModel, providerUsed: 'DeepSeek', latencyMs: Date.now() - startTime, inputTokens: d?.usage?.prompt_tokens || estimatedInputTokens, outputTokens: d?.usage?.completion_tokens || Math.round(content.length / 4), sources };
+        }
+      }
+    } catch (err: any) { console.warn('DeepSeek inference error:', err.message); }
+  }
+
+  // 6. No configured provider can truthfully answer this request.
   // Never fabricate search citations, verification, or a gateway response.
   throw new Error('No configured AI provider is available for this request.');
   const latencyMs = Math.max(85, Date.now() - startTime);
@@ -1079,6 +1127,14 @@ app.delete('/api/memory/:id', async (req, res) => {
     console.error('Memory delete error:', err);
     return res.status(500).json({ error: 'Unable to delete memory.' });
   }
+});
+
+// GET /api/models — authenticated model catalog with real provider availability.
+app.get('/api/models', async (req, res) => {
+  const auth = await getChatContext(req);
+  if ('error' in auth) return res.status(401).json({ error: 'A valid Supabase session is required.', code: auth.error });
+  const registry = await getModelRegistry(auth.supabase);
+  return res.json({ models: buildModelCatalog(registry) });
 });
 
 // POST /api/greeting — AI-generated, context-aware empty-chat greeting.
@@ -1996,18 +2052,27 @@ app.post('/api/admin/rate-limits', requireOwner, (req, res) => {
 });
 
 // 3. MODELS
-app.get('/api/admin/models', requireOwner, (_req, res) => {
-  return res.json({ models: SUPPORTED_MODELS });
+app.get('/api/admin/models', requireOwner, async (req, res) => {
+  const auth = await getChatContext(req);
+  if ('error' in auth) return res.status(401).json({ error: 'A valid Supabase session is required.' });
+  const registry = await getModelRegistry(auth.supabase);
+  return res.json({ models: buildModelCatalog(registry) });
 });
 
-app.post('/api/admin/models/:id/toggle', requireOwner, (req, res) => {
+app.post('/api/admin/models/:id/toggle', requireOwner, async (req, res) => {
   const { id } = req.params;
-  const { enabled, updatedBy } = req.body;
+  const enabled = Boolean(req.body?.enabled);
+  const updatedBy = req.body?.updatedBy || 'owner';
   const model = SUPPORTED_MODELS.find((m) => m.id === id);
   if (!model) return res.status(404).json({ error: 'Model not found' });
-  model.enabled = enabled;
+  const auth = await getChatContext(req);
+  if ('error' in auth) return res.status(401).json({ error: 'A valid Supabase session is required.' });
+  const { error } = await auth.supabase.from('ai_model_registry')
+    .update({ enabled, updated_at: new Date().toISOString() }).eq('model_id', id);
+  if (error) return res.status(500).json({ error: 'Unable to persist model status.' });
   recordAuditLog(updatedBy, 'TOGGLE_MODEL_STATUS', id, 'SUCCESS', { enabled });
-  return res.json({ success: true, model });
+  const registry = await getModelRegistry(auth.supabase);
+  return res.json({ success: true, model: buildModelCatalog(registry).find((m) => m.id === id) });
 });
 
 // 4. AI PROVIDERS & REAL-TIME HEALTH
