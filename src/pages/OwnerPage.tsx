@@ -1889,71 +1889,7 @@ export function OwnerPage() {
              ========================================================================= */}
           {activeSection === 'models' && (
             <div className="space-y-8 max-w-5xl mx-auto">
-              {/* --- Live Model Registry --- */}
-              <div className="rounded-3xl border border-white/[.08] bg-[#0c0c10] p-6 space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 border-b border-white/[.06] pb-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-semibold text-white">Live Model Registry</h2>
-                      <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-mono text-emerald-300">Supabase-backed</span>
-                    </div>
-                    <p className="text-xs text-zinc-400 font-light mt-1">Only enabled models with a configured provider are exposed to users and accepted by chat.</p>
-                  </div>
-                  <span className="text-[10px] font-mono text-zinc-500">{models.filter((m: any) => m.available).length} available / {models.length} registered</span>
-                </div>
-
-                {models.length === 0 ? (
-                  <div className="rounded-2xl border border-white/[.06] bg-black/20 p-5 text-sm text-zinc-500">Loading the live model registry…</div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {models.map((model: any) => (
-                      <div key={model.id} className="rounded-2xl border border-white/[.07] bg-white/[.02] p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className={'h-2 w-2 rounded-full ' + (model.available ? 'bg-emerald-400' : 'bg-zinc-600')} />
-                              <span className="text-sm font-medium text-white truncate">{model.name}</span>
-                            </div>
-                            <div className="mt-1 text-[10px] text-zinc-500 font-mono">{model.badge} · {model.id}</div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                const res = await ownerFetch('/api/admin/models/' + encodeURIComponent(model.id) + '/toggle', {
-                                  method: 'POST',
-                                  body: JSON.stringify({ enabled: !model.enabled, updatedBy: user?.email || 'owner' })
-                                });
-                                const data = await res.json();
-                                if (!res.ok) throw new Error(data.error || 'Unable to update model.');
-                                setModels((prev) => prev.map((item) => item.id === model.id ? data.model : item));
-                                addToast(model.enabled ? 'Model disabled' : 'Model enabled', model.name + ' status was saved.', 'success');
-                              } catch (err: any) {
-                                addToast('Model update failed', err.message || 'Unable to save model status.', 'critical');
-                              }
-                            }}
-                            className={'rounded-full border px-3 py-1 text-[10px] font-medium transition-colors ' + (model.enabled ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/15' : 'border-white/10 bg-white/[.03] text-zinc-500 hover:text-zinc-300')}
-                          >
-                            {model.enabled ? 'Enabled' : 'Disabled'}
-                          </button>
-                        </div>
-                        <div className="mt-4 grid grid-cols-2 gap-2 text-[10px] font-mono">
-                          <div className="rounded-xl bg-black/30 border border-white/[.05] px-3 py-2">
-                            <span className="block text-zinc-600 uppercase">Provider</span>
-                            <span className="text-zinc-300">{model.providerConfigured ? 'Configured' : 'Not configured'}</span>
-                          </div>
-                          <div className="rounded-xl bg-black/30 border border-white/[.05] px-3 py-2">
-                            <span className="block text-zinc-600 uppercase">Availability</span>
-                            <span className={model.available ? 'text-emerald-300' : 'text-zinc-500'}>{model.available ? 'Ready' : model.enabled ? 'Waiting for provider' : 'Disabled'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* --- Model Arena: Side-by-Side LLM Comparator --- */
+              {/* --- Model Arena: Side-by-Side LLM Comparator --- */}
               <div className="rounded-3xl border border-white/[.08] bg-[#0c0c10] p-6 space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[.06] pb-4">
                   <div className="flex items-center gap-3">
