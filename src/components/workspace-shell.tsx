@@ -178,9 +178,7 @@ export function WorkspaceShell({
     const timer = window.setTimeout(async () => {
       setLibrarySearchLoading(true);
       try {
-        const pattern = `%${term.replace(/[%_]/g, '\\  const chats = externalConversations || internalConversations;
-
-  const togglePin')}%`;
+        const pattern = `%${term.replace(/[%_]/g, '\\$&')}%`;
         const { data } = await getSupabase()
           .from('library_items')
           .select('id,file_name,mime_type,source,prompt,created_at')
