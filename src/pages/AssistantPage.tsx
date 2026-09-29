@@ -1876,6 +1876,35 @@ export function AssistantPage() {
     if (attachedFile) {
       try {
         attachmentPayload = await prepareAttachment(attachedFile);
+
+        // Keep chat attachments available in the user's persistent Library.
+        if (user?.id) {
+          try {
+            const safeName = attachedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storagePath = `${user.id}/${crypto.randomUUID()}-${safeName}`;
+            const { error: uploadError } = await getSupabase()
+              .storage
+              .from('library')
+              .upload(storagePath, attachedFile, {
+                contentType: attachedFile.type || 'application/octet-stream',
+                upsert: false
+              });
+            if (!uploadError) {
+              await getSupabase().from('library_items').insert({
+                user_id: user.id,
+                file_name: attachedFile.name,
+                mime_type: attachedFile.type || null,
+                storage_path: storagePath,
+                size_bytes: attachedFile.size,
+                source: 'uploaded',
+                prompt: text.slice(0, 1000)
+              });
+            }
+          } catch (libraryError) {
+            console.warn('Could not persist chat attachment to Library:', libraryError);
+          }
+        }
+
         fullPrompt = `[Attached file: ${attachedFile.name}]\\n\\n${text}`;
       } catch (error: any) {
         window.alert(error?.message || 'Unable to read that attachment.');
