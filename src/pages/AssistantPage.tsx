@@ -1689,6 +1689,14 @@ function ProjectView({ projectId, userId, onDeleted }: { projectId: string; user
         <h1 className="truncate text-2xl font-light tracking-[-.03em] text-zinc-100">{project.name}</h1>
         <p className="mt-2 text-xs text-zinc-500">Created {new Date(project.created_at).toLocaleDateString()}</p>
       </div>
+      <button type="button" onClick={() => {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('project');
+          next.set('projectChat', project.id);
+          return next;
+        });
+      }} className="shrink-0 rounded-xl border border-white/[.08] px-3 py-2 text-xs text-zinc-300 hover:bg-white/[.05]">Open project chat</button>
       <button type="button" onClick={remove} className="shrink-0 rounded-xl border border-red-500/20 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10">Delete</button>
     </div>
     <div className="space-y-5">
@@ -1744,6 +1752,8 @@ export function AssistantPage() {
 
   const view = (searchParams.get('view') as 'chat' | 'images' | 'library' | 'automations') || 'chat';
   const projectId = searchParams.get('project');
+  const projectChatId = searchParams.get('projectChat');
+  const activeProjectId = projectChatId || null;
   const urlConvId = searchParams.get('conversation');
   const urlQuery = searchParams.get('q');
 
@@ -2048,6 +2058,7 @@ export function AssistantPage() {
         body: JSON.stringify({
           messages: nextMessages,
           conversationId,
+          projectId: activeProjectId,
           model: selectedModel,
           webSearch,
           deepThink,
@@ -2273,12 +2284,12 @@ export function AssistantPage() {
       onNewChat={handleStartNewChat}
     >
       <div className="relative flex-1 flex flex-col h-[calc(100vh-56px)] overflow-hidden bg-[#050506]">
-        {projectId && <ProjectView projectId={projectId} userId={user?.id} onDeleted={handleProjectDeleted} />}
+        {projectId && !projectChatId && <ProjectView projectId={projectId} userId={user?.id} onDeleted={handleProjectDeleted} />}
         {!projectId && view === 'images' && <ImagesView />}
         {!projectId && view === 'library' && <LibraryView />}
         {!projectId && view === 'automations' && <AutomationsView />}
 
-        {!projectId && view === 'chat' && (
+        {(!projectId || projectChatId) && view === 'chat' && (
           <div className="relative flex flex-1 flex-col h-full overflow-hidden">
             {/* Messages Scroll Area with auto-scroll tracking */}
             <div
