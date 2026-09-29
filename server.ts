@@ -1276,6 +1276,7 @@ app.post('/api/chat/stream', async (req, res) => {
           .limit(24)).data || []).reverse().slice(0, -1);
 
     const targetModel = model || aiControlState.defaultModel || 'gemini-2.5-flash';
+    await requireAvailableModel(supabase, targetModel);
     let projectContext = '';
     if (typeof projectId === 'string' && projectId.trim() && !privateChat) {
       const { data: project, error: projectError } = await supabase
@@ -1530,6 +1531,8 @@ app.post('/api/chat', async (req, res) => {
       .limit(24);
 
     const convHistory = (historyData || []).reverse().slice(0, -1);
+
+    await requireAvailableModel(supabase, model || aiControlState.defaultModel || 'gemini-2.5-flash');
 
     const inferenceResult = await executeModelInference({
       modelId: model,
@@ -1793,6 +1796,10 @@ app.post('/api/admin/test-prompt', requireOwner, async (req, res) => {
   try {
     const { prompt, modelId } = req.body;
     if (!prompt?.trim()) return res.status(400).json({ error: 'Prompt is required' });
+
+    const auth = await getChatContext(req);
+    if ('error' in auth) return res.status(401).json({ error: 'A valid Supabase session is required.' });
+    await requireAvailableModel(auth.supabase, modelId || aiControlState.defaultModel);
 
     const trace = await executeModelInference({
       modelId: modelId || aiControlState.defaultModel,
