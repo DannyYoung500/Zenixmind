@@ -1297,7 +1297,7 @@ function ImagesView() {
 function LibraryView() {
   const { user } = useAuth();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | 'images' | 'documents'>('all');
+  const [filter, setFilter] = useState<'all' | 'images' | 'videos' | 'files'>('all');
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -1410,7 +1410,8 @@ function LibraryView() {
         item.file_name.toLowerCase().includes(term) ||
         (item.prompt || '').toLowerCase().includes(term);
       if (filter === 'images') return matchQuery && !!item.mime_type?.startsWith('image/');
-      if (filter === 'documents') return matchQuery && !item.mime_type?.startsWith('image/');
+      if (filter === 'videos') return matchQuery && !!item.mime_type?.startsWith('video/');
+      if (filter === 'files') return matchQuery && !item.mime_type?.startsWith('image/') && !item.mime_type?.startsWith('video/');
       return matchQuery;
     });
   }, [items, query, filter]);
@@ -1459,7 +1460,7 @@ function LibraryView() {
 
       <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 bg-[#0e0e11] p-1 rounded-xl border border-white/[.07]">
-          {(['all', 'images', 'documents'] as const).map((tab) => (
+          {(['all', 'images', 'videos', 'files'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setFilter(tab)}
@@ -1484,28 +1485,35 @@ function LibraryView() {
         </div>
       </div>
 
-      <div className="mt-6 divide-y divide-white/[.05] rounded-2xl border border-white/[.07] bg-[#0c0c0e] overflow-hidden">
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {loading ? (
           <div className="p-12 text-center text-xs text-zinc-600">Loading your library…</div>
         ) : filteredItems.map((item) => (
-          <div key={item.id} className="flex items-center justify-between p-4 hover:bg-[#121215] transition-colors">
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#18181c] text-zinc-400">
-                {item.mime_type?.startsWith('image/') ? <ImageIcon size={18} /> : <FileText size={18} />}
+          <div key={item.id} className="overflow-hidden rounded-2xl border border-white/[.07] bg-[#0c0c0e] hover:bg-[#121215] transition-colors">
+            {item.mime_type?.startsWith('image/') ? (
+              <div className="aspect-square bg-[#101014]">
+                <button type="button" onClick={() => void handleOpen(item)} className="h-full w-full">
+                  <img src={item.url} alt={item.file_name} className="h-full w-full object-cover" />
+                </button>
               </div>
-              <div className="min-w-0">
-                <div className="truncate text-xs font-medium text-zinc-200">{item.file_name}</div>
-                <div className="flex items-center gap-2 text-[10px] text-zinc-500 mt-0.5">
-                  <span>{formatSize(item.size_bytes)}</span>
-                  <span>•</span>
-                  <span className="capitalize">{item.source || 'uploaded'}</span>
-                  <span>•</span>
-                  <span>{new Date(item.created_at).toLocaleDateString()}</span>
-                </div>
+            ) : (
+              <div className="flex aspect-[4/3] items-center justify-center bg-[#101014] text-zinc-500">
+                {item.mime_type?.startsWith('video/') ? <Volume2 size={26} /> : <FileText size={26} />}
               </div>
+            )}
+            <div className="p-3">
+              <div className="truncate text-xs font-medium text-zinc-200">{item.file_name}</div>
+              <div className="mt-1 flex items-center gap-2 text-[10px] text-zinc-500">
+                <span>{formatSize(item.size_bytes)}</span>
+                <span>•</span>
+                <span className="capitalize">{item.source || 'uploaded'}</span>
+                <span>•</span>
+                <span>{new Date(item.created_at).toLocaleDateString()}</span>
+              </div>
+              {item.prompt && <div className="mt-2 line-clamp-2 text-[10px] text-zinc-500">{item.prompt}</div>}
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center justify-end gap-1.5 px-3 pb-3 shrink-0">
               <button
                 onClick={() => void handleOpen(item)}
                 className="rounded-lg px-2.5 py-1.5 text-[11px] text-zinc-300 hover:bg-white/[.06] hover:text-white transition-colors"
@@ -1525,7 +1533,7 @@ function LibraryView() {
 
         {!loading && !filteredItems.length && (
           <div className="p-12 text-center text-xs text-zinc-600">
-            {items.length ? 'No files found matching your filter.' : 'Your library is empty. Upload a file to get started.'}
+            {items.length ? 'No library items found matching your filter.' : 'Your library is empty. Upload a file or generate an image to get started.'}
           </div>
         )}
       </div>
