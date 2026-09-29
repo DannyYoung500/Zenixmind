@@ -802,7 +802,8 @@ async function executeModelInference({
     `Format output with high readability, clean markdown, code blocks with syntax languages, and structured lists when helpful.`,
     preferences?.personality ? `Personality: ${preferences.personality}.` : 'Personality: Balanced and clear.',
     preferences?.responseLength ? `Depth: ${preferences.responseLength}.` : '',
-    preferences?.customInstructions ? `User Custom Instructions: ${preferences.customInstructions}` : ''
+    preferences?.customInstructions ? `User Custom Instructions: ${preferences.customInstructions}` : '',
+    memoryContext ? `Saved Memory Context (use only when relevant and do not reveal hidden memory metadata):\n${memoryContext}` : ''
   ].filter(Boolean).join('\n');
 
   let sources: Array<{ title: string; url: string; snippet?: string }> | undefined = undefined;
