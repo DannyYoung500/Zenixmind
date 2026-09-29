@@ -1618,6 +1618,98 @@ function AutomationsView() {
   );
 }
 
+function ProjectView({ projectId, userId, onDeleted }: { projectId: string; userId?: string; onDeleted: () => void }) {
+  const [project, setProject] = useState<{ id: string; name: string; description: string; instructions: string; created_at: string; updated_at: string } | null>(null);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      if (!userId) return;
+      setLoading(true);
+      const { data, error } = await getSupabase().from('projects')
+        .select('id,name,description,instructions,created_at,updated_at')
+        .eq('id', projectId).eq('user_id', userId).maybeSingle();
+      if (mounted) {
+        if (error || !data) setProject(null);
+        else {
+          setProject(data); setName(data.name || '');
+          setDescription(data.description || ''); setInstructions(data.instructions || '');
+        }
+        setLoading(false);
+      }
+    };
+    void load();
+    return () => { mounted = false; };
+  }, [projectId, userId]);
+
+  const save = async () => {
+    if (!userId || !project || !name.trim()) return;
+    setSaving(true); setMessage('');
+    const { data, error } = await getSupabase().from('projects')
+      .update({
+        name: name.trim().slice(0, 80),
+        description: description.trim().slice(0, 500),
+        instructions: instructions.trim().slice(0, 4000),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', project.id).eq('user_id', userId)
+      .select('id,name,description,instructions,created_at,updated_at').single();
+    if (error) setMessage(error.message);
+    else {
+      setProject(data); setName(data.name);
+      setDescription(data.description || ''); setInstructions(data.instructions || '');
+      setMessage('Project saved.');
+    }
+    setSaving(false);
+  };
+
+  const remove = async () => {
+    if (!userId || !project || !window.confirm(`Delete "${project.name}"? This cannot be undone.`)) return;
+    const { error } = await getSupabase().from('projects').delete().eq('id', project.id).eq('user_id', userId);
+    if (!error) onDeleted(); else setMessage(error.message);
+  };
+
+  if (loading) return <div className="flex h-full items-center justify-center text-xs text-zinc-600">Loading project…</div>;
+  if (!project) return <div className="flex h-full items-center justify-center p-6"><div className="text-center">
+    <FolderClosed className="mx-auto mb-3 text-zinc-600" size={22} />
+    <p className="text-sm text-zinc-300">Project not found.</p>
+    <button onClick={onDeleted} className="mt-3 text-xs text-zinc-400 hover:text-white">Back to chat</button>
+  </div></div>;
+
+  return <div className="flex-1 overflow-y-auto"><div className="mx-auto w-full max-w-3xl px-5 py-8 sm:px-8">
+    <div className="mb-8 flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[.16em] text-zinc-600"><FolderClosed size={12} /> Project workspace</div>
+        <h1 className="truncate text-2xl font-light tracking-[-.03em] text-zinc-100">{project.name}</h1>
+        <p className="mt-2 text-xs text-zinc-500">Created {new Date(project.created_at).toLocaleDateString()}</p>
+      </div>
+      <button type="button" onClick={remove} className="shrink-0 rounded-xl border border-red-500/20 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10">Delete</button>
+    </div>
+    <div className="space-y-5">
+      <label className="block"><span className="mb-2 block text-xs font-medium text-zinc-400">Project name</span>
+        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} className="w-full rounded-xl border border-white/[.08] bg-[#0d0d10] px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-white/[.2]" />
+      </label>
+      <label className="block"><span className="mb-2 block text-xs font-medium text-zinc-400">Description</span>
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} rows={3} placeholder="What is this project about?" className="w-full resize-none rounded-xl border border-white/[.08] bg-[#0d0d10] px-3 py-2.5 text-sm text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-white/[.2]" />
+      </label>
+      <label className="block"><span className="mb-2 block text-xs font-medium text-zinc-400">Project instructions</span>
+        <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} maxLength={4000} rows={7} placeholder="Tell ZenixMind how it should work inside this project." className="w-full resize-y rounded-xl border border-white/[.08] bg-[#0d0d10] px-3 py-2.5 text-sm leading-6 text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-white/[.2]" />
+        <span className="mt-1 block text-[10px] text-zinc-600">Saved to this project for future project-aware chat.</span>
+      </label>
+      <div className="flex items-center justify-between border-t border-white/[.06] pt-5">
+        <span className="text-xs text-zinc-500">{message}</span>
+        <button type="button" disabled={saving || !name.trim()} onClick={() => void save()} className="rounded-xl bg-white px-4 py-2 text-xs font-medium text-black hover:bg-zinc-200 disabled:opacity-40">{saving ? 'Saving…' : 'Save project'}</button>
+      </div>
+    </div>
+  </div></div>;
+}
+
 export function AssistantPage() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1651,6 +1743,7 @@ export function AssistantPage() {
   const navigate = useNavigate();
 
   const view = (searchParams.get('view') as 'chat' | 'images' | 'library' | 'automations') || 'chat';
+  const projectId = searchParams.get('project');
   const urlConvId = searchParams.get('conversation');
   const urlQuery = searchParams.get('q');
 
@@ -1694,6 +1787,14 @@ export function AssistantPage() {
     setSelectedModel(modelId);
     localStorage.setItem('zenixmind_selected_model', modelId);
   };
+
+  const handleProjectDeleted = useCallback(() => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('project');
+      return next;
+    });
+  }, [setSearchParams]);
 
   const handleStartNewChat = useCallback(() => {
     setVoiceTalkOpen(false);
@@ -2154,7 +2255,9 @@ export function AssistantPage() {
     <WorkspaceShell
       active={view}
       title={
-        view === 'chat'
+        projectId
+          ? 'Project'
+          : view === 'chat'
           ? 'ZenixMind'
           : view === 'images'
           ? 'Imagine Studio'
@@ -2170,11 +2273,12 @@ export function AssistantPage() {
       onNewChat={handleStartNewChat}
     >
       <div className="relative flex-1 flex flex-col h-[calc(100vh-56px)] overflow-hidden bg-[#050506]">
-        {view === 'images' && <ImagesView />}
-        {view === 'library' && <LibraryView />}
-        {view === 'automations' && <AutomationsView />}
+        {projectId && <ProjectView projectId={projectId} userId={user?.id} onDeleted={handleProjectDeleted} />}
+        {!projectId && view === 'images' && <ImagesView />}
+        {!projectId && view === 'library' && <LibraryView />}
+        {!projectId && view === 'automations' && <AutomationsView />}
 
-        {view === 'chat' && (
+        {!projectId && view === 'chat' && (
           <div className="relative flex flex-1 flex-col h-full overflow-hidden">
             {/* Messages Scroll Area with auto-scroll tracking */}
             <div
