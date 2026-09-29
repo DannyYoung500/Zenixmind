@@ -222,9 +222,9 @@ export function WorkspaceShell({
     const timer = window.setTimeout(async () => {
       setMessageSearchLoading(true);
       try {
-        const pattern = `%${term.replace(/[%_]/g, '\\  }, [query, searching, user?.id]);
+        const pattern = `%${term.replace(/[%_]/g, '\\        const pattern = `%${term.replace(/[%_]/g, '\\  }, [query, searching, user?.id]);
 
-  const projectSearchResults')}%`;
+  const projectSearchResults')}%`;')}%`;
         const { data } = await getSupabase()
           .from('messages')
           .select('id,conversation_id,role,content,created_at')
