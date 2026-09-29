@@ -124,13 +124,20 @@ Product behavior:
 async function getUserMemories(supabase: any, userId: string): Promise<string[]> {
   try {
     const { data, error } = await supabase
-      .from('user_memories')
-      .select('content, category')
+      .from('memories')
+      .select('memory, category')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
       .limit(20);
     if (error || !Array.isArray(data)) return [];
-    return data.map((row: any) => typeof row?.content === 'string' ? row.content.trim() : '').filter(Boolean).slice(0, 20);
+    return data
+      .map((row: any) => {
+        const memory = typeof row?.memory === 'string' ? row.memory.trim() : '';
+        const category = typeof row?.category === 'string' ? row.category.trim() : '';
+        return memory ? (category ? `[${category}] ${memory}` : memory) : '';
+      })
+      .filter(Boolean)
+      .slice(0, 20);
   } catch {
     return [];
   }
@@ -1026,13 +1033,13 @@ app.post('/api/memory', async (req, res) => {
   const auth = await getChatContext(req);
   if ('error' in auth) return res.status(401).json({ error: 'A valid Supabase session is required.', code: auth.error });
   const content = typeof req.body?.content === 'string' ? req.body.content.trim().slice(0, 1000) : '';
-  const allowed = ['preference', 'profile', 'context', 'fact'];
-  const category = allowed.includes(req.body?.category) ? req.body.category : 'context';
+  const allowed = ['general', 'preferences', 'projects', 'work', 'personal'];
+  const category = allowed.includes(req.body?.category) ? req.body.category : 'general';
   if (!content) return res.status(400).json({ error: 'Memory content is required.' });
   try {
-    const { data, error } = await auth.supabase.from('user_memories')
-      .insert({ user_id: auth.user.id, content, category })
-      .select('id, content, category, created_at, updated_at').single();
+    const { data, error } = await auth.supabase.from('memories')
+      .insert({ user_id: auth.user.id, memory: content, category, source: 'user' })
+      .select('id, memory, category, source, created_at, updated_at').single();
     if (error) throw error;
     return res.status(201).json({ memory: data });
   } catch (err) {
@@ -1045,7 +1052,7 @@ app.delete('/api/memory/:id', async (req, res) => {
   const auth = await getChatContext(req);
   if ('error' in auth) return res.status(401).json({ error: 'A valid Supabase session is required.', code: auth.error });
   try {
-    const { error } = await auth.supabase.from('user_memories').delete()
+    const { error } = await auth.supabase.from('memories').delete()
       .eq('id', req.params.id).eq('user_id', auth.user.id);
     if (error) throw error;
     return res.json({ ok: true });
@@ -1208,7 +1215,8 @@ app.post('/api/chat/stream', async (req, res) => {
       'Format output with high readability, clean markdown, code blocks with syntax languages, and structured lists when helpful.',
       preferences?.personality ? `Personality: ${preferences.personality}.` : 'Personality: Balanced and clear.',
       preferences?.responseLength ? `Depth: ${preferences.responseLength}.` : '',
-      preferences?.customInstructions ? `User Custom Instructions: ${preferences.customInstructions}` : ''
+      preferences?.customInstructions ? `User Custom Instructions: ${preferences.customInstructions}` : '',
+      memoryContext ? `Saved Memory Context (use only when relevant; never reveal hidden memory metadata):\\n${memoryContext}` : ''
     ].filter(Boolean).join('\\n');
 
     const promptHistory = convHistory
