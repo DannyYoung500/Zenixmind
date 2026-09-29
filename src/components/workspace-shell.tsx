@@ -33,6 +33,8 @@ interface Project {
   name: string;
   created_at: string;
   updated_at: string;
+  description?: string;
+  instructions?: string;
 }
 
 interface LibrarySearchItem {
@@ -131,7 +133,7 @@ export function WorkspaceShell({
       try {
         const { data, error } = await getSupabase()
           .from('projects')
-          .select('id,name,created_at,updated_at')
+          .select('id,name,description,instructions,created_at,updated_at')
           .eq('user_id', user.id)
           .order('updated_at', { ascending: false });
         if (!error && mounted) setProjects((data || []) as Project[]);
@@ -287,7 +289,7 @@ export function WorkspaceShell({
     const { data, error } = await getSupabase()
       .from('projects')
       .insert({ user_id: user.id, name })
-      .select('id,name,created_at,updated_at')
+      .select('id,name,description,instructions,created_at,updated_at')
       .single();
     if (error) return;
     setProjects((prev) => [data as Project, ...prev]);
@@ -463,7 +465,7 @@ export function WorkspaceShell({
                         <button
                           key={`project-${project.id}`}
                           type="button"
-                          onClick={() => { setShowAddProjectModal(false); setSearching(false); setQuery(''); }}
+                          onClick={() => { navigate(`/assistant?project=${project.id}`); setSearching(false); setQuery(''); setOpen(false); }}
                           className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-white/[.05]"
                         >
                           <FolderClosed size={13} className="shrink-0 text-zinc-500" />
@@ -624,7 +626,7 @@ export function WorkspaceShell({
                       <button
                         key={project.id}
                         type="button"
-                        onClick={() => setShowAddProjectModal(false)}
+                        onClick={() => navigate(`/assistant?project=${project.id}`)}
                         className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs text-zinc-400 hover:bg-[#141416] hover:text-zinc-200 transition-colors"
                         title={project.name}
                       >
