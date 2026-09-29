@@ -44,6 +44,14 @@ interface LibrarySearchItem {
   created_at: string;
 }
 
+interface MessageSearchItem {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+}
+
 export interface Conversation {
   id: string;
   title: string;
@@ -84,6 +92,8 @@ export function WorkspaceShell({
   const [query, setQuery] = useState('');
   const [librarySearchItems, setLibrarySearchItems] = useState<LibrarySearchItem[]>([]);
   const [librarySearchLoading, setLibrarySearchLoading] = useState(false);
+  const [messageSearchItems, setMessageSearchItems] = useState<MessageSearchItem[]>([]);
+  const [messageSearchLoading, setMessageSearchLoading] = useState(false);
   const [internalConversations, setInternalConversations] = useState<Conversation[]>([]);
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
     try {
@@ -200,6 +210,42 @@ export function WorkspaceShell({
     };
   }, [query, searching, user?.id]);
 
+  useEffect(() => {
+    let mounted = true;
+    const term = query.trim();
+    if (!term || !searching || !user?.id) {
+      setMessageSearchItems([]);
+      setMessageSearchLoading(false);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setMessageSearchLoading(true);
+      try {
+        const pattern = `%${term.replace(/[%_]/g, '\\  }, [query, searching, user?.id]);
+
+  const projectSearchResults')}%`;
+        const { data } = await getSupabase()
+          .from('messages')
+          .select('id,conversation_id,role,content,created_at')
+          .eq('user_id', user.id)
+          .ilike('content', pattern)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (mounted) setMessageSearchItems((data || []) as MessageSearchItem[]);
+      } catch {
+        if (mounted) setMessageSearchItems([]);
+      } finally {
+        if (mounted) setMessageSearchLoading(false);
+      }
+    }, 220);
+
+    return () => {
+      mounted = false;
+      window.clearTimeout(timer);
+    };
+  }, [query, searching, user?.id]);
+
   const projectSearchResults = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) return [];
@@ -259,6 +305,10 @@ export function WorkspaceShell({
   }, [chats, query]);
 
   const searchResults = chatsSearchResults;
+  const conversationById = useMemo(
+    () => new Map(chats.map((chat) => [chat.id, chat])),
+    [chats]
+  );
 
   // Sort pinned first
   const sortedChats = useMemo(() => {
@@ -378,6 +428,36 @@ export function WorkspaceShell({
                     </div>
                   )}
 
+                  {(messageSearchLoading || messageSearchItems.length > 0) && (
+                    <div className="border-b border-white/[.06] py-1.5">
+                      <div className="px-3 py-1 text-[9px] font-medium uppercase tracking-[.14em] text-zinc-600">Messages</div>
+                      {messageSearchLoading ? (
+                        <div className="px-3 py-2 text-[11px] text-zinc-600">Searching conversations…</div>
+                      ) : (
+                        messageSearchItems.map((item) => {
+                          const conversation = conversationById.get(item.conversation_id);
+                          const snippet = item.content.replace(/s+/g, ' ').trim();
+                          return (
+                            <Link
+                              key={`message-${item.id}`}
+                              to={`/assistant?conversation=${item.conversation_id}`}
+                              onClick={() => { setSearching(false); setQuery(''); }}
+                              className="block px-3 py-2 hover:bg-white/[.05]"
+                            >
+                              <div className="flex items-center gap-2 text-xs text-zinc-300">
+                                <SquarePen size={13} className="shrink-0 text-zinc-500" />
+                                <span className="truncate">{conversation?.title || 'Conversation'}</span>
+                              </div>
+                              <div className="mt-0.5 truncate pl-[21px] text-[10px] text-zinc-600">
+                                {item.role === 'assistant' ? 'ZenixMind: ' : 'You: '}{snippet}
+                              </div>
+                            </Link>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+
                   {projectSearchResults.length > 0 && (
                     <div className="border-b border-white/[.06] py-1.5">
                       <div className="px-3 py-1 text-[9px] font-medium uppercase tracking-[.14em] text-zinc-600">Projects</div>
@@ -419,12 +499,12 @@ export function WorkspaceShell({
                     </div>
                   )}
 
-                  {!searchResults.length && !projectSearchResults.length && !librarySearchLoading && !librarySearchItems.length && (
+                  {!searchResults.length && !messageSearchItems.length && !projectSearchResults.length && !librarySearchLoading && !messageSearchLoading && !librarySearchItems.length && (
                     <div className="px-3 py-4 text-center text-[11px] text-zinc-600">No results found</div>
                   )}
 
                   <div className="border-t border-white/[.05] px-3 py-2 text-[9px] text-zinc-700">
-                    Searches conversations, projects, and your Library
+                    Searches conversations, messages, projects, and your Library
                   </div>
                 </div>
               )}
