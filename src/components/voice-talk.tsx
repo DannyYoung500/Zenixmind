@@ -287,12 +287,37 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
           ? Math.max(audioLevel, 0.12)
           : 0.06;
 
+  const toggleMute = () => {
+    if (muted) {
+      setMuted(false);
+      listeningRef.current = true;
+      setState('listening');
+      startRecognition();
+      return;
+    }
+    setMuted(true);
+    listeningRef.current = false;
+    stopRecognition();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    speakingRef.current = false;
+    setState('muted');
+  };
+
+  const endVoice = () => {
+    listeningRef.current = false;
+    stopRecognition();
+    if (restartRef.current) window.clearTimeout(restartRef.current);
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    speakingRef.current = false;
+    setActive(false);
+    stopAudio();
+    onClose();
+  };
+
   return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none fixed bottom-[128px] left-1/2 z-[70] -translate-x-1/2 sm:bottom-[144px]"
-    >
-      <div className="relative grid h-[158px] w-[158px] place-items-center">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/35 backdrop-blur-[2px]">
+      <div className="flex w-full max-w-md flex-col items-center px-6 pb-8">
+        <div className="relative grid h-[158px] w-[158px] place-items-center">
         <div className="absolute inset-[7px] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,.20),rgba(139,92,246,.10)_42%,transparent_70%)] blur-xl" />
         <div className="absolute inset-[8px] rounded-full border border-cyan-300/15 [box-shadow:0_0_35px_rgba(59,130,246,.16),inset_0_0_28px_rgba(139,92,246,.10)]" />
         <div className="absolute inset-[2px] rounded-full border border-transparent bg-[conic-gradient(from_180deg,rgba(6,182,212,.55),rgba(139,92,246,.42),rgba(59,130,246,.08),rgba(6,182,212,.55))] [mask:linear-gradient(#000_0_0)_content-box,linear-gradient(#000_0_0)] [mask-composite:exclude] opacity-80 animate-[spin_9s_linear_infinite]" />
@@ -303,6 +328,34 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
           size={126}
           className="[filter:hue-rotate(168deg)_saturate(1.55)_brightness(1.12)_drop-shadow(0_0_22px_rgba(59,130,246,.28))]"
         />
+      </div>
+
+        <div className="mt-7 min-h-5 text-center text-xs text-zinc-400">
+          {state === 'listening' && 'Listening…'}
+          {state === 'thinking' && 'Thinking…'}
+          {state === 'speaking' && 'ZenixMind is speaking…'}
+          {state === 'muted' && 'Microphone muted'}
+          {state === 'error' && 'Microphone access is required for voice conversation'}
+        </div>
+
+        <div className="pointer-events-auto mt-6 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="rounded-full border border-white/10 bg-white/[.06] px-5 py-2.5 text-sm text-zinc-200 transition hover:bg-white/[.1]"
+            aria-label={muted ? 'Unmute microphone' : 'Mute microphone'}
+          >
+            {muted ? 'Unmute' : 'Mute'}
+          </button>
+          <button
+            type="button"
+            onClick={endVoice}
+            className="rounded-full border border-white/10 bg-white/[.06] px-5 py-2.5 text-sm text-zinc-200 transition hover:bg-white/[.1]"
+            aria-label="End voice conversation"
+          >
+            End
+          </button>
+        </div>
       </div>
     </div>
   );
