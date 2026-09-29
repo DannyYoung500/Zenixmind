@@ -83,234 +83,211 @@ interface LibraryItem {
 }
 
 function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClearChats: () => void }) {
+  const { user } = useAuth();
   const [memory, setMemory] = useState(() => localStorage.getItem('zenixmind-memory') !== 'off');
   const [length, setLength] = useState(() => localStorage.getItem('zenixmind-response-length') || 'Adaptive');
   const [style, setStyle] = useState(() => localStorage.getItem('zenixmind-personality') || 'Balanced');
-  const [customInstructions, setCustomInstructions] = useState(
-    () => localStorage.getItem('zenixmind-custom-instructions') || ''
-  );
+  const [customInstructions, setCustomInstructions] = useState(() => localStorage.getItem('zenixmind-custom-instructions') || '');
+  const [memories, setMemories] = useState<Array<{ id: string; memory: string; category: string; source: string; created_at: string; updated_at: string }>>([]);
+  const [memoryLoading, setMemoryLoading] = useState(true);
+  const [memoryNotice, setMemoryNotice] = useState('');
+  const [newMemory, setNewMemory] = useState('');
+  const [newCategory, setNewCategory] = useState('general');
+  const [savingMemory, setSavingMemory] = useState(false);
   const [notice, setNotice] = useState('');
   const [exporting, setExporting] = useState(false);
 
-  const savePref = (key: string, val: string) => {
-    localStorage.setItem(key, val);
+  const loadMemories = useCallback(async () => {
+    if (!user?.id) { setMemories([]); setMemoryLoading(false); return; }
+    setMemoryLoading(true);
+    const { data, error } = await getSupabase()
+      .from('memories')
+      .select('id,memory,category,source,created_at,updated_at')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(100);
+    if (error) setMemoryNotice('Could not load your memories.');
+    else setMemories((data || []) as typeof memories);
+    setMemoryLoading(false);
+  }, [user?.id]);
+
+  useEffect(() => { void loadMemories(); }, [loadMemories]);
+
+  const savePref = (key: string, val: string) => localStorage.setItem(key, val);
+
+  const addMemory = async () => {
+    const value = newMemory.trim();
+    if (!value || !user?.id) return;
+    setSavingMemory(true);
+    setMemoryNotice('');
+    const { data, error } = await getSupabase()
+      .from('memories')
+      .insert({ user_id: user.id, memory: value, category: newCategory, source: 'user' })
+      .select('id,memory,category,source,created_at,updated_at')
+      .single();
+    if (error) setMemoryNotice(error.message || 'Could not save memory.');
+    else {
+      setMemories((prev) => [data as typeof memories[number], ...prev]);
+      setNewMemory('');
+      setMemoryNotice('Memory saved.');
+    }
+    setSavingMemory(false);
+  };
+
+  const updateMemory = async (id: string, value: string) => {
+    const next = value.trim();
+    if (!next) return;
+    const { data, error } = await getSupabase()
+      .from('memories')
+      .update({ memory: next })
+      .eq('id', id)
+      .select('id,memory,category,source,created_at,updated_at')
+      .single();
+    if (error) setMemoryNotice('Could not update memory.');
+    else setMemories((prev) => prev.map((item) => item.id === id ? data as typeof item : item));
+  };
+
+  const deleteMemory = async (id: string) => {
+    if (!window.confirm('Delete this memory?')) return;
+    const { error } = await getSupabase().from('memories').delete().eq('id', id);
+    if (error) setMemoryNotice('Could not delete memory.');
+    else {
+      setMemories((prev) => prev.filter((item) => item.id !== id));
+      setMemoryNotice('Memory deleted.');
+    }
+  };
+
+  const clearMemories = async () => {
+    if (!user?.id || !memories.length || !window.confirm('Delete all saved memories?')) return;
+    const { error } = await getSupabase().from('memories').delete().eq('user_id', user.id);
+    if (error) setMemoryNotice('Could not clear memories.');
+    else {
+      setMemories([]);
+      setMemoryNotice('All memories deleted.');
+    }
   };
 
   const handleExportData = async () => {
-    setExporting(true);
-    setNotice('');
+    setExporting(true); setNotice('');
     try {
       const response = await chatApiFetch('/api/chat?export=1');
       let exportData: any = {};
-      if (response.ok) {
-        exportData = await response.json();
-      } else {
+      if (response.ok) exportData = await response.json();
+      else {
         const chats = localStorage.getItem('zenixmind_chats') || '[]';
         const msgs = localStorage.getItem('zenixmind_messages') || '{}';
-        exportData = {
-          exportedAt: new Date().toISOString(),
-          conversations: JSON.parse(chats),
-          messages: JSON.parse(msgs)
-        };
+        exportData = { exportedAt: new Date().toISOString(), conversations: JSON.parse(chats), messages: JSON.parse(msgs) };
       }
+      exportData.memories = memories;
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `zenixmind-workspace-backup-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
+      a.href = url; a.download = `zenixmind-workspace-backup-${new Date().toISOString().split('T')[0]}.json`; a.click();
       URL.revokeObjectURL(url);
       setNotice('Workspace data exported successfully.');
-    } catch {
-      setNotice('Failed to export data.');
-    } finally {
-      setExporting(false);
-    }
+    } catch { setNotice('Failed to export data.'); }
+    finally { setExporting(false); }
   };
 
   const handleDeleteAll = async () => {
-    if (!window.confirm('Are you sure you want to clear all conversations?')) {
-      return;
-    }
+    if (!window.confirm('Are you sure you want to clear all conversations?')) return;
     try {
       await chatApiFetch('/api/chat', { method: 'DELETE' });
       localStorage.removeItem('zenixmind_chats');
       localStorage.removeItem('zenixmind_messages');
       onClearChats();
       setNotice('All conversations cleared.');
-    } catch {
-      setNotice('Error clearing conversations.');
-    }
+    } catch { setNotice('Error clearing conversations.'); }
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="flex h-full max-h-[640px] w-full max-w-[760px] overflow-hidden rounded-3xl border border-white/[.08] bg-[#0f0f12] shadow-2xl">
+      <div className="flex h-full max-h-[760px] w-full max-w-[820px] overflow-hidden rounded-3xl border border-white/[.08] bg-[#0f0f12] shadow-2xl">
         <aside className="hidden w-52 shrink-0 border-r border-white/[.06] bg-[#0a0a0c] p-4 sm:block">
-          <div className="flex items-center justify-between pb-4">
-            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Settings</span>
-          </div>
+          <div className="flex items-center justify-between pb-4"><span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Settings</span></div>
           <div className="space-y-1 text-xs">
-            {['General & Models', 'Personalization', 'Shortcuts', 'Data & Storage'].map((tab, idx) => (
-              <div
-                key={tab}
-                className={`rounded-xl px-3 py-2.5 font-medium transition-colors ${
-                  idx === 0 ? 'bg-[#1a1a1d] text-white' : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                {tab}
-              </div>
+            {['General & Models', 'Personalization', 'Memory', 'Shortcuts', 'Data & Storage'].map((tab, idx) => (
+              <div key={tab} className={`rounded-xl px-3 py-2.5 font-medium transition-colors ${idx === 0 ? 'bg-[#1a1a1d] text-white' : 'text-zinc-500'}`}>{tab}</div>
             ))}
           </div>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
           <header className="flex items-center justify-between border-b border-white/[.06] px-6 py-4">
-            <h2 className="text-sm font-semibold text-zinc-100">Preferences & Personalization</h2>
-            <button
-              onClick={onClose}
-              className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 hover:bg-[#1c1c1f] hover:text-zinc-200"
-            >
-              <X size={16} />
-            </button>
+            <div><h2 className="text-sm font-semibold text-zinc-100">Preferences & Personalization</h2><p className="mt-0.5 text-[10px] text-zinc-600">Your settings and memories are tied to your account.</p></div>
+            <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 hover:bg-[#1c1c1f] hover:text-zinc-200"><X size={16} /></button>
           </header>
 
           <div className="space-y-6 px-6 py-6 text-xs">
-            {/* Keyboard Shortcuts Reference Guide */}
             <div className="rounded-2xl border border-white/[.06] bg-[#0a0a0c] p-4">
-              <div className="flex items-center gap-2 text-xs font-medium text-zinc-200 mb-2.5">
-                <Keyboard size={15} className="text-amber-400" />
-                <span>Power User Keyboard Shortcuts</span>
-              </div>
+              <div className="flex items-center gap-2 text-xs font-medium text-zinc-200 mb-2.5"><Keyboard size={15} className="text-amber-400" /><span>Power User Keyboard Shortcuts</span></div>
               <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="flex items-center justify-between rounded-lg bg-[#141418] px-2.5 py-1.5 border border-white/[.04]">
-                  <span className="text-zinc-400">Focus chat input</span>
-                  <kbd className="font-mono bg-white/[.08] px-1.5 py-0.5 rounded text-zinc-200 text-[10px]">⌘K / Ctrl+K</kbd>
-                </div>
-                <div className="flex items-center justify-between rounded-lg bg-[#141418] px-2.5 py-1.5 border border-white/[.04]">
-                  <span className="text-zinc-400">Start new chat</span>
-                  <kbd className="font-mono bg-white/[.08] px-1.5 py-0.5 rounded text-zinc-200 text-[10px]">⌘N / Ctrl+N</kbd>
-                </div>
-                <div className="flex items-center justify-between rounded-lg bg-[#141418] px-2.5 py-1.5 border border-white/[.04]">
-                  <span className="text-zinc-400">Toggle Online Search</span>
-                  <kbd className="font-mono bg-white/[.08] px-1.5 py-0.5 rounded text-zinc-200 text-[10px]">⌘⇧S / Ctrl+Shift+S</kbd>
-                </div>
-                <div className="flex items-center justify-between rounded-lg bg-[#141418] px-2.5 py-1.5 border border-white/[.04]">
-                  <span className="text-zinc-400">Toggle Deep Think</span>
-                  <kbd className="font-mono bg-white/[.08] px-1.5 py-0.5 rounded text-zinc-200 text-[10px]">⌘⇧D / Ctrl+Shift+D</kbd>
-                </div>
+                <div className="flex items-center justify-between rounded-lg bg-[#141418] px-2.5 py-1.5 border border-white/[.04]"><span className="text-zinc-400">Focus chat input</span><kbd className="font-mono bg-white/[.08] px-1.5 py-0.5 rounded text-zinc-200 text-[10px]">⌘K / Ctrl+K</kbd></div>
+                <div className="flex items-center justify-between rounded-lg bg-[#141418] px-2.5 py-1.5 border border-white/[.04]"><span className="text-zinc-400">Start new chat</span><kbd className="font-mono bg-white/[.08] px-1.5 py-0.5 rounded text-zinc-200 text-[10px]">⌘N / Ctrl+N</kbd></div>
+                <div className="flex items-center justify-between rounded-lg bg-[#141418] px-2.5 py-1.5 border border-white/[.04]"><span className="text-zinc-400">Toggle Online Search</span><kbd className="font-mono bg-white/[.08] px-1.5 py-0.5 rounded text-zinc-200 text-[10px]">⌘⇧S / Ctrl+Shift+S</kbd></div>
+                <div className="flex items-center justify-between rounded-lg bg-[#141418] px-2.5 py-1.5 border border-white/[.04]"><span className="text-zinc-400">Toggle Deep Think</span><kbd className="font-mono bg-white/[.08] px-1.5 py-0.5 rounded text-zinc-200 text-[10px]">⌘⇧D / Ctrl+Shift+D</kbd></div>
               </div>
             </div>
 
             <div className="divide-y divide-white/[.06] border-y border-white/[.06]">
-              {/* Memory Toggle */}
               <div className="flex items-center justify-between py-4">
-                <div>
-                  <div className="text-xs font-medium text-zinc-200">Continuous Context Memory</div>
-                  <div className="text-[11px] text-zinc-500">
-                    Recall knowledge and preferences across conversations.
-                  </div>
-                </div>
+                <div><div className="text-xs font-medium text-zinc-200">Continuous Context Memory</div><div className="text-[11px] text-zinc-500">Allow ZenixMind to use saved memories across conversations.</div></div>
                 <label className="relative inline-flex cursor-pointer items-center">
-                  <input
-                    type="checkbox"
-                    checked={memory}
-                    onChange={(e) => {
-                      setMemory(e.target.checked);
-                      savePref('zenixmind-memory', e.target.checked ? 'on' : 'off');
-                    }}
-                    className="peer sr-only"
-                  />
+                  <input type="checkbox" checked={memory} onChange={(e) => { setMemory(e.target.checked); savePref('zenixmind-memory', e.target.checked ? 'on' : 'off'); }} className="peer sr-only" />
                   <div className="peer h-6 w-11 rounded-full bg-[#202024] after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-zinc-400 after:transition-all after:content-[''] peer-checked:bg-white peer-checked:after:translate-x-full peer-checked:after:bg-black"></div>
                 </label>
               </div>
 
-              {/* Response Length */}
-              <div className="flex items-center justify-between py-4">
-                <div>
-                  <div className="text-xs font-medium text-zinc-200">Response Detail</div>
-                  <div className="text-[11px] text-zinc-500">Default answer length & depth.</div>
-                </div>
-                <select
-                  value={length}
-                  onChange={(e) => {
-                    setLength(e.target.value);
-                    savePref('zenixmind-response-length', e.target.value);
-                  }}
-                  className="rounded-xl border border-white/[.08] bg-[#17171a] px-3 py-1.5 text-xs text-zinc-200 outline-none"
-                >
-                  <option value="Adaptive">Adaptive</option>
-                  <option value="Concise">Concise & Direct</option>
-                  <option value="Detailed">Detailed</option>
-                  <option value="Thorough">Thorough & Comprehensive</option>
-                </select>
-              </div>
-
-              {/* Response Style */}
-              <div className="flex items-center justify-between py-4">
-                <div>
-                  <div className="text-xs font-medium text-zinc-200">Persona & Tone</div>
-                  <div className="text-[11px] text-zinc-500">Adjust the conversational voice.</div>
-                </div>
-                <select
-                  value={style}
-                  onChange={(e) => {
-                    setStyle(e.target.value);
-                    savePref('zenixmind-personality', e.target.value);
-                  }}
-                  className="rounded-xl border border-white/[.08] bg-[#17171a] px-3 py-1.5 text-xs text-zinc-200 outline-none"
-                >
-                  <option value="Balanced">Balanced</option>
-                  <option value="Professional">Professional & Analytical</option>
-                  <option value="Friendly">Friendly & Enthusiastic</option>
-                  <option value="Direct">Direct & Concise</option>
-                  <option value="Creative">Creative & Expressive</option>
-                </select>
-              </div>
-
-              {/* Custom Instructions */}
               <div className="py-4">
-                <div className="text-xs font-medium text-zinc-200">Custom System Instructions</div>
-                <div className="text-[11px] text-zinc-500 mb-2">
-                  Special instructions injected into all AI model prompts:
+                <div className="flex items-center justify-between gap-3">
+                  <div><div className="text-xs font-medium text-zinc-200">Saved Memories</div><div className="text-[11px] text-zinc-500">Facts and preferences you explicitly want ZenixMind to remember.</div></div>
+                  <span className="rounded-full bg-white/[.05] px-2 py-1 text-[10px] text-zinc-500">{memories.length}</span>
                 </div>
-                <textarea
-                  value={customInstructions}
-                  onChange={(e) => {
-                    setCustomInstructions(e.target.value);
-                    savePref('zenixmind-custom-instructions', e.target.value);
-                  }}
-                  placeholder="e.g. You are assisting a lead engineer. Prefer TypeScript code with explanations, skip boilerplate..."
-                  rows={3}
-                  className="w-full rounded-xl border border-white/[.08] bg-[#0b0b0d] p-3 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-white/[.2]"
-                />
+                <div className="mt-3 flex gap-2">
+                  <input value={newMemory} onChange={(e) => setNewMemory(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void addMemory(); }} placeholder="e.g. Prefer concise answers" className="min-w-0 flex-1 rounded-xl border border-white/[.08] bg-[#0b0b0d] px-3 py-2 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-white/[.2]" />
+                  <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="rounded-xl border border-white/[.08] bg-[#17171a] px-2 text-xs text-zinc-300 outline-none">
+                    <option value="general">General</option><option value="preferences">Preferences</option><option value="projects">Projects</option><option value="work">Work</option><option value="personal">Personal</option>
+                  </select>
+                  <button type="button" disabled={savingMemory || !newMemory.trim()} onClick={() => void addMemory()} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-black disabled:opacity-40"><Plus size={15} /></button>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {memoryLoading ? <div className="rounded-xl bg-[#0b0b0d] p-3 text-[11px] text-zinc-600">Loading memories…</div> :
+                   memories.length === 0 ? <div className="rounded-xl border border-dashed border-white/[.07] p-4 text-center text-[11px] text-zinc-600">No saved memories yet. Add one above.</div> :
+                   memories.map((item) => (
+                    <div key={item.id} className="rounded-xl border border-white/[.06] bg-[#0b0b0d] p-3">
+                      <div className="flex items-start gap-2">
+                        <input defaultValue={item.memory} onBlur={(e) => { if (e.target.value.trim() !== item.memory) void updateMemory(item.id, e.target.value); }} className="min-w-0 flex-1 bg-transparent text-xs text-zinc-300 outline-none" />
+                        <button type="button" onClick={() => void deleteMemory(item.id)} className="shrink-0 rounded-lg p-1.5 text-zinc-600 hover:bg-red-500/10 hover:text-red-300" aria-label="Delete memory"><Trash2 size={13} /></button>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-[9px] text-zinc-700"><span>{item.category}</span><span>{item.source === 'assistant' ? 'Added by ZenixMind' : 'Added by you'}</span></div>
+                    </div>
+                  ))}
+                </div>
+                {memories.length > 0 && <button type="button" onClick={() => void clearMemories()} className="mt-3 text-[10px] text-red-300/80 hover:text-red-200">Delete all memories</button>}
+                {memoryNotice && <div className="mt-2 text-[10px] text-zinc-500">{memoryNotice}</div>}
+              </div>
+
+              <div className="flex items-center justify-between py-4">
+                <div><div className="text-xs font-medium text-zinc-200">Response Detail</div><div className="text-[11px] text-zinc-500">Default answer length & depth.</div></div>
+                <select value={length} onChange={(e) => { setLength(e.target.value); savePref('zenixmind-response-length', e.target.value); }} className="rounded-xl border border-white/[.08] bg-[#17171a] px-3 py-1.5 text-xs text-zinc-200 outline-none"><option value="Adaptive">Adaptive</option><option value="Concise">Concise & Direct</option><option value="Detailed">Detailed</option><option value="Thorough">Thorough & Comprehensive</option></select>
+              </div>
+
+              <div className="flex items-center justify-between py-4">
+                <div><div className="text-xs font-medium text-zinc-200">Persona & Tone</div><div className="text-[11px] text-zinc-500">Adjust the conversational voice.</div></div>
+                <select value={style} onChange={(e) => { setStyle(e.target.value); savePref('zenixmind-personality', e.target.value); }} className="rounded-xl border border-white/[.08] bg-[#17171a] px-3 py-1.5 text-xs text-zinc-200 outline-none"><option value="Balanced">Balanced</option><option value="Professional">Professional & Analytical</option><option value="Friendly">Friendly & Enthusiastic</option><option value="Direct">Direct & Concise</option><option value="Creative">Creative & Expressive</option></select>
+              </div>
+
+              <div className="py-4">
+                <div className="text-xs font-medium text-zinc-200">Custom System Instructions</div><div className="text-[11px] text-zinc-500 mb-2">Special instructions injected into all AI model prompts:</div>
+                <textarea value={customInstructions} onChange={(e) => { setCustomInstructions(e.target.value); savePref('zenixmind-custom-instructions', e.target.value); }} placeholder="e.g. You are assisting a lead engineer. Prefer TypeScript code with explanations, skip boilerplate..." rows={3} className="w-full rounded-xl border border-white/[.08] bg-[#0b0b0d] p-3 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-white/[.2]" />
               </div>
             </div>
 
             <div className="space-y-2 pt-2">
-              <button
-                type="button"
-                onClick={handleExportData}
-                disabled={exporting}
-                className="flex w-full items-center justify-between rounded-xl border border-white/[.08] bg-[#121215] px-4 py-2.5 text-xs font-medium text-zinc-300 hover:bg-[#18181c] transition-colors"
-              >
-                <span>Export workspace conversations</span>
-                <Download size={14} className="text-zinc-400" />
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDeleteAll}
-                className="flex w-full items-center justify-between rounded-xl border border-red-500/20 bg-red-500/[.05] px-4 py-2.5 text-xs font-medium text-red-300 hover:bg-red-500/10 transition-colors"
-              >
-                <span>Clear chat history</span>
-                <Trash2 size={14} />
-              </button>
+              <button type="button" onClick={handleExportData} disabled={exporting} className="flex w-full items-center justify-between rounded-xl border border-white/[.08] bg-[#121215] px-4 py-2.5 text-xs font-medium text-zinc-300 hover:bg-[#18181c] transition-colors"><span>Export workspace data & memories</span><Download size={14} className="text-zinc-400" /></button>
+              <button type="button" onClick={handleDeleteAll} className="flex w-full items-center justify-between rounded-xl border border-red-500/20 bg-red-500/[.05] px-4 py-2.5 text-xs font-medium text-red-300 hover:bg-red-500/10 transition-colors"><span>Clear chat history</span><Trash2 size={14} /></button>
             </div>
-
-            {notice && (
-              <p className="rounded-lg bg-white/[.05] p-2 text-center text-[11px] text-zinc-300">{notice}</p>
-            )}
+            {notice && <p className="rounded-lg bg-white/[.05] p-2 text-center text-[11px] text-zinc-300">{notice}</p>}
           </div>
         </div>
       </div>
