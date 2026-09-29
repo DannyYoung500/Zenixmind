@@ -28,6 +28,7 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const frameRef = useRef<number | null>(null);
+  const meterStartedRef = useRef(false);
 
   const stopMeter = useCallback(() => {
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
@@ -39,6 +40,7 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
     stopMeter();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    meterStartedRef.current = false;
     if (audioContextRef.current) {
       try {
         audioContextRef.current.close();
@@ -53,6 +55,7 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+      meterStartedRef.current = true;
       const Ctor = window.AudioContext || (window as any).webkitAudioContext;
       if (!Ctor) return;
       const ctx = new Ctor();
@@ -113,6 +116,16 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
       utterance.onstart = () => {
         speakingRef.current = true;
         setState('speaking');
+
+        // Keep recognition available while speech is playing so a user's
+        // spoken interruption can cancel the current response.
+        window.setTimeout(() => {
+          if (listeningRef.current && !muted && !busyRef.current) {
+            try {
+              recognitionRef.current?.start();
+            } catch {}
+          }
+        }, 220);
       };
       utterance.onend = () => {
         speakingRef.current = false;
@@ -190,11 +203,23 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
         const result = event.results[i];
         if (result?.isFinal) finalText += result[0]?.transcript || '';
       }
-      if (finalText.trim()) void handleFinal(finalText);
+
+      const clean = finalText.trim();
+      if (!clean) return;
+
+      // A final transcript while ZenixMind is speaking is treated as an
+      // interruption: stop the current voice response and process the user.
+      if (speakingRef.current) {
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        speakingRef.current = false;
+        setState('thinking');
+      }
+
+      void handleFinal(clean);
     };
 
     recognition.onend = () => {
-      if (listeningRef.current && !muted && !busyRef.current && !speakingRef.current) {
+      if (listeningRef.current && !muted && !busyRef.current) {
         restartRef.current = window.setTimeout(startRecognition, 160);
       }
     };
@@ -225,8 +250,6 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
     setMuted(false);
     setState('thinking');
     lastFinalRef.current = '';
-    void startMeter();
-
     let cancelled = false;
 
     const start = async () => {
@@ -244,12 +267,16 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
         });
         const data = response.ok ? await response.json() : null;
         if (!cancelled && data?.greeting) {
+          void startMeter();
           speak(data.greeting);
           return;
         }
       } catch {}
 
-      if (!cancelled) startRecognition();
+      if (!cancelled) {
+        void startMeter();
+        startRecognition();
+      };
     };
 
     void start();
@@ -292,6 +319,7 @@ export function VoiceTalk({ open, busy, onClose, onVoiceMessage }: Props) {
       setMuted(false);
       listeningRef.current = true;
       setState('listening');
+      void startMeter();
       startRecognition();
       return;
     }
