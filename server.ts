@@ -1121,7 +1121,8 @@ app.post('/api/chat/stream', async (req, res) => {
       preferences = {},
       webSearch = false,
       deepThink = false,
-      attachment = null
+      attachment = null,
+      projectId = null
     } = req.body;
 
     const userMessage = [...incomingMessages].reverse().find((m: any) => m.role === 'user' && m.content?.trim());
@@ -1196,6 +1197,23 @@ app.post('/api/chat/stream', async (req, res) => {
           .limit(24)).data || []).reverse().slice(0, -1);
 
     const targetModel = model || aiControlState.defaultModel || 'gemini-2.5-flash';
+    let projectContext = '';
+    if (typeof projectId === 'string' && projectId.trim() && !privateChat) {
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .select('id,name,description,instructions')
+        .eq('id', projectId.trim())
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (projectError) throw projectError;
+      if (project) {
+        projectContext = [
+          `Project: ${project.name}`,
+          project.description ? `Project description: ${project.description}` : '',
+          project.instructions ? `Project instructions: ${project.instructions}` : ''
+        ].filter(Boolean).join('\\n');
+      }
+    }
     const memories = preferences?.memory && !privateChat ? await getUserMemories(supabase, user.id) : [];
     const memoryContext = buildMemoryContext(memories);
     const sources = webSearch ? await executeWebSearch(userMessage.content.trim()) : undefined;
@@ -1212,7 +1230,8 @@ app.post('/api/chat/stream', async (req, res) => {
       preferences?.personality ? `Personality: ${preferences.personality}.` : 'Personality: Balanced and clear.',
       preferences?.responseLength ? `Depth: ${preferences.responseLength}.` : '',
       preferences?.customInstructions ? `User Custom Instructions: ${preferences.customInstructions}` : '',
-      memoryContext ? `Saved Memory Context (use only when relevant; never reveal hidden memory metadata):\\n${memoryContext}` : ''
+      memoryContext ? `Saved Memory Context (use only when relevant; never reveal hidden memory metadata):\\n${memoryContext}` : '',
+      projectContext ? `Project Context (apply these instructions only for this project):\\n${projectContext}` : ''
     ].filter(Boolean).join('\\n');
 
     const promptHistory = convHistory
