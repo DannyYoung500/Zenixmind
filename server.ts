@@ -764,9 +764,31 @@ const getGeminiClient = () => {
 // =========================================================================
 async function executeWebSearch(_query: string): Promise<Array<{ title: string; url: string; snippet?: string }>> {
   telemetry.webSearches += 1;
-  // Source links are supplied by Gemini grounding metadata when the model is
-  // using its built-in Google Search tool. Never fabricate search-result URLs.
+  // Gemini supplies the real grounded links on the model response. This
+  // function intentionally does not invent or pre-populate search results.
   return [];
+}
+
+function extractGroundedSources(value: any): Array<{ title: string; url: string; snippet?: string }> {
+  const chunks = value?.candidates?.[0]?.groundingMetadata?.groundingChunks;
+  if (!Array.isArray(chunks)) return [];
+
+  const seen = new Set<string>();
+  const sources: Array<{ title: string; url: string; snippet?: string }> = [];
+
+  for (const chunk of chunks) {
+    const web = chunk?.web;
+    const url = typeof web?.uri === 'string' ? web.uri.trim() : '';
+    if (!url || seen.has(url)) continue;
+
+    const title = typeof web?.title === 'string' && web.title.trim()
+      ? web.title.trim()
+      : url;
+    seen.add(url);
+    sources.push({ title, url });
+  }
+
+  return sources.slice(0, 12);
 }
 // =========================================================================
 // UNIFIED MULTI-MODEL INFERENCE ENGINE
@@ -804,7 +826,7 @@ async function executeModelInference({
   const systemInstructions = [
     ZENIXMIND_SYSTEM_PROMPT,
     `You are running with ${targetModel} reasoning capabilities.`,
-    webSearch ? `WEB SEARCH MODE: Enabled. Incorporate live factual knowledge and reference web sources.` : '',
+    webSearch ? `RESEARCH MODE: Enabled. Use live web grounding for current or source-dependent claims. Synthesize the evidence, distinguish verified facts from uncertainty, and rely on the grounded sources rather than memory.` : '',
     deepThink ? `DEEP REASONING MODE: Enabled. Provide rigorous step-by-step analytical reasoning.` : '',
     `Format output with high readability, clean markdown, code blocks with syntax languages, and structured lists when helpful.`,
     preferences?.personality ? `Personality: ${preferences.personality}.` : 'Personality: Balanced and clear.',
@@ -847,7 +869,7 @@ async function executeModelInference({
         latencyMs,
         inputTokens: estimatedInputTokens,
         outputTokens: estimatedOutputTokens,
-        sources
+        sources: groundedSources.length ? groundedSources : sources
       };
     } catch (err: any) {
       console.warn('Gemini inference error:', err.message);
@@ -1244,9 +1266,10 @@ app.post('/api/chat/stream', async (req, res) => {
 
     const gemini = getGeminiClient();
     let fullText = '';
+    let groundedSources = sources || [];
     const startTime = Date.now();
 
-    send({ type: 'meta', conversationId: convId, modelUsed: targetModel, sources });
+    send({ type: 'meta', conversationId: convId, modelUsed: targetModel, sources: groundedSources });
 
     if (targetModel.startsWith('gemini') && gemini) {
       const geminiModel = targetModel.includes('pro') ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
@@ -1275,10 +1298,25 @@ app.post('/api/chat/stream', async (req, res) => {
 
       for await (const chunk of stream) {
         if (disconnected) break;
+
+        const chunkSources = extractGroundedSources(chunk);
+        if (chunkSources.length) {
+          const merged = new Map<string, { title: string; url: string; snippet?: string }>();
+          for (const source of groundedSources) merged.set(source.url, source);
+          for (const source of chunkSources) merged.set(source.url, source);
+          groundedSources = Array.from(merged.values()).slice(0, 12);
+        }
+
         const text = chunk.text || '';
         if (!text) continue;
         fullText += text;
         send({ type: 'delta', text });
+      }
+
+      if (groundedSources.length && !disconnected) {
+        // A second meta frame lets the existing client update its Sources panel
+        // after Gemini has finished emitting grounding metadata.
+        send({ type: 'meta', sources: groundedSources });
       }
     } else {
       const inferenceResult = await executeModelInference({
@@ -1346,7 +1384,7 @@ app.post('/api/chat/stream', async (req, res) => {
       type: 'done',
       text: fullText,
       modelUsed,
-      sources,
+      sources: groundedSources,
       latencyMs,
       inputTokens: estimatedInputTokens,
       outputTokens: estimatedOutputTokens,
