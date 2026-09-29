@@ -859,6 +859,7 @@ async function executeModelInference({
       });
 
       const responseText = response.text || '';
+      const groundedSources = extractGroundedSources(response);
       const latencyMs = Date.now() - startTime;
       const estimatedOutputTokens = Math.max(1, Math.round(responseText.length / 4));
 
@@ -1245,7 +1246,7 @@ app.post('/api/chat/stream', async (req, res) => {
     const systemInstructions = [
       ZENIXMIND_SYSTEM_PROMPT,
       `You are running with ${targetModel} reasoning capabilities.`,
-      webSearch ? 'WEB SEARCH MODE: Enabled. Incorporate current factual information and clearly identify sources.' : '',
+      webSearch ? 'RESEARCH MODE: Enabled. Use live web grounding for current or source-dependent claims, synthesize the evidence, distinguish verified facts from uncertainty, and clearly identify grounded sources.' : '',
       deepThink ? 'DEEP REASONING MODE: Enabled. Think rigorously and verify important assumptions before answering.' : '',
       'Do not expose private chain-of-thought. Give concise conclusions and useful explanations.',
       'Format output with high readability, clean markdown, code blocks with syntax languages, and structured lists when helpful.',
