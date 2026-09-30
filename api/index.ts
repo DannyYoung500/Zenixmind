@@ -1,10 +1,19 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import expressApp from '../server.ts';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+function resolveApp(mod: any): any {
+  if (typeof mod === 'function') return mod;
+  if (mod && typeof mod.default === 'function') return mod.default;
+  if (mod && mod.default && typeof mod.default.default === 'function') return mod.default.default;
+  return mod;
+}
+
+const app = resolveApp(expressApp);
+
+export default function handler(req: VercelRequest, res: VercelResponse) {
   const url = String(req.url || '');
   const pathOnly = url.split('?')[0];
 
-  // Always-available public health — never depends on Express or server.ts boot
   if (
     pathOnly === '/api/health' ||
     pathOnly === '/health' ||
@@ -18,17 +27,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  try {
-    const mod = await import('../server.ts');
-    const app = mod.default;
-    return app(req as any, res as any);
-  } catch (err: any) {
-    console.error('[api/index] Express load failed:', err?.message || err);
+  if (typeof app !== 'function') {
     res.setHeader('Cache-Control', 'no-store');
     return res.status(503).json({
       error: 'API engine temporarily unavailable',
       code: 'ENGINE_BOOT_FAILED',
-      detail: String(err?.message || 'import failed')
+      detail: 'Express app export is not callable'
     });
   }
+
+  return app(req as any, res as any);
 }
