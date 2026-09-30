@@ -5,6 +5,8 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/status", "destination": "/api/status" },
+    { "source": "/api/chat", "destination": "/api/chat" },
+    { "source": "/api/broadcasts/active", "destination": "/api/broadcasts/active" },
     { "source": "/api/session/heartbeat", "destination": "/api/session/heartbeat" },
     { "source": "/api/admin/activity-analytics", "destination": "/api/admin/activity-analytics" },
     { "source": "/api/admin/sessions", "destination": "/api/admin/sessions" },
