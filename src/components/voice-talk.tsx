@@ -15,6 +15,8 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
   const [audioLevel, setAudioLevel] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [heard, setHeard] = useState('');
+  const [reply, setReply] = useState('');
 
   const recognitionRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -60,7 +62,7 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
       audioContextRef.current = ctx;
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.85;
+      analyser.smoothingTimeConstant = 0.88;
       ctx.createMediaStreamSource(stream).connect(analyser);
       analyserRef.current = analyser;
       const data = new Uint8Array(analyser.frequencyBinCount);
@@ -72,8 +74,7 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
           const v = (data[i] - 128) / 128;
           sum += v * v;
         }
-        const rms = Math.sqrt(sum / data.length);
-        setAudioLevel(Math.min(1, rms * 4));
+        setAudioLevel(Math.min(1, Math.sqrt(sum / data.length) * 4));
         frameRef.current = requestAnimationFrame(tick);
       };
       frameRef.current = requestAnimationFrame(tick);
@@ -97,8 +98,6 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
     }
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1;
-    u.pitch = 1;
     speakingRef.current = true;
     setState('speaking');
     u.onend = () => {
@@ -117,6 +116,7 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
       if (!transcript.trim() || busyRef.current) return;
       setBusy(true);
       setState('thinking');
+      setHeard(transcript.trim());
       try {
         const { data: sessionData } = await getSupabase().auth.getSession();
         const token = sessionData.session?.access_token;
@@ -131,13 +131,14 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
           })
         });
         const data = await res.json().catch(() => ({}));
-        const reply =
+        const text =
           data?.message?.content ||
           data?.content ||
           (data?.code === 'AI_NOT_CONFIGURED'
             ? 'AI is not configured yet. Add GEMINI_API_KEY on the server.'
             : data?.error || 'I could not complete that request.');
-        speak(String(reply));
+        setReply(String(text));
+        speak(String(text));
       } catch {
         setState('error');
         setError('Could not reach ZenixMind');
@@ -199,6 +200,8 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
     setActive(true);
     setMuted(false);
     setError('');
+    setHeard('');
+    setReply('');
     void startMeter();
     startRecognition();
     return () => {
@@ -239,52 +242,80 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
 
   const displayLevel =
     state === 'speaking'
-      ? Math.max(audioLevel, 0.25)
+      ? Math.max(audioLevel, 0.3)
       : state === 'thinking'
-        ? Math.max(audioLevel * 0.3, 0.08)
+        ? 0.2
         : state === 'listening'
           ? audioLevel
           : 0;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#050506]/92 backdrop-blur-md">
-      <div className="flex w-full max-w-sm flex-col items-center px-6 pb-10">
-        <VoiceSunOrb
-          state={state === 'muted' ? 'idle' : state}
-          audioLevel={displayLevel}
-          size={160}
-        />
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-[#050506]/80 backdrop-blur-md p-4">
+      <div className="w-full max-w-md rounded-2xl border border-white/[.08] bg-[#0b0b0e] shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between border-b border-white/[.06] px-4 py-3">
+          <span className="text-sm font-medium text-white">Voice</span>
+          <button
+            type="button"
+            onClick={endVoice}
+            className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 hover:bg-white/10 hover:text-white"
+            aria-label="Close"
+          >
+            <X size={16} />
+          </button>
+        </div>
 
-        <p className="mt-8 text-center text-sm text-zinc-400 tracking-wide">
-          {error
-            ? error
-            : state === 'listening'
+        <div className="min-h-[140px] space-y-3 px-4 py-4">
+          {heard && (
+            <div className="flex justify-end">
+              <div className="max-w-[90%] rounded-2xl rounded-br-md bg-white/[.06] px-3 py-2 text-xs text-zinc-200">
+                {heard}
+              </div>
+            </div>
+          )}
+          {reply && (
+            <div className="flex justify-start">
+              <div className="max-w-[90%] rounded-2xl rounded-bl-md border border-white/[.06] bg-[#08080c] px-3 py-2 text-xs text-zinc-300 leading-relaxed">
+                {reply}
+              </div>
+            </div>
+          )}
+          {!heard && !reply && (
+            <p className="py-6 text-center text-xs text-zinc-500">Speak when you are ready.</p>
+          )}
+          {error && <p className="text-center text-xs text-red-300">{error}</p>}
+        </div>
+
+        <div className="flex flex-col items-center gap-3 border-t border-white/[.06] px-4 py-5">
+          <VoiceSunOrb state={state === 'muted' ? 'muted' : state} audioLevel={displayLevel} size={110} />
+          <p className="text-[11px] text-zinc-500">
+            {state === 'listening'
               ? 'Listening'
               : state === 'thinking'
                 ? 'Thinking'
                 : state === 'speaking'
                   ? 'Speaking'
                   : state === 'muted'
-                    ? 'Microphone off'
-                    : 'Ready'}
-        </p>
-
-        <div className="mt-8 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={toggleMute}
-            className="rounded-full border border-white/[.08] bg-white/[.04] px-5 py-2.5 text-sm text-zinc-300 transition hover:bg-white/[.08] hover:text-white"
-          >
-            {muted ? 'Unmute' : 'Mute'}
-          </button>
-          <button
-            type="button"
-            onClick={endVoice}
-            className="inline-flex items-center gap-2 rounded-full border border-white/[.08] bg-white/[.04] px-5 py-2.5 text-sm text-zinc-300 transition hover:bg-white/[.08] hover:text-white"
-          >
-            <X size={14} />
-            End
-          </button>
+                    ? 'Muted'
+                    : state === 'error'
+                      ? 'Error'
+                      : 'Ready'}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={toggleMute}
+              className="rounded-full border border-white/[.1] bg-white/[.04] px-4 py-2 text-xs text-zinc-300 hover:bg-white/[.08]"
+            >
+              {muted ? 'Unmute' : 'Mute'}
+            </button>
+            <button
+              type="button"
+              onClick={endVoice}
+              className="rounded-full border border-white/[.1] bg-white/[.04] px-4 py-2 text-xs text-zinc-300 hover:bg-white/[.08]"
+            >
+              End
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -24,7 +24,7 @@ export function VoicePage() {
   const [state, setState] = useState<VoiceState>('idle');
   const [active, setActive] = useState(false);
   const [muted, setMuted] = useState(false);
-  const [status, setStatus] = useState('Tap the microphone to begin');
+  const [status, setStatus] = useState('Tap the mic to start');
   const [heard, setHeard] = useState('');
   const [reply, setReply] = useState('');
   const [error, setError] = useState('');
@@ -72,7 +72,7 @@ export function VoicePage() {
       audioContextRef.current = ctx;
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.85;
+      analyser.smoothingTimeConstant = 0.88;
       ctx.createMediaStreamSource(stream).connect(analyser);
       analyserRef.current = analyser;
       const data = new Uint8Array(analyser.frequencyBinCount);
@@ -91,7 +91,7 @@ export function VoicePage() {
     } catch {
       setError('Microphone access is required');
       setState('error');
-      setStatus('Allow microphone access to use voice');
+      setStatus('Allow microphone access');
     }
   }, []);
 
@@ -255,7 +255,7 @@ export function VoicePage() {
     setActive(false);
     setMuted(false);
     setState('idle');
-    setStatus('Tap the microphone to begin');
+    setStatus('Tap the mic to start');
     stopAudio();
   };
 
@@ -268,75 +268,123 @@ export function VoicePage() {
   }, [stopAudio, stopRecognition]);
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-[#050506] text-zinc-100 select-none">
-      <header className="relative z-10 flex items-center justify-between px-5 pt-6 sm:px-8">
+    <div className="relative flex min-h-screen w-full flex-col bg-[#050506] text-zinc-100">
+      {/* Top bar — website chrome */}
+      <header className="flex items-center justify-between border-b border-white/[.06] px-4 py-3 sm:px-6">
         <button
           onClick={() => navigate('/assistant')}
-          className="grid h-10 w-10 place-items-center rounded-full border border-white/[.08] bg-white/[.03] text-zinc-300 hover:bg-white/[.06] hover:text-white transition-colors"
-          aria-label="Back to chat"
+          className="inline-flex items-center gap-2 rounded-lg border border-white/[.08] bg-white/[.03] px-3 py-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={14} />
+          <span className="hidden sm:inline">Chat</span>
         </button>
         <div className="text-center">
-          <div className="text-sm font-medium text-zinc-100">Voice</div>
-          <div className="mt-0.5 text-[11px] text-zinc-500">{persona.name}</div>
+          <div className="text-sm font-medium text-white">Voice</div>
+          <div className="text-[10px] text-zinc-500">{persona.name}</div>
         </div>
         <button
           onClick={() => setSettings(true)}
-          className="grid h-10 w-10 place-items-center rounded-full border border-white/[.08] bg-white/[.03] text-zinc-300 hover:bg-white/[.06] hover:text-white transition-colors"
+          className="grid h-9 w-9 place-items-center rounded-lg border border-white/[.08] bg-white/[.03] text-zinc-400 hover:text-white transition-colors"
           aria-label="Voice settings"
         >
-          <Sparkles size={16} />
+          <Sparkles size={15} />
         </button>
       </header>
 
-      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-4 text-center">
-        <button
-          type="button"
-          onClick={() => void toggle()}
-          className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-          aria-label={active && !muted ? 'Mute microphone' : 'Start voice'}
-        >
-          <VoiceSunOrb state={state} audioLevel={level} size={200} />
-        </button>
+      {/* Transcript-first layout (ChatGPT / Gemini pattern) */}
+      <main className="flex flex-1 flex-col min-h-0">
+        <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+          <div className="mx-auto max-w-xl space-y-5">
+            {!active && !heard && !reply && (
+              <div className="rounded-2xl border border-white/[.06] bg-[#0b0b0e] px-5 py-8 text-center">
+                <p className="text-sm text-zinc-300">Talk with ZenixMind</p>
+                <p className="mt-2 text-xs text-zinc-500 leading-relaxed">
+                  Start the mic, speak naturally, and read replies here while you listen.
+                </p>
+              </div>
+            )}
 
-        <p className="mt-8 text-sm text-zinc-400 tracking-wide">{error || status}</p>
+            {heard && (
+              <div className="flex justify-end">
+                <div className="max-w-[85%] rounded-2xl rounded-br-md border border-white/[.08] bg-white/[.06] px-4 py-3 text-sm text-zinc-100 leading-relaxed">
+                  {heard}
+                </div>
+              </div>
+            )}
 
-        <div className="mt-6 min-h-[96px] w-full max-w-md">
-          {reply ? (
-            <p className="text-base sm:text-lg font-normal leading-relaxed text-zinc-200">“{reply}”</p>
-          ) : heard ? (
-            <p className="text-sm text-zinc-500">You said: {heard}</p>
-          ) : (
-            <p className="text-sm text-zinc-600">
-              {active ? 'Speak naturally. ZenixMind will reply out loud.' : 'Start a voice conversation.'}
-            </p>
-          )}
+            {reply && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] rounded-2xl rounded-bl-md border border-white/[.06] bg-[#0b0b0e] px-4 py-3 text-sm text-zinc-200 leading-relaxed">
+                  {reply}
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-xs text-red-200">
+                {error}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Compact voice dock */}
+        <div className="border-t border-white/[.06] bg-[#050506]/95 backdrop-blur px-4 py-5 sm:px-6">
+          <div className="mx-auto flex max-w-xl flex-col items-center gap-4">
+            <div className="flex items-center gap-2 text-xs text-zinc-500">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  state === 'error'
+                    ? 'bg-red-400'
+                    : state === 'speaking'
+                      ? 'bg-white'
+                      : active && !muted
+                        ? 'bg-emerald-400'
+                        : 'bg-zinc-600'
+                }`}
+              />
+              {status}
+            </div>
+
+            <VoiceSunOrb
+              state={state}
+              audioLevel={level}
+              size={130}
+              onClick={() => void toggle()}
+            />
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void toggle()}
+                className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors ${
+                  active && !muted
+                    ? 'bg-white text-black hover:bg-zinc-100'
+                    : 'border border-white/[.1] bg-white/[.04] text-zinc-200 hover:bg-white/[.08]'
+                }`}
+              >
+                {active && !muted ? (
+                  <>
+                    <Mic size={16} /> Mic on
+                  </>
+                ) : (
+                  <>
+                    <MicOff size={16} /> Start
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={active ? end : () => navigate('/assistant')}
+                className="inline-flex items-center gap-2 rounded-full border border-white/[.1] bg-white/[.04] px-5 py-2.5 text-sm text-zinc-300 hover:bg-white/[.08] hover:text-white transition-colors"
+              >
+                <X size={15} />
+                {active ? 'End' : 'Close'}
+              </button>
+            </div>
+          </div>
         </div>
       </main>
-
-      <footer className="relative z-10 flex items-center justify-center gap-4 px-6 pb-10">
-        <button
-          type="button"
-          onClick={() => void toggle()}
-          className={`grid h-14 w-14 place-items-center rounded-full border transition-colors ${
-            active && !muted
-              ? 'border-white/20 bg-white text-black'
-              : 'border-white/[.08] bg-white/[.04] text-zinc-200 hover:bg-white/[.08]'
-          }`}
-          aria-label={active && !muted ? 'Mute' : 'Start'}
-        >
-          {active && !muted ? <Mic size={22} /> : <MicOff size={20} />}
-        </button>
-        <button
-          type="button"
-          onClick={active ? end : () => navigate('/assistant')}
-          className="grid h-14 w-14 place-items-center rounded-full border border-white/[.08] bg-white/[.04] text-zinc-300 hover:bg-white/[.08] hover:text-white transition-colors"
-          aria-label={active ? 'End' : 'Close'}
-        >
-          <X size={18} />
-        </button>
-      </footer>
 
       {settings && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">

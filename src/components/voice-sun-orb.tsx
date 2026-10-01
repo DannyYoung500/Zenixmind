@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 export type VoiceState =
   | 'idle'
@@ -19,64 +19,78 @@ interface VoiceSunOrbProps {
 }
 
 /**
- * Product voice indicator for ZenixMind.
- * Calm, website-quality presence — not a shader demo.
+ * ZenixMind voice indicator — product waveform capsule.
+ * Inspired by current ChatGPT / Gemini Live patterns:
+ * compact status, readable motion, website-native (not a full-screen demo orb).
  */
 export function VoiceSunOrb({
   state,
   audioLevel = 0,
-  size = 180,
+  size = 120,
   className = '',
   onClick
 }: VoiceSunOrbProps) {
   const level = Math.max(0, Math.min(1, audioLevel));
+  const [tick, setTick] = useState(0);
+
   const visual =
-    state === 'muted' || state === 'idle'
-      ? 'idle'
-      : state === 'reconnecting' || state === 'connecting'
-        ? 'thinking'
-        : state;
+    state === 'muted'
+      ? 'muted'
+      : state === 'idle'
+        ? 'idle'
+        : state === 'reconnecting' || state === 'connecting'
+          ? 'thinking'
+          : state;
 
-  // Subtle scale only — never theatrical
-  const scale =
-    visual === 'speaking'
-      ? 1 + level * 0.045
-      : visual === 'listening'
-        ? 1 + level * 0.035
-        : visual === 'thinking'
-          ? 1.015
-          : 1;
+  // Gentle internal clock for thinking / idle breath (not a shader loop)
+  useEffect(() => {
+    if (visual !== 'thinking' && visual !== 'idle' && visual !== 'connecting') return;
+    const id = window.setInterval(() => setTick((t) => t + 1), 120);
+    return () => window.clearInterval(id);
+  }, [visual]);
 
-  const ringOpacity =
-    visual === 'listening'
-      ? 0.35 + level * 0.35
-      : visual === 'speaking'
-        ? 0.4 + level * 0.3
-        : visual === 'thinking'
-          ? 0.28
-          : visual === 'error'
-            ? 0.45
-            : 0.14;
+  const barCount = 5;
+  const bars = useMemo(() => {
+    return Array.from({ length: barCount }, (_, i) => {
+      const center = Math.abs(i - (barCount - 1) / 2);
+      const base = 0.28 + (1 - center / 2) * 0.22;
 
-  const coreGradient =
+      if (visual === 'muted' || visual === 'idle') {
+        return 0.22 + (i === 2 ? 0.08 : 0);
+      }
+      if (visual === 'thinking') {
+        const phase = (tick + i * 2) % 10;
+        return 0.25 + (phase < 5 ? phase : 10 - phase) * 0.08;
+      }
+      if (visual === 'error') {
+        return 0.35;
+      }
+      // listening / speaking — audio reactive with per-bar variation
+      const wave = 0.35 + level * 0.65;
+      const variance = 0.85 + ((i * 17 + Math.floor(level * 20)) % 5) * 0.04;
+      return Math.min(1, base * wave * variance);
+    });
+  }, [visual, level, tick]);
+
+  const accent =
     visual === 'error'
-      ? 'radial-gradient(circle at 35% 30%, #fecaca 0%, #f87171 28%, #7f1d1d 72%, #1c1917 100%)'
+      ? 'bg-red-400/90'
       : visual === 'speaking'
-        ? 'radial-gradient(circle at 35% 30%, #f4f4f5 0%, #e4e4e7 18%, #a1a1aa 42%, #3f3f46 70%, #18181b 100%)'
+        ? 'bg-white/90'
         : visual === 'listening'
-          ? 'radial-gradient(circle at 35% 30%, #fafafa 0%, #e4e4e7 20%, #a1a1aa 45%, #52525b 72%, #18181b 100%)'
+          ? 'bg-zinc-100/85'
           : visual === 'thinking'
-            ? 'radial-gradient(circle at 35% 30%, #f4f4f5 0%, #d4d4d8 22%, #a1a1aa 48%, #52525b 74%, #18181b 100%)'
-            : 'radial-gradient(circle at 35% 30%, #e4e4e7 0%, #a1a1aa 30%, #52525b 62%, #27272a 85%, #18181b 100%)';
+            ? 'bg-zinc-300/70'
+            : 'bg-zinc-500/50';
 
-  const glowColor =
+  const ring =
     visual === 'error'
-      ? 'rgba(248,113,113,0.25)'
-      : visual === 'speaking'
-        ? 'rgba(255,255,255,0.14)'
-        : visual === 'listening'
-          ? 'rgba(255,255,255,0.12)'
-          : 'rgba(255,255,255,0.06)';
+      ? 'border-red-400/30 bg-red-500/[.06]'
+      : visual === 'speaking' || visual === 'listening'
+        ? 'border-white/[.12] bg-white/[.04]'
+        : visual === 'thinking'
+          ? 'border-white/[.08] bg-white/[.03]'
+          : 'border-white/[.06] bg-white/[.02]';
 
   const label =
     visual === 'listening'
@@ -87,82 +101,38 @@ export function VoiceSunOrb({
           ? 'Speaking'
           : visual === 'error'
             ? 'Error'
-            : 'Ready';
+            : visual === 'muted'
+              ? 'Muted'
+              : 'Ready';
+
+  // Capsule proportions — product control, not a hero sphere
+  const width = Math.max(96, Math.round(size * 0.95));
+  const height = Math.max(40, Math.round(size * 0.38));
 
   return (
     <div
       onClick={onClick}
       role={onClick ? 'button' : 'img'}
       aria-label={`ZenixMind voice · ${label}`}
-      className={`relative inline-flex items-center justify-center select-none ${
-        onClick ? 'cursor-pointer' : ''
+      className={`relative inline-flex items-center justify-center select-none transition-transform duration-200 ${
+        onClick ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]' : ''
       } ${className}`}
-      style={{ width: size, height: size }}
+      style={{ width, height }}
     >
-      {/* Soft ambient glow */}
       <div
-        className="absolute rounded-full transition-opacity duration-500"
-        style={{
-          inset: '-8%',
-          background: `radial-gradient(circle, ${glowColor} 0%, transparent 68%)`,
-          opacity: visual === 'idle' ? 0.5 : 1
-        }}
-      />
-
-      {/* Thin outer ring */}
-      <div
-        className={`absolute rounded-full border transition-all duration-500 ${
-          visual === 'thinking' ? 'animate-[pulse_2.4s_ease-in-out_infinite]' : ''
-        }`}
-        style={{
-          inset: '6%',
-          borderColor: `rgba(255,255,255,${ringOpacity})`,
-          boxShadow:
-            visual === 'idle'
-              ? 'none'
-              : `0 0 ${24 + level * 20}px rgba(255,255,255,${0.04 + level * 0.06})`
-        }}
-      />
-
-      {/* Core sphere */}
-      <div
-        className="absolute rounded-full transition-transform duration-150 ease-out"
-        style={{
-          inset: '14%',
-          background: coreGradient,
-          transform: `scale(${scale})`,
-          boxShadow:
-            'inset 0 1px 1px rgba(255,255,255,0.35), inset 0 -8px 20px rgba(0,0,0,0.35), 0 8px 32px rgba(0,0,0,0.4)'
-        }}
+        className={`flex h-full w-full items-center justify-center gap-[5px] rounded-full border px-5 transition-colors duration-300 ${ring}`}
       >
-        {/* Soft highlight */}
-        <div
-          className="absolute rounded-full"
-          style={{
-            left: '18%',
-            top: '14%',
-            width: '42%',
-            height: '28%',
-            background:
-              'radial-gradient(ellipse at center, rgba(255,255,255,0.45) 0%, transparent 70%)',
-            opacity: visual === 'idle' ? 0.35 : 0.55
-          }}
-        />
+        {bars.map((h, i) => (
+          <span
+            key={i}
+            className={`w-[3px] rounded-full transition-[height,opacity] duration-100 ease-out ${accent}`}
+            style={{
+              height: `${Math.max(14, Math.round(h * (height * 0.55)))}px`,
+              opacity: visual === 'idle' || visual === 'muted' ? 0.45 : 0.9
+            }}
+          />
+        ))}
       </div>
-
-      {/* Thinking: three soft dots under the sphere area via opacity on ring — keep minimal */}
-      {visual === 'thinking' && (
-        <div className="absolute bottom-[8%] left-1/2 flex -translate-x-1/2 gap-1.5">
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              className="h-1 w-1 rounded-full bg-white/50 animate-pulse"
-              style={{ animationDelay: `${i * 0.2}s` }}
-            />
-          ))}
-        </div>
-      )}
-
       <span className="sr-only">{label}</span>
     </div>
   );
