@@ -10,11 +10,13 @@ import {
   Megaphone,
   ScrollText,
   Shield,
-  Search
+  Search,
+  Server
 } from 'lucide-react';
 
 const COMMANDS = [
   { to: '/owner', label: 'Owner console', icon: LayoutDashboard, keywords: 'home dashboard' },
+  { to: '/owner/system', label: 'System health', icon: Server, keywords: 'health gemini status config' },
   { to: '/owner/activity', label: 'Activity analytics', icon: Activity, keywords: 'users sessions' },
   { to: '/owner/usage', label: 'Usage & costs', icon: BarChart3, keywords: 'tokens cost billing' },
   { to: '/owner/memory', label: 'Memory admin', icon: Brain, keywords: 'data purge' },

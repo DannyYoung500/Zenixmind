@@ -10,6 +10,7 @@
     { "source": "/api/session/heartbeat", "destination": "/api/session/heartbeat" },
     { "source": "/api/admin/activity-analytics", "destination": "/api/admin/activity-analytics" },
     { "source": "/api/admin/sessions", "destination": "/api/admin/sessions" },
+    { "source": "/api/admin/overview", "destination": "/api/admin/overview" },
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

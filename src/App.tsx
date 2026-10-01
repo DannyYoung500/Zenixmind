@@ -19,6 +19,7 @@ import { OwnerBroadcastsPage } from './pages/OwnerBroadcastsPage';
 import { OwnerRateLimitsPage } from './pages/OwnerRateLimitsPage';
 import { OwnerFlagsPage } from './pages/OwnerFlagsPage';
 import { OwnerAuditPage } from './pages/OwnerAuditPage';
+import { OwnerSystemPage } from './pages/OwnerSystemPage';
 import { StatusPage } from './pages/StatusPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -64,6 +65,7 @@ export function App() {
             <Route path="/assistant" element={<ProtectedRoute><AssistantPage /></ProtectedRoute>} />
             <Route path="/assistant/voice" element={<ProtectedRoute><VoicePage /></ProtectedRoute>} />
             <Route path="/owner" element={<ProtectedRoute><OwnerPage /></ProtectedRoute>} />
+            <Route path="/owner/system" element={<ProtectedRoute><OwnerSystemPage /></ProtectedRoute>} />
             <Route path="/owner/activity" element={<ProtectedRoute><OwnerActivityPage /></ProtectedRoute>} />
             <Route path="/owner/usage" element={<ProtectedRoute><OwnerUsagePage /></ProtectedRoute>} />
             <Route path="/owner/memory" element={<ProtectedRoute><OwnerMemoryPage /></ProtectedRoute>} />

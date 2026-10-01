@@ -12,11 +12,13 @@ import {
   Megaphone,
   Gauge,
   Flag,
-  ScrollText
+  ScrollText,
+  Server
 } from 'lucide-react';
 
 const NAV = [
   { to: '/owner', label: 'Console', icon: LayoutDashboard, exact: true },
+  { to: '/owner/system', label: 'System', icon: Server },
   { to: '/owner/activity', label: 'Activity', icon: Activity },
   { to: '/owner/usage', label: 'Usage', icon: BarChart3 },
   { to: '/owner/memory', label: 'Memory', icon: Brain },
@@ -62,7 +64,7 @@ export function OwnerShell({
             </div>
           </div>
 
-          <nav className="flex items-center gap-0.5 rounded-xl border border-white/[.08] bg-[#0a0a0e] p-1 overflow-x-auto max-w-[72vw]">
+          <nav className="flex items-center gap-0.5 rounded-xl border border-white/[.08] bg-[#0a0a0e] p-1 overflow-x-auto max-w-[74vw]">
             {NAV.map((item) => {
               const active = item.exact
                 ? location.pathname === item.to
@@ -78,7 +80,7 @@ export function OwnerShell({
                   }`}
                 >
                   <Icon size={13} />
-                  <span className="hidden xl:inline">{item.label}</span>
+                  <span className="hidden 2xl:inline">{item.label}</span>
                 </Link>
               );
             })}

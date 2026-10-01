@@ -7,17 +7,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const checks: Array<{ name: string; ok: boolean; detail?: string }> = [];
 
-  // Self
   checks.push({ name: 'api', ok: true, detail: 'status endpoint' });
+  checks.push({ name: 'service', ok: true, detail: 'ZenixMind' });
 
-  // Health via internal path knowledge
-  checks.push({
-    name: 'service',
-    ok: true,
-    detail: 'ZenixMind'
-  });
-
-  // Optional: Gemini key present (not valid, just configured)
   checks.push({
     name: 'gemini',
     ok: Boolean(process.env.GEMINI_API_KEY),
@@ -32,6 +24,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         process.env.SUPABASE_URL
     ),
     detail: 'url configured'
+  });
+
+  checks.push({
+    name: 'service_role',
+    ok: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    detail: process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? 'configured'
+      : 'SUPABASE_SERVICE_ROLE_KEY missing'
+  });
+
+  checks.push({
+    name: 'chat_route',
+    ok: true,
+    detail: 'standalone /api/chat'
   });
 
   const allOk = checks.every((c) => c.ok);
