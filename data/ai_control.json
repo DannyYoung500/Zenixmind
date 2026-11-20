@@ -1,16 +1,16 @@
 {
   "currentProvider": "google",
-  "defaultModel": "gemini-2.5-flash",
+  "defaultModel": "zenix-auto",
   "routingPolicy": {
-    "auto": "gemini-2.5-flash",
-    "fast": "gemini-2.5-flash",
-    "reasoning": "gemini-2.5-pro",
-    "coding": "claude-3.7-sonnet",
-    "vision": "gpt-4o",
-    "longContext": "gemini-2.5-pro",
-    "voice": "gemini-2.5-flash",
-    "creative": "claude-3.7-sonnet",
-    "webSearch": "gemini-2.5-flash"
+    "auto": "zenix-auto",
+    "fast": "zenix-auto",
+    "reasoning": "zenix-4.6-reason",
+    "coding": "zenix-4.6-build",
+    "vision": "zenix-4.6-pro",
+    "longContext": "zenix-4.6-reason",
+    "voice": "zenix-auto",
+    "creative": "zenix-4.6-build",
+    "webSearch": "zenix-auto"
   },
   "fallbackProvider": "anthropic",
   "secondaryFallback": "xai",
