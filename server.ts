@@ -71,10 +71,10 @@ const rateLimitConfig = loadJsonFile('rate_limits.json', {
   autoThrottleOnBudget: true,
   burstMultiplier: 1.5,
   tiers: {
-    Free: { rpm: 20, tpm: 40000, dailyTokens: 100000, maxConcurrent: 2, modelAccess: ['gemini-2.5-flash'] },
-    Pro: { rpm: 80, tpm: 200000, dailyTokens: 2000000, maxConcurrent: 6, modelAccess: ['gemini-2.5-flash', 'gemini-2.5-pro'] },
-    Enterprise: { rpm: 300, tpm: 1000000, dailyTokens: 25000000, maxConcurrent: 25, modelAccess: ['gemini-2.5-flash', 'gemini-2.5-pro'] },
-    Owner: { rpm: 1000, tpm: 5000000, dailyTokens: 100000000, maxConcurrent: 100, modelAccess: ['gemini-2.5-flash', 'gemini-2.5-pro'] }
+    Free: { rpm: 20, tpm: 40000, dailyTokens: 100000, maxConcurrent: 2, modelAccess: ['zenix-auto', 'zenix-lite', 'zenix-4.6-fast'] },
+    Pro: { rpm: 80, tpm: 200000, dailyTokens: 2000000, maxConcurrent: 6, modelAccess: ['zenix-auto', 'zenix-lite', 'zenix-4.6-fast'] },
+    Enterprise: { rpm: 300, tpm: 1000000, dailyTokens: 25000000, maxConcurrent: 25, modelAccess: ['zenix-auto', 'zenix-lite', 'zenix-4.6-fast'] },
+    Owner: { rpm: 1000, tpm: 5000000, dailyTokens: 100000000, maxConcurrent: 100, modelAccess: ['zenix-auto', 'zenix-lite', 'zenix-4.6-fast'] }
   }
 });
 
