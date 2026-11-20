@@ -8,7 +8,7 @@ import { MessageSquare, Search, PenLine, Mic2, ShieldCheck, ArrowRight } from 'l
 function LandingComposer() {
   const navigate = useNavigate();
   const [value, setValue] = React.useState('');
-  const [selectedModel, setSelectedModel] = React.useState('gemini-2.5-flash');
+  const [selectedModel, setSelectedModel] = React.useState('zenix-auto');
   const [webSearch, setWebSearch] = React.useState(false);
   const [deepThink, setDeepThink] = React.useState(false);
   const [isListening, setIsListening] = React.useState(false);
