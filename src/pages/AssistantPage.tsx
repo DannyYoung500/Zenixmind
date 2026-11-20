@@ -319,12 +319,12 @@ interface CompactFloatingComposerProps {
 }
 
 const MODEL_SHORT_MAP: Record<string, { label: string; icon: string }> = {
-  'gemini-2.5-flash': { label: 'Fast', icon: 'zap' },
-  'gemini-2.5-pro': { label: 'Pro', icon: 'brain' },
-  'grok-3': { label: 'Grok', icon: 'sparkles' },
-  'claude-3.7-sonnet': { label: 'Sonnet', icon: 'code' },
-  'gpt-4o': { label: 'GPT-4o', icon: 'globe' },
-  'deepseek-r1': { label: 'DeepSeek', icon: 'logic' }
+  'zenix-auto': { label: 'Zenix Auto', icon: 'zap' },
+  'zenix-lite': { label: 'Zenix Lite', icon: 'sparkles' },
+  'zenix-4.6-fast': { label: 'Zenix Fast', icon: 'zap' },
+  'zenix-4.6-pro': { label: 'Zenix Pro', icon: 'brain' },
+  'zenix-4.6-reason': { label: 'Zenix Reason', icon: 'brain' },
+  'zenix-4.6-build': { label: 'Zenix Build', icon: 'code' }
 };
 
 export const CompactFloatingComposer = React.forwardRef<
@@ -509,24 +509,26 @@ export const CompactFloatingComposer = React.forwardRef<
                     Select Model
                   </div>
                   {[
-                    { id: 'gemini-2.5-flash', name: 'Fast (Gemini 2.5 Flash)', desc: 'Lightning fast & multimodal' },
-                    { id: 'gemini-2.5-pro', name: 'Pro (Gemini 2.5 Pro)', desc: 'Complex reasoning & code' },
-                    { id: 'grok-3', name: 'Grok 3 (xAI)', desc: 'Live web & direct intelligence' },
-                    { id: 'claude-3.7-sonnet', name: 'Claude 3.7 Sonnet', desc: 'Superior programming & logic' },
-                    { id: 'gpt-4o', name: 'GPT-4o (OpenAI)', desc: 'Omnimodal general assistant' },
-                    { id: 'deepseek-r1', name: 'DeepSeek R1', desc: 'Open reasoning & logic' }
+                    { id: 'zenix-auto', name: 'Zenix Auto', desc: 'Adaptive everyday assistant', locked: false },
+                    { id: 'zenix-lite', name: 'Zenix Lite', desc: 'Lightweight everyday tasks', locked: false },
+                    { id: 'zenix-4.6-fast', name: 'Zenix 4.6 Fast', desc: 'Fast responses for work and building', locked: false },
+                    { id: 'zenix-4.6-pro', name: 'Zenix 4.6 Pro · Coming soon', desc: 'Premium model — billing setup pending', locked: true },
+                    { id: 'zenix-4.6-reason', name: 'Zenix 4.6 Reason · Coming soon', desc: 'Premium reasoning — not yet enabled', locked: true },
+                    { id: 'zenix-4.6-build', name: 'Zenix 4.6 Build · Coming soon', desc: 'Premium coding model — not yet enabled', locked: true }
                   ].map((m) => {
                     const isSelected = selectedModel === m.id;
                     return (
                       <button
                         key={m.id}
                         type="button"
+                        disabled={m.locked}
                         onClick={() => {
+                          if (m.locked) return;
                           onSelectModel(m.id);
                           setModelDropdownOpen(false);
                         }}
                         className={`flex w-full items-start justify-between rounded-xl px-3 py-2 text-left transition-colors ${
-                          isSelected ? 'bg-white/[.1] text-white' : 'text-zinc-300 hover:bg-[#27272a]'
+                          m.locked ? 'cursor-not-allowed opacity-40' : isSelected ? 'bg-white/[.1] text-white' : 'text-zinc-300 hover:bg-[#27272a]'
                         }`}
                       >
                         <div>
@@ -1733,7 +1735,8 @@ export function AssistantPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>(() => {
-    return localStorage.getItem('zenixmind_selected_model') || 'gemini-2.5-flash';
+    const saved = localStorage.getItem('zenixmind_selected_model');
+    return saved?.startsWith('zenix-') ? saved : 'zenix-auto';
   });
   const [webSearch, setWebSearch] = useState(false);
   const [deepThink, setDeepThink] = useState(false);
