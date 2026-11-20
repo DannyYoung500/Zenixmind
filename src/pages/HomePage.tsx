@@ -167,7 +167,15 @@ export function HomePage() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="min-h-screen bg-[#050506]" />;
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#050506] text-zinc-400">
+        <div className="flex flex-col items-center gap-4">
+          <BrandMark size={48} className="logo-mark opacity-90" />
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/10 border-t-white/75" />
+          <p className="text-xs tracking-wide text-zinc-500">Loading ZenixMind…</p>
+        </div>
+      </div>
+    );
   }
 
   // Signed-in users go straight into the real AI workspace.
