@@ -13,60 +13,12 @@ export interface ModelOption {
 }
 
 export const AI_MODELS: ModelOption[] = [
-  {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    provider: 'Google',
-    tag: '⚡ Ultra Fast',
-    badge: 'Gemini',
-    description: 'High-speed multimodal reasoning and generation',
-    badgeColor: 'text-amber-400 bg-amber-400/10 border-amber-400/20'
-  },
-  {
-    id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro',
-    provider: 'Google',
-    tag: '🧠 Deep Logic',
-    badge: 'Gemini',
-    description: 'Complex logic, deep analysis, and code synthesis',
-    badgeColor: 'text-amber-300 bg-amber-300/10 border-amber-300/20'
-  },
-  {
-    id: 'grok-3',
-    name: 'Grok 3',
-    provider: 'xAI',
-    tag: '🚀 Real-time & Bold',
-    badge: 'xAI',
-    description: 'Direct, uncensored insight with real-time knowledge',
-    badgeColor: 'text-zinc-100 bg-white/10 border-white/20'
-  },
-  {
-    id: 'claude-3.7-sonnet',
-    name: 'Claude 3.7 Sonnet',
-    provider: 'Anthropic',
-    tag: '🖋️ Master Coder',
-    badge: 'Claude',
-    description: 'Nuanced writing, reasoning, and system architecture',
-    badgeColor: 'text-orange-400 bg-orange-400/10 border-orange-400/20'
-  },
-  {
-    id: 'gpt-4o',
-    name: 'GPT-4o',
-    provider: 'OpenAI',
-    tag: '🌐 Omnimodal',
-    badge: 'OpenAI',
-    description: 'Omnimodal reasoning, vision, and problem solving',
-    badgeColor: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
-  },
-  {
-    id: 'deepseek-r1',
-    name: 'DeepSeek R1',
-    provider: 'DeepSeek',
-    tag: '🔬 Reasoning',
-    badge: 'DeepSeek',
-    description: 'Open-weight chain-of-thought deep reasoning',
-    badgeColor: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20'
-  }
+  { id: 'zenix-auto', name: 'Zenix Auto', provider: 'Google', tag: 'Adaptive', badge: 'ZenixMind', description: 'Automatically selects the best currently available engine', badgeColor: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
+  { id: 'zenix-lite', name: 'Zenix Lite', provider: 'Google', tag: 'Lightweight', badge: 'ZenixMind', description: 'A lightweight assistant for everyday tasks', badgeColor: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
+  { id: 'zenix-4.6-fast', name: 'Zenix 4.6 Fast', provider: 'Google', tag: 'Fast', badge: 'ZenixMind', description: 'Fast responses for everyday work and building', badgeColor: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
+  { id: 'zenix-4.6-pro', name: 'Zenix 4.6 Pro', provider: 'Google', tag: 'Pro', badge: 'Coming soon', description: 'Premium model — billing and provider setup pending', badgeColor: 'text-zinc-400 bg-white/5 border-white/10' },
+  { id: 'zenix-4.6-reason', name: 'Zenix 4.6 Reason', provider: 'Google', tag: 'Reasoning', badge: 'Coming soon', description: 'Premium reasoning model — not yet enabled', badgeColor: 'text-zinc-400 bg-white/5 border-white/10' },
+  { id: 'zenix-4.6-build', name: 'Zenix 4.6 Build', provider: 'Google', tag: 'Build', badge: 'Coming soon', description: 'Premium coding model — not yet enabled', badgeColor: 'text-zinc-400 bg-white/5 border-white/10' }
 ];
 
 interface ModelSelectorProps {
@@ -100,13 +52,13 @@ export function ModelSelector({
         });
         if (!res.ok) return;
         const data = await res.json();
-        const live = Array.isArray(data.models) ? data.models.filter((m: any) => m.available) : [];
+        const live = Array.isArray(data.models) ? data.models.filter((m: any) => m.available === true) : [];
         const mapped = live.map((m: any) => ({
           id: m.id,
           name: m.name,
           provider: m.provider === 'google' ? 'Google' : m.provider === 'xai' ? 'xAI' : m.provider === 'anthropic' ? 'Anthropic' : m.provider === 'openai' ? 'OpenAI' : 'DeepSeek',
           tag: m.tag,
-          badge: m.badge,
+          badge: m.badge || 'ZenixMind',
           description: m.description,
           badgeColor: m.provider === 'google' ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' : m.provider === 'xai' ? 'text-zinc-100 bg-white/10 border-white/20' : m.provider === 'anthropic' ? 'text-orange-400 bg-orange-400/10 border-orange-400/20' : m.provider === 'openai' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' : 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20'
         }));
