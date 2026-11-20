@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
+import { resolveAvailableModel, validateChatMessages, verifySupabaseAccessToken, ZENIX_MODELS } from './api/_lib/model-catalog.ts';
 
 dotenv.config();
 
@@ -135,56 +136,63 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'ZenixMind', time: new Date().toISOString() });
 });
 
+app.get('/api/models', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const user = await verifySupabaseAccessToken(req.headers.authorization);
+  if (!user) return res.status(401).json({ error: 'Sign in to view available models.', code: 'AUTH_REQUIRED' });
+  return res.json({ models: ZENIX_MODELS, defaultModel: 'zenix-auto' });
+});
+
 app.post('/api/chat', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const user = await verifySupabaseAccessToken(req.headers.authorization);
+  if (!user) return res.status(401).json({ error: 'Sign in to use ZenixMind AI.', code: 'AUTH_REQUIRED' });
   try {
-    const { messages, model } = req.body || {};
-    telemetry.totalRequests += 1;
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(503).json({
-        error: 'GEMINI_API_KEY is not configured on the server.',
-        code: 'AI_NOT_CONFIGURED'
+    const selected = resolveAvailableModel(req.body?.model);
+    if (!selected) {
+      return res.status(403).json({
+        error: 'This model is not available on your current plan. Premium model access will be enabled after billing and provider setup are complete.',
+        code: 'MODEL_NOT_ENTITLED'
       });
     }
+    const messages = validateChatMessages(req.body?.messages);
+    if (!messages) return res.status(400).json({ error: 'Messages must contain 1–60 valid user or assistant messages (maximum 80,000 characters).', code: 'INVALID_MESSAGES' });
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(503).json({ error: 'AI provider is not configured on the server.', code: 'AI_NOT_CONFIGURED' });
     const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey });
-    const modelId = model || 'gemini-2.5-flash';
-    const history = Array.isArray(messages) ? messages : [];
-    const contents = history.map((m: any) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: String(m.content || m.text || '') }]
-    }));
-    const start = Date.now();
+    const started = Date.now();
     const result = await ai.models.generateContent({
-      model: modelId,
-      contents: contents.length ? contents : [{ role: 'user', parts: [{ text: 'Hello' }] }]
+      model: selected.providerModel,
+      contents: messages.map((message) => ({
+        role: message.role,
+        parts: [{ text: message.content }]
+      }))
     });
-    const text =
-      (result as any).text ||
-      (result as any).candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') ||
-      '';
-    const latency = Date.now() - start;
-    telemetry.totalLatencyMs += latency;
+    const responseText = (result as any).text ||
+      (result as any).candidates?.[0]?.content?.parts?.map((part: any) => part.text).join('') || '';
+    if (!responseText) return res.status(502).json({ error: 'The AI provider returned an empty response.', code: 'EMPTY_AI_RESPONSE' });
+    const latency = Date.now() - started;
     const usage = (result as any).usageMetadata || {};
     const inTok = Number(usage.promptTokenCount || 0);
     const outTok = Number(usage.candidatesTokenCount || 0);
+    telemetry.totalRequests += 1;
+    telemetry.totalLatencyMs += latency;
     telemetry.inputTokens += inTok;
     telemetry.outputTokens += outTok;
-    if (!telemetry.modelUsage[modelId]) {
-      telemetry.modelUsage[modelId] = { requests: 0, inputTokens: 0, outputTokens: 0, cost: 0 };
-    }
-    telemetry.modelUsage[modelId].requests += 1;
-    telemetry.modelUsage[modelId].inputTokens += inTok;
-    telemetry.modelUsage[modelId].outputTokens += outTok;
+    if (!telemetry.modelUsage[selected.id]) telemetry.modelUsage[selected.id] = { requests: 0, inputTokens: 0, outputTokens: 0, cost: 0 };
+    telemetry.modelUsage[selected.id].requests += 1;
+    telemetry.modelUsage[selected.id].inputTokens += inTok;
+    telemetry.modelUsage[selected.id].outputTokens += outTok;
     return res.json({
-      message: { role: 'assistant', content: text },
-      model: modelId,
+      message: { role: 'assistant', content: responseText },
+      model: selected.id,
       latencyMs: latency,
       usage: { inputTokens: inTok, outputTokens: outTok }
     });
-  } catch (err: any) {
-    console.error('[chat]', err);
-    return res.status(500).json({ error: err?.message || 'Chat failed' });
+  } catch (error: any) {
+    console.error('[chat]', error);
+    return res.status(500).json({ error: 'Chat request failed. Please try again.', code: 'CHAT_FAILED' });
   }
 });
 
