@@ -25,6 +25,31 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const CLIENT_SESSION_KEY = 'zenixmind_client_session_id';
 
+export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      settled = true;
+      resolve(fallback);
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(fallback);
+      }
+    );
+  });
+}
+
 function mapSupabaseUser(sbUser: any): User {
   const meta = sbUser?.user_metadata || {};
   return {
@@ -87,8 +112,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const supabase = getSupabase();
     let mounted = true;
 
-    supabase.auth
-      .getSession()
+    const sessionRequest = supabase.auth.getSession();
+
+    // Never leave the public app as a featureless blank screen if auth storage or
+    // the Supabase session request stalls. A late response can still restore the session.
+    void withTimeout(sessionRequest, 8000, null).then((sessionResult) => {
+      if (mounted && sessionResult === null) setLoading(false);
+    });
+
+    void sessionRequest
       .then(({ data: { session } }) => {
         if (!mounted) return;
         setUser(session?.user ? mapSupabaseUser(session.user) : null);
