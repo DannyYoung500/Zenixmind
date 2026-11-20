@@ -6,6 +6,7 @@ import { ModelSelector } from '../components/model-selector';
 import { MessageRenderer } from '../components/message-renderer';
 import { useAuth } from '../lib/auth-context';
 import { getSupabase } from '../lib/supabase';
+import { parseSseEvent, splitSseFrames } from '../lib/sse-parser';
 import { VoiceTalk } from '../components/voice-talk';
 import {
   Send,
@@ -2168,19 +2169,16 @@ export function AssistantPage() {
         const { value, done } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        const frames = buffer.split('\\n\\n');
-        buffer = frames.pop() || '';
+        const parsed = splitSseFrames(buffer);
+        buffer = parsed.remainder;
 
-        for (const frame of frames) {
-          const dataLine = frame.split('\\n').find((line) => line.startsWith('data:'));
-          if (!dataLine) continue;
-          applyEvent(JSON.parse(dataLine.slice(5).trim()));
+        for (const frame of parsed.frames) {
+          applyEvent(parseSseEvent(frame));
         }
       }
 
       if (buffer.trim()) {
-        const dataLine = buffer.split('\\n').find((line) => line.startsWith('data:'));
-        if (dataLine) applyEvent(JSON.parse(dataLine.slice(5).trim()));
+        applyEvent(parseSseEvent(buffer));
       }
 
       setBusy(false);
