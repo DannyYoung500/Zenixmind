@@ -81,7 +81,7 @@ export function WorkspaceShell({
   children,
   title,
   conversations: externalConversations,
-  selectedModel = 'gemini-2.5-flash',
+  selectedModel = 'zenix-auto',
   onSelectModel,
   onRefreshConversations,
   onOpenSettings,
