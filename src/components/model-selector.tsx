@@ -38,6 +38,10 @@ export function ModelSelector({
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const onSelectModelRef = useRef(onSelectModel);
+  const selectedModelRef = useRef(selectedModel);
+  onSelectModelRef.current = onSelectModel;
+  selectedModelRef.current = selectedModel;
 
   useEffect(() => {
     let cancelled = false;
@@ -65,14 +69,14 @@ export function ModelSelector({
         if (cancelled) return;
         setAvailableModels(mapped);
         setCatalogLoaded(true);
-        if (mapped.length && !mapped.some((m: ModelOption) => m.id === selectedModel)) onSelectModel(mapped[0].id);
+        if (mapped.length && !mapped.some((m: ModelOption) => m.id === selectedModelRef.current)) onSelectModelRef.current(mapped[0].id);
       } catch {
         if (!cancelled) setCatalogLoaded(false);
       }
     };
     loadModels();
     return () => { cancelled = true; };
-  }, [onSelectModel, selectedModel]);
+  }, []);
 
   const current = availableModels.find((m) => m.id === selectedModel) || availableModels[0];
 
