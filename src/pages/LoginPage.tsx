@@ -192,7 +192,7 @@ export function SignupPage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Danny Young"
+                  placeholder="Enter your name"
                   required
                   className="w-full rounded-xl border border-white/[.08] bg-black/40 px-3.5 py-2.5 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-white/[.25]"
                 />
