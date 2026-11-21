@@ -21,3 +21,24 @@ test('image model and dimensions are allow-listed', () => {
   assert.throws(() => buildPollinationsImageUrl('test', 'unknown', 1024, 1024), /Unsupported image model/);
   assert.throws(() => buildPollinationsImageUrl('test', 'zimage', 9000, 1024), /dimensions/);
 });
+
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const assistantPage = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+const globalCss = readFileSync(fileURLToPath(new URL('../src/index.css', import.meta.url)), 'utf8');
+const indexHtml = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
+
+test('mobile chat composer uses dynamic viewport and does not smooth-scroll while typing', () => {
+  assert.match(indexHtml, /interactive-widget=resizes-content/);
+  assert.match(assistantPage, /h-\[calc\(100dvh-56px\)\]/);
+  assert.doesNotMatch(assistantPage, /scroll-smooth/);
+  assert.match(assistantPage, /text-base text-zinc-100/);
+  assert.match(globalCss, /font-size: 16px !important/);
+});
+
+test('image generation uses authenticated server route and stores the returned image blob', () => {
+  assert.match(assistantPage, /chatApiFetch\('\/api\/generate-image'/);
+  assert.match(assistantPage, /const blob = await response\.blob\(\)/);
+  assert.match(assistantPage, /storage\.from\('library'\)/);
+});
