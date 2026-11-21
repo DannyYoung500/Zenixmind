@@ -8,7 +8,6 @@ import { useAuth } from '../lib/auth-context';
 import { isOwnerEmail } from '../lib/owners';
 import { getSupabase } from '../lib/supabase';
 import {
-  Plus,
   Search,
   SquarePen,
   Sparkles,
@@ -24,19 +23,9 @@ import {
   PanelLeft,
   Trash2,
   Edit2,
-  FolderPlus,
   Shield,
   Workflow,
  } from 'lucide-react';
-
-interface Project {
-  id: string;
-  name: string;
-  created_at: string;
-  updated_at: string;
-  description?: string;
-  instructions?: string;
-}
 
 interface LibrarySearchItem {
   id: string;
@@ -106,10 +95,6 @@ export function WorkspaceShell({
       return [];
     }
   });
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(true);
-  const [showAddProjectModal, setShowAddProjectModal] = useState(false);
-  const [newProjectName, setNewProjectName] = useState('');
   const [showAllChatsModal, setShowAllChatsModal] = useState(false);
   const [activeMenuChatId, setActiveMenuChatId] = useState<string | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -122,29 +107,6 @@ export function WorkspaceShell({
   const userAvatar = user?.avatarUrl || '';
   const userName = user?.name || (userEmail ? userEmail.split('@')[0] : 'ZenixMind user');
   const isOwner = user?.isOwner || isOwnerEmail(userEmail);
-
-  useEffect(() => {
-    let mounted = true;
-    const loadProjects = async () => {
-      if (!user?.id) {
-        if (mounted) { setProjects([]); setProjectsLoading(false); }
-        return;
-      }
-      setProjectsLoading(true);
-      try {
-        const { data, error } = await getSupabase()
-          .from('projects')
-          .select('id,name,description,instructions,created_at,updated_at')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false });
-        if (!error && mounted) setProjects((data || []) as Project[]);
-      } finally {
-        if (mounted) setProjectsLoading(false);
-      }
-    };
-    loadProjects();
-    return () => { mounted = false; };
-  }, [user?.id]);
 
   useEffect(() => {
     let mounted = true;
@@ -247,12 +209,6 @@ export function WorkspaceShell({
     };
   }, [query, searching, user?.id]);
 
-  const projectSearchResults = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return [];
-    return projects.filter((project) => project.name.toLowerCase().includes(term)).slice(0, 5);
-  }, [projects, query]);
-
   const chatsSearchResults = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) return [];
@@ -281,21 +237,6 @@ export function WorkspaceShell({
     setInternalConversations((prev) => prev.filter((c) => c.id !== id));
     setActiveMenuChatId(null);
     if (onRefreshConversations) onRefreshConversations();
-  };
-
-  const handleAddProject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const name = newProjectName.trim();
-    if (!name || !user?.id) return;
-    const { data, error } = await getSupabase()
-      .from('projects')
-      .insert({ user_id: user.id, name })
-      .select('id,name,description,instructions,created_at,updated_at')
-      .single();
-    if (error) return;
-    setProjects((prev) => [data as Project, ...prev]);
-    setNewProjectName('');
-    setShowAddProjectModal(false);
   };
 
   const filtered = useMemo(() => {
@@ -459,23 +400,6 @@ export function WorkspaceShell({
                     </div>
                   )}
 
-                  {projectSearchResults.length > 0 && (
-                    <div className="border-b border-white/[.06] py-1.5">
-                      <div className="px-3 py-1 text-[9px] font-medium uppercase tracking-[.14em] text-zinc-600">Projects</div>
-                      {projectSearchResults.map((project) => (
-                        <button
-                          key={`project-${project.id}`}
-                          type="button"
-                          onClick={() => { navigate(`/assistant?project=${project.id}`); setSearching(false); setQuery(''); setOpen(false); }}
-                          className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-white/[.05]"
-                        >
-                          <FolderClosed size={13} className="shrink-0 text-zinc-500" />
-                          <span className="truncate">{project.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
                   {(librarySearchLoading || librarySearchItems.length > 0) && (
                     <div className="py-1.5">
                       <div className="px-3 py-1 text-[9px] font-medium uppercase tracking-[.14em] text-zinc-600">Library</div>
@@ -500,7 +424,7 @@ export function WorkspaceShell({
                     </div>
                   )}
 
-                  {!searchResults.length && !messageSearchItems.length && !projectSearchResults.length && !librarySearchLoading && !messageSearchLoading && !librarySearchItems.length && (
+                  {!searchResults.length && !messageSearchItems.length && !librarySearchLoading && !messageSearchLoading && !librarySearchItems.length && (
                     <div className="px-3 py-4 text-center text-[11px] text-zinc-600">No results found</div>
                   )}
 
@@ -586,48 +510,6 @@ export function WorkspaceShell({
 
           {!sidebarCollapsed && (
             <>
-              {/* Projects Section */}
-              <div className="mt-5 border-t border-white/[.05] pt-3">
-                <div className="flex items-center justify-between px-2 py-1">
-                  <span className="text-[9px] font-semibold uppercase tracking-[.15em] text-zinc-600">Projects</span>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddProjectModal(true)}
-                    className="grid h-6 w-6 place-items-center rounded-md text-zinc-500 hover:bg-[#141416] hover:text-zinc-200"
-                    title="Create project"
-                  >
-                    <Plus size={13} />
-                  </button>
-                </div>
-                <div className="space-y-0.5">
-                  {projectsLoading ? (
-                    <div className="px-2.5 py-2 text-[11px] text-zinc-600">Loading projects…</div>
-                  ) : projects.length ? (
-                    projects.slice(0, 6).map((project) => (
-                      <button
-                        key={project.id}
-                        type="button"
-                        onClick={() => { navigate(`/assistant?project=${project.id}`); setOpen(false); }}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs text-zinc-400 hover:bg-[#141416] hover:text-zinc-200 transition-colors"
-                        title={project.name}
-                      >
-                        <FolderClosed size={13} className="text-zinc-500 shrink-0" />
-                        <span className="truncate">{project.name}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowAddProjectModal(true)}
-                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-[#141416] hover:text-zinc-300 transition-colors"
-                    >
-                      <Plus size={14} className="text-zinc-600" />
-                      <span>Create your first project</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
               {/* Chats Section */}
               <div className="mt-4 flex-1 min-h-0 flex flex-col border-t border-white/[.05] pt-3">
                 <div className="flex items-center justify-between px-2 py-1">
@@ -858,51 +740,6 @@ export function WorkspaceShell({
           <div className="min-h-[calc(100vh-52px)] flex-1 flex flex-col">{children}</div>
         </section>
       </div>
-
-      {/* Add Project Modal */}
-      {showAddProjectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/[.1] bg-[#0e0e11] p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-white/[.06]">
-              <div className="flex items-center gap-2">
-                <FolderPlus size={18} className="text-amber-400" />
-                <h3 className="text-sm font-semibold text-white">Create New Project</h3>
-              </div>
-              <button onClick={() => setShowAddProjectModal(false)} className="text-zinc-400 hover:text-white">
-                <X size={16} />
-              </button>
-            </div>
-            <form onSubmit={handleAddProject} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1">Project Name</label>
-                <input
-                  autoFocus
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="e.g. Telegram Mini App Dev, Web Research..."
-                  className="w-full rounded-xl border border-white/[.1] bg-[#16161a] px-3 py-2 text-xs text-zinc-100 outline-none focus:border-amber-400"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddProjectModal(false)}
-                  className="rounded-xl px-3 py-1.5 text-xs text-zinc-400 hover:bg-[#18181b]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!newProjectName.trim()}
-                  className="rounded-xl bg-white px-4 py-1.5 text-xs font-medium text-black hover:bg-zinc-200 disabled:opacity-40"
-                >
-                  Create Project
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* All Chats Modal */}
       {showAllChatsModal && (
