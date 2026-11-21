@@ -35,7 +35,7 @@ import {
   ArrowLeft,
   ThumbsUp,
   ThumbsDown,
-  Smile,
+  Share2,
   Command,
   Keyboard,
   Plus,
@@ -633,52 +633,29 @@ export const CompactFloatingComposer = React.forwardRef<
   );
 });
 
-const POPULAR_EMOJIS = [
-  { emoji: '💡', label: 'Insightful' },
-  { emoji: '🔥', label: 'Fire' },
-  { emoji: '🚀', label: 'Fast & High Quality' },
-  { emoji: '❤️', label: 'Love' },
-  { emoji: '🧠', label: 'Brilliant' },
-  { emoji: '👏', label: 'Applaud' },
-  { emoji: '🎉', label: 'Celebrate' },
-  { emoji: '⚡', label: 'Lightning' }
-];
-
 function ChatMessageItem({
   message,
   onRegenerate,
-  onUpdateReaction
+  onUpdateReaction,
+  onShare
 }: {
   message: Message;
   onRegenerate?: () => void;
   onUpdateReaction?: (update: Partial<Message>) => void;
+  onShare?: () => Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareDone, setShareDone] = useState(false);
+  const [shareFailed, setShareFailed] = useState(false);
   const [liked, setLiked] = useState(message.liked || false);
   const [disliked, setDisliked] = useState(message.disliked || false);
-  const [reactions, setReactions] = useState<Record<string, number>>(message.reactions || {});
-  const [userReactions, setUserReactions] = useState<string[]>(message.userReactions || []);
-  const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setLiked(message.liked || false);
     setDisliked(message.disliked || false);
-    setReactions(message.reactions || {});
-    setUserReactions(message.userReactions || []);
-  }, [message.liked, message.disliked, message.reactions, message.userReactions]);
-
-  useEffect(() => {
-    if (!showEmojiPicker) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setShowEmojiPicker(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showEmojiPicker]);
+  }, [message.liked, message.disliked]);
 
   const handleCopy = async () => {
     try {
@@ -704,29 +681,6 @@ function ChatMessageItem({
     onUpdateReaction?.({ liked: nextLiked, disliked: nextDisliked });
   };
 
-  const handleToggleEmoji = (emoji: string) => {
-    const previousEmoji = userReactions[0];
-    const alreadyReacted = previousEmoji === emoji;
-    const nextReactions = { ...reactions };
-
-    if (previousEmoji && nextReactions[previousEmoji]) {
-      const count = nextReactions[previousEmoji];
-      if (count <= 1) delete nextReactions[previousEmoji];
-      else nextReactions[previousEmoji] = count - 1;
-    }
-
-    const nextUserReactions = alreadyReacted ? [] : [emoji];
-
-    if (!alreadyReacted) {
-      nextReactions[emoji] = (nextReactions[emoji] || 0) + 1;
-    }
-
-    setReactions(nextReactions);
-    setUserReactions(nextUserReactions);
-    setShowEmojiPicker(false);
-    onUpdateReaction?.({ reactions: nextReactions, userReactions: nextUserReactions });
-  };
-
   const handleSpeak = () => {
     if (!('speechSynthesis' in window)) return;
     if (speaking) {
@@ -743,6 +697,22 @@ function ChatMessageItem({
     window.speechSynthesis.speak(utterance);
   };
 
+  const handleShare = async () => {
+    if (!onShare || sharing) return;
+    setSharing(true);
+    try {
+      await onShare();
+      setShareFailed(false);
+      setShareDone(true);
+      window.setTimeout(() => setShareDone(false), 1800);
+    } catch {
+      setShareFailed(true);
+      window.setTimeout(() => setShareFailed(false), 2200);
+    } finally {
+      setSharing(false);
+    }
+  };
+
   if (message.role === 'user') {
     return (
       <div className="flex justify-end animate-in fade-in duration-200">
@@ -752,8 +722,6 @@ function ChatMessageItem({
       </div>
     );
   }
-
-  const activeEmojiList = Object.entries(reactions).filter(([, count]) => count > 0);
 
   if (message.role === 'assistant' && message.isStreaming && !message.content.trim()) {
     return null;
@@ -798,25 +766,6 @@ function ChatMessageItem({
             <span className="ml-1 inline-block h-4 w-1.5 translate-y-[3px] rounded-full bg-amber-400 align-middle animate-pulse" />
           )}
         </div>
-
-        {activeEmojiList.length > 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            {activeEmojiList.map(([emoji, count]) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => handleToggleEmoji(emoji)}
-                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-all ${
-                  userReactions.includes(emoji)
-                    ? 'border-amber-400/35 bg-amber-400/10 text-amber-200'
-                    : 'border-white/[.07] bg-[#141417] text-zinc-500 hover:text-zinc-200'
-                }`}
-              >
-                <span>{emoji}</span><span>{count}</span>
-              </button>
-            ))}
-          </div>
-        )}
 
         {!message.isStreaming && message.content.trim() && (
           <div className="mt-2.5 flex items-center gap-0.5 border-t border-white/[.045] pt-2 opacity-75 transition-opacity group-hover:opacity-100">
@@ -866,33 +815,19 @@ function ChatMessageItem({
 
             <div className="mx-1 h-4 w-px bg-white/[.07]" />
 
-            <div className="relative" ref={pickerRef}>
+            {onShare && (
               <button
                 type="button"
-                onClick={() => setShowEmojiPicker((v) => !v)}
-                className={`grid h-7 w-7 place-items-center rounded-lg transition-colors ${
-                  showEmojiPicker ? 'bg-white/[.06] text-zinc-200' : 'text-zinc-500 hover:bg-white/[.045] hover:text-zinc-200'
-                }`}
-                title="React"
+                onClick={() => void handleShare()}
+                disabled={sharing}
+                className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/[.045] hover:text-zinc-100 disabled:opacity-50"
+                title="Share this chat"
+                aria-label="Share this chat"
               >
-                <Smile size={13} />
+                <Share2 size={13} />
+                <span>{sharing ? 'Sharing…' : shareFailed ? 'Try again' : shareDone ? 'Copied' : 'Share'}</span>
               </button>
-              {showEmojiPicker && (
-                <div className="absolute bottom-full left-0 z-50 mb-2 flex items-center gap-0.5 rounded-xl border border-white/[.1] bg-[#111114] p-1.5 shadow-2xl backdrop-blur-xl">
-                  {POPULAR_EMOJIS.map((item) => (
-                    <button
-                      key={item.emoji}
-                      type="button"
-                      onClick={() => handleToggleEmoji(item.emoji)}
-                      className="grid h-7 w-7 place-items-center rounded-lg text-sm transition-transform hover:scale-110 hover:bg-white/[.06]"
-                      title={item.label}
-                    >
-                      {item.emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            )}
 
             {onRegenerate && (
               <button
@@ -1752,6 +1687,7 @@ export function AssistantPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [emptyGreeting, setEmptyGreeting] = useState('');
   const [voiceTalkOpen, setVoiceTalkOpen] = useState(false);
+  const [shareNotice, setShareNotice] = useState('');
 
   const isAtBottomRef = useRef(true);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -1883,6 +1819,22 @@ export function AssistantPage() {
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [handleStartNewChat, settingsOpen]);
+
+  const handleShareConversation = async () => {
+    if (!conversationId) throw new Error('Save a message before sharing this chat.');
+    const response = await chatApiFetch('/api/chat/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId })
+    });
+    if (!response.ok) throw new Error('Unable to create a share link.');
+    const result = await response.json();
+    if (!result.shareToken) throw new Error('The share link was not returned.');
+    const shareUrl = `${window.location.origin}/share/${result.shareToken}`;
+    await navigator.clipboard.writeText(shareUrl);
+    setShareNotice('Chat link copied. You can paste it anywhere to share this conversation.');
+    window.setTimeout(() => setShareNotice(''), 2600);
+  };
 
   const loadConversations = async () => {
     try {
@@ -2319,6 +2271,7 @@ export function AssistantPage() {
                       key={idx}
                       message={m}
                       onUpdateReaction={(updates) => handleUpdateMessageReaction(idx, updates)}
+                      onShare={conversationId ? handleShareConversation : undefined}
                       onRegenerate={
                         idx === messages.length - 1 && m.role === 'assistant'
                           ? () => {
@@ -2353,6 +2306,11 @@ export function AssistantPage() {
                     </div>
                   )}
 
+                  {shareNotice && (
+                    <div role="status" className="mx-auto max-w-3xl rounded-lg border border-white/[.07] bg-[#111114] px-3 py-2 text-center text-[11px] text-zinc-400">
+                      {shareNotice}
+                    </div>
+                  )}
                   <div ref={messagesEndRef} className="h-4" />
                 </div>
               )}
