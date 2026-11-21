@@ -871,6 +871,7 @@ function ImagesView() {
   const [activeTab, setActiveTab] = useState<'trending' | 'templates'>('trending');
   const [showNotice, setShowNotice] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generationNotice, setGenerationNotice] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<Array<{ id: string; prompt: string; url: string; title: string }>>([]);
 
@@ -1004,6 +1005,7 @@ function ImagesView() {
     const textToUse = customPrompt || prompt;
     if (!textToUse.trim() || generating) return;
     setGenerating(true);
+    setGenerationNotice('');
     try {
       const response = await chatApiFetch('/api/generate-image', {
         method: 'POST',
@@ -1035,7 +1037,7 @@ function ImagesView() {
       const { error: uploadError } = await getSupabase().storage.from('library')
         .upload(storagePath, blob, { contentType: mimeType, upsert: false });
       if (uploadError) {
-        setNotice('Image generated, but it could not be saved to your Library: ' + uploadError.message);
+        setGenerationNotice('Image generated, but it could not be saved to your Library: ' + uploadError.message);
         return;
       }
 
@@ -1050,10 +1052,10 @@ function ImagesView() {
       });
       if (rowError) {
         await getSupabase().storage.from('library').remove([storagePath]);
-        setNotice('Image generated, but it could not be saved to your Library: ' + rowError.message);
+        setGenerationNotice('Image generated, but it could not be saved to your Library: ' + rowError.message);
       }
     } catch (error: any) {
-      window.alert(error?.message || 'Image generation failed. Please try again.');
+      setGenerationNotice(error?.message || 'Image generation failed. Please try again.');
     } finally {
       setGenerating(false);
     }
@@ -1129,6 +1131,13 @@ function ImagesView() {
           </div>
         )}
 
+        {generationNotice && (
+          <div role="status" className="flex items-start justify-between gap-3 rounded-xl border border-white/[.08] bg-[#141417] px-3 py-2.5 text-xs text-zinc-300">
+            <span>{generationNotice}</span>
+            <button type="button" onClick={() => setGenerationNotice('')} aria-label="Dismiss image notice" className="shrink-0 text-zinc-500 hover:text-white"><X size={14}/></button>
+          </div>
+        )}
+
         {/* Tab Controls: Trending / Templates */}
         <div className="flex items-center gap-2 pt-1">
           <button
@@ -1167,7 +1176,7 @@ function ImagesView() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {generatedImages.map((img) => (
                 <div key={img.id} className="group relative rounded-2xl overflow-hidden aspect-square border border-white/[.1] bg-[#121215]">
-                  <img src={img.url} alt={img.prompt} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <img src={img.url} alt={img.prompt} className="h-full w-full object-cover group-hover:opacity-95 transition-opacity duration-200" />
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-2.5">
                     <p className="truncate text-xs font-medium text-white">{img.prompt}</p>
                   </div>
@@ -1186,7 +1195,7 @@ function ImagesView() {
                 setPrompt(item.prompt);
                 handleGenerate(item.prompt);
               }}
-              className="group relative aspect-[4/5] w-full overflow-hidden rounded-[24px] sm:rounded-[28px] border border-white/[.06] bg-[#141417] cursor-pointer shadow-md transition-all hover:scale-[1.02] hover:border-white/[.2] active:scale-[0.98]"
+              className="group relative aspect-[4/5] w-full overflow-hidden rounded-[24px] sm:rounded-[28px] border border-white/[.06] bg-[#141417] cursor-pointer shadow-md transition-all hover:border-white/[.2]"
             >
               {/* Card Image */}
               <img
