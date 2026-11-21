@@ -1826,12 +1826,8 @@ export function AssistantPage() {
     const result = await response.json();
     if (!result.shareToken) throw new Error('The share link was not returned.');
     const shareUrl = `${window.location.origin}/share/${result.shareToken}`;
-    if (navigator.share) {
-      await navigator.share({ title: 'ZenixMind conversation', url: shareUrl });
-    } else {
-      await navigator.clipboard.writeText(shareUrl);
-    }
-    setShareNotice(navigator.share ? 'Share link opened.' : 'Chat link copied.');
+    await navigator.clipboard.writeText(shareUrl);
+    setShareNotice('Chat link copied. You can paste it anywhere to share this conversation.');
     window.setTimeout(() => setShareNotice(''), 2600);
   };
 
@@ -2305,6 +2301,11 @@ export function AssistantPage() {
                     </div>
                   )}
 
+                  {shareNotice && (
+                    <div role="status" className="mx-auto max-w-3xl rounded-lg border border-white/[.07] bg-[#111114] px-3 py-2 text-center text-[11px] text-zinc-400">
+                      {shareNotice}
+                    </div>
+                  )}
                   <div ref={messagesEndRef} className="h-4" />
                 </div>
               )}
