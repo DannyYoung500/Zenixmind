@@ -20,6 +20,6 @@ test('library media previews use private signed storage URLs', () => {
 });
 
 test('library supports adding and removing saved content', () => {
-  assert.match(assistantPage, /Upload files/);
+  assert.match(assistantPage, /Add files/);
   assert.match(assistantPage, /handleDelete/);
 });
