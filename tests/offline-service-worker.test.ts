@@ -10,7 +10,8 @@ const worker = readFileSync(fileURLToPath(new URL('public/sw.js', root)), 'utf8'
 const offline = readFileSync(fileURLToPath(new URL('public/offline.html', root)), 'utf8');
 
 test('Library file-details icons are imported and defined', () => {
-  assert.ok(assistant.slice(0, assistant.indexOf("from 'lucide-react'")).includes('Info,'));
+  const iconImport = assistant.slice(0, assistant.indexOf("from 'lucide-react'"));
+  assert.match(iconImport, /\bInfo\b/);
   assert.ok(assistant.includes('<Info size={15}'));
   assert.ok(assistant.includes('<Info size={14}'));
 });
