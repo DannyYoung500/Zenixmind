@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import fs from 'fs';
-import path from 'path';
+import { createScopedSessionId } from '../_lib/session-utils.ts';
 
 const OWNER_EMAILS = [
   'danielngozi924@gmail.com',
@@ -35,30 +34,6 @@ function parseUA(ua: string) {
   return { deviceType, browser, os };
 }
 
-function dataDir() {
-  const dir = process.env.VERCEL ? path.join('/tmp', 'zenixmind-data') : path.resolve('./data');
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-  } catch {}
-  return dir;
-}
-
-function loadSessions(): any[] {
-  try {
-    const file = path.join(dataDir(), 'sessions.json');
-    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch {}
-  return [];
-}
-
-function saveSessions(sessions: any[]) {
-  try {
-    fs.writeFileSync(path.join(dataDir(), 'sessions.json'), JSON.stringify(sessions, null, 2));
-  } catch (e) {
-    console.warn('[heartbeat] save failed', e);
-  }
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -83,7 +58,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
         process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
         'sb_publishable_RtQLIcHO5Xch8JkcdGPW4g_Oatf4t08',
-      { auth: { autoRefreshToken: false, persistSession: false } }
+      {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false }
+      }
     );
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data.user?.email) {
@@ -101,53 +79,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const clientSessionId = String(body.clientSessionId || '').slice(0, 80);
 
-    const sessions = loadSessions();
+    const sessionId = createScopedSessionId(data.user.id, clientSessionId);
     const now = new Date().toISOString();
-    const existingIdx = sessions.findIndex(
-      (s) =>
-        s.status === 'active' &&
-        (clientSessionId ? s.id === clientSessionId : false || s.userEmail === email && s.userAgent === ua)
-    );
 
-    let session;
-    if (existingIdx >= 0) {
-      sessions[existingIdx].lastActiveAt = now;
-      sessions[existingIdx].isCurrent = true;
-      session = sessions[existingIdx];
-    } else {
-      session = {
-        id: clientSessionId || `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-        userId: data.user.id,
-        userEmail: email,
-        userName:
-          (data.user.user_metadata as any)?.full_name ||
-          email.split('@')[0] ||
-          'User',
-        role: isOwner(email) ? 'Owner' : 'Free',
-        ipAddress: ip,
-        userAgent: ua.slice(0, 300),
-        deviceType,
-        browser,
-        os,
-        location: 'Unknown',
-        countryCode: '',
-        startedAt: now,
-        lastActiveAt: now,
-        isCurrent: true,
-        status: 'active',
-        riskScore: 5,
-        riskFlags: []
-      };
-      // Mark previous same-user sessions not current
-      sessions.forEach((s) => {
-        if (s.userEmail === email) s.isCurrent = false;
-      });
-      sessions.unshift(session);
+    const { data: existing, error: lookupError } = await supabase
+      .from('user_sessions')
+      .select('id,status')
+      .eq('id', sessionId)
+      .eq('user_id', data.user.id)
+      .maybeSingle();
+    if (lookupError) throw lookupError;
+    if (existing?.status === 'revoked') {
+      return res.status(403).json({ error: 'This session has been revoked.', code: 'SESSION_REVOKED' });
     }
 
-    // Cap ledger size
-    const trimmed = sessions.slice(0, 500);
-    saveSessions(trimmed);
+    const { error: clearCurrentError } = await supabase
+      .from('user_sessions')
+      .update({ is_current: false })
+      .eq('user_id', data.user.id)
+      .eq('status', 'active');
+    if (clearCurrentError) throw clearCurrentError;
+
+    const sessionRow = {
+      id: sessionId,
+      user_id: data.user.id,
+      user_email: email,
+      user_name:
+        (data.user.user_metadata as any)?.full_name ||
+        email.split('@')[0] ||
+        'User',
+      role: isOwner(email) ? 'Owner' : 'Free',
+      ip_address: ip,
+      user_agent: ua.slice(0, 300),
+      device_type: deviceType,
+      browser,
+      os,
+      location: 'Unknown',
+      country_code: '',
+      started_at: existing ? undefined : now,
+      last_active_at: now,
+      is_current: true,
+      status: existing?.status === 'suspicious' ? 'suspicious' : 'active',
+      risk_score: 5,
+      risk_flags: []
+    };
+
+    const { data: session, error: saveError } = await supabase
+      .from('user_sessions')
+      .upsert(sessionRow, { onConflict: 'id' })
+      .select('id,status')
+      .single();
+    if (saveError || !session) throw saveError || new Error('Session save failed');
 
     return res.status(200).json({ ok: true, session: { id: session.id, status: session.status } });
   } catch (e: any) {
