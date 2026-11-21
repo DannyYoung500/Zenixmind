@@ -1267,13 +1267,23 @@ function LibraryView() {
     setLoading(true);
     setNotice('');
     try {
-      const { data, error } = await getSupabase()
+      const supabase = getSupabase();
+      const { data, error } = await supabase
         .from('library_items')
         .select('id,file_name,mime_type,storage_path,size_bytes,source,prompt,created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setItems((data || []) as LibraryItem[]);
+
+      const withPreviews = await Promise.all((data || []).map(async (item: LibraryItem) => {
+        if (!item.storage_path) return item;
+        const { data: signed, error: signedError } = await supabase
+          .storage
+          .from('library')
+          .createSignedUrl(item.storage_path, 60 * 60);
+        return { ...item, url: signedError ? undefined : signed?.signedUrl };
+      }));
+      setItems(withPreviews as LibraryItem[]);
     } catch (error: any) {
       setNotice(error?.message || 'Could not load your library.');
     } finally {
@@ -1282,7 +1292,7 @@ function LibraryView() {
   }, [user?.id]);
 
   useEffect(() => {
-    loadItems();
+    void loadItems();
   }, [loadItems]);
 
   const handleUpload = async (file: File) => {
@@ -1312,7 +1322,6 @@ function LibraryView() {
         await getSupabase().storage.from('library').remove([path]);
         throw rowError;
       }
-
       await loadItems();
     } catch (error: any) {
       setNotice(error?.message || 'Upload failed.');
@@ -1344,6 +1353,10 @@ function LibraryView() {
   };
 
   const handleOpen = async (item: LibraryItem) => {
+    if (item.url) {
+      window.open(item.url, '_blank', 'noopener,noreferrer');
+      return;
+    }
     if (!item.storage_path) return;
     const { data, error } = await getSupabase()
       .storage
@@ -1370,6 +1383,13 @@ function LibraryView() {
     });
   }, [items, query, filter]);
 
+  const documents = filteredItems.filter((item) =>
+    !item.mime_type?.startsWith('image/') && !item.mime_type?.startsWith('video/')
+  );
+  const media = filteredItems.filter((item) =>
+    item.mime_type?.startsWith('image/') || item.mime_type?.startsWith('video/')
+  );
+
   const formatSize = (bytes?: number) => {
     if (!bytes) return '0 B';
     if (bytes < 1024) return bytes + ' B';
@@ -1377,119 +1397,148 @@ function LibraryView() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
   return (
-    <div className="h-full overflow-y-auto px-4 py-6 sm:px-8 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between pb-6 border-b border-white/[.06]">
-        <div>
-          <h1 className="text-lg font-semibold text-zinc-100">Library</h1>
-          <p className="text-xs text-zinc-500">Files you uploaded or generated with ZenixMind.</p>
-        </div>
-        <div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.currentTarget.value = '';
-              if (file) void handleUpload(file);
-            }}
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || !user}
-            className="flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3.5 py-2 text-xs font-semibold text-black hover:bg-white transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Paperclip size={13} />
-            <span>{uploading ? 'Uploading…' : 'Upload file'}</span>
-          </button>
-        </div>
-      </div>
-
-      {notice && (
-        <div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 px-3 py-2 text-xs text-red-300">
-          {notice}
-        </div>
-      )}
-
-      <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 bg-[#0e0e11] p-1 rounded-xl border border-white/[.07]">
-          {(['all', 'images', 'videos', 'files'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setFilter(tab)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
-                filter === tab ? 'bg-[#1e1e24] text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2 rounded-xl bg-[#0e0e11] px-3 py-1.5 border border-white/[.07] w-full sm:w-64">
-          <Search size={14} className="text-zinc-500" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search library..."
-            className="w-full bg-transparent text-xs text-zinc-200 outline-none placeholder:text-zinc-600"
-          />
-        </div>
-      </div>
-
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {loading ? (
-          <div className="p-12 text-center text-xs text-zinc-600">Loading your library…</div>
-        ) : filteredItems.map((item) => (
-          <div key={item.id} className="overflow-hidden rounded-2xl border border-white/[.07] bg-[#0c0c0e] hover:bg-[#121215] transition-colors">
-            {item.mime_type?.startsWith('image/') ? (
-              <div className="aspect-square bg-[#101014]">
-                <button type="button" onClick={() => void handleOpen(item)} className="h-full w-full">
-                  <img src={item.url} alt={item.file_name} className="h-full w-full object-cover" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex aspect-[4/3] items-center justify-center bg-[#101014] text-zinc-500">
-                {item.mime_type?.startsWith('video/') ? <Volume2 size={26} /> : <FileText size={26} />}
-              </div>
-            )}
-            <div className="p-3">
-              <div className="truncate text-xs font-medium text-zinc-200">{item.file_name}</div>
-              <div className="mt-1 flex items-center gap-2 text-[10px] text-zinc-500">
-                <span>{formatSize(item.size_bytes)}</span>
-                <span>•</span>
-                <span className="capitalize">{item.source || 'uploaded'}</span>
-                <span>•</span>
-                <span>{new Date(item.created_at).toLocaleDateString()}</span>
-              </div>
-              {item.prompt && <div className="mt-2 line-clamp-2 text-[10px] text-zinc-500">{item.prompt}</div>}
-            </div>
-
-            <div className="flex items-center justify-end gap-1.5 px-3 pb-3 shrink-0">
-              <button
-                onClick={() => void handleOpen(item)}
-                className="rounded-lg px-2.5 py-1.5 text-[11px] text-zinc-300 hover:bg-white/[.06] hover:text-white transition-colors"
-              >
-                Open
-              </button>
-              <button
-                onClick={() => void handleDelete(item)}
-                className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
-                title="Delete item"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
+    <div className="h-full min-h-screen overflow-y-auto bg-black px-4 pb-10 pt-7 sm:px-8">
+      <div className="mx-auto w-full max-w-6xl">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Library</h1>
+            <p className="mt-1 text-sm text-zinc-500">Your documents, images, videos and saved creations.</p>
           </div>
-        ))}
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <div className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-white/[.08] bg-[#111113] px-4 sm:w-72 sm:flex-none">
+              <Search size={16} className="shrink-0 text-zinc-500" />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search your library"
+                aria-label="Search your library"
+                className="min-w-0 flex-1 bg-transparent text-sm text-zinc-200 outline-none placeholder:text-zinc-600"
+              />
+              {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear library search" className="text-zinc-500 hover:text-white"><X size={14} /></button>}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*,.pdf,.doc,.docx,.txt,.md,.csv,.xls,.xlsx,.ppt,.pptx"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.currentTarget.value = '';
+                if (file) void handleUpload(file);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || !user}
+              className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-zinc-100 px-4 text-sm font-semibold text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus size={16} />
+              <span>{uploading ? 'Adding…' : 'Add files'}</span>
+            </button>
+          </div>
+        </div>
 
-        {!loading && !filteredItems.length && (
-          <div className="p-12 text-center text-xs text-zinc-600">
-            {items.length ? 'No library items found matching your filter.' : 'Your library is empty. Upload a file or generate an image to get started.'}
+        {notice && (
+          <div role="alert" className="mb-6 rounded-xl border border-red-400/20 bg-red-400/[.06] px-4 py-3 text-sm text-red-300">
+            {notice}
           </div>
         )}
+
+        <div className="mb-8 flex flex-wrap items-center gap-2">
+          {([
+            ['all', 'All items'],
+            ['images', 'Images'],
+            ['videos', 'Videos'],
+            ['files', 'Files']
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setFilter(value)}
+              aria-pressed={filter === value}
+              className={`rounded-full border px-3.5 py-2 text-xs font-medium transition-colors ${
+                filter === value
+                  ? 'border-white/[.18] bg-white text-black'
+                  : 'border-white/[.08] bg-[#111113] text-zinc-400 hover:bg-[#1b1b1e] hover:text-zinc-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          <span className="ml-auto text-xs text-zinc-600">{filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}</span>
+        </div>
+
+        <section aria-labelledby="library-documents-heading" className="mb-10">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 id="library-documents-heading" className="text-xl font-semibold tracking-tight text-zinc-100">Documents</h2>
+            <span className="text-xs text-zinc-600">{documents.length}</span>
+          </div>
+          {loading ? (
+            <div className="rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-12 text-center text-sm text-zinc-500">Loading your documents…</div>
+          ) : documents.length ? (
+            <div className="divide-y divide-white/[.06] overflow-hidden rounded-2xl border border-white/[.07] bg-[#09090b]">
+              {documents.map((item) => (
+                <div key={item.id} className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-white/[.025] sm:px-5">
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.06] text-zinc-300"><FileText size={19} /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-zinc-200">{item.file_name}</p>
+                    <p className="mt-1 text-[11px] text-zinc-500">{formatSize(item.size_bytes)} · {formatDate(item.created_at)} · {item.source === 'generated' ? 'Created with ZenixMind' : 'Uploaded'}</p>
+                  </div>
+                  <button type="button" onClick={() => void handleOpen(item)} className="rounded-full px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[.07] hover:text-white">Open</button>
+                  <button type="button" onClick={() => void handleDelete(item)} aria-label={`Delete ${item.file_name}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-zinc-600 hover:bg-red-500/10 hover:text-red-300"><Trash2 size={15} /></button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-10 text-center">
+              <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-white/[.08] bg-[#141416] text-zinc-300"><FileText size={23} /></div>
+              <h3 className="text-base font-semibold text-zinc-200">No documents yet</h3>
+              <p className="mt-1 max-w-sm text-sm text-zinc-500">Documents you create or upload will appear here.</p>
+            </div>
+          )}
+        </section>
+
+        <section aria-labelledby="library-media-heading">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 id="library-media-heading" className="text-xl font-semibold tracking-tight text-zinc-100">Media</h2>
+            <span className="text-xs text-zinc-600">{media.length}</span>
+          </div>
+          {loading ? (
+            <div className="rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-12 text-center text-sm text-zinc-500">Loading your media…</div>
+          ) : media.length ? (
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2.5 lg:grid-cols-4">
+              {media.map((item) => (
+                <article key={item.id} className="group relative aspect-square overflow-hidden rounded-lg bg-[#151518]">
+                  <button type="button" onClick={() => void handleOpen(item)} className="absolute inset-0 h-full w-full" aria-label={`Open ${item.file_name}`}>
+                    {item.mime_type?.startsWith('image/') && item.url ? (
+                      <img src={item.url} alt={item.file_name} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                    ) : item.mime_type?.startsWith('video/') && item.url ? (
+                      <video src={item.url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-zinc-500"><ImageIcon size={25} /><span className="max-w-[85%] truncate text-[10px]">{item.file_name}</span></div>
+                    )}
+                  </button>
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2.5 pt-8">
+                    <p className="truncate text-[11px] font-medium text-white">{item.file_name}</p>
+                  </div>
+                  <button type="button" onClick={() => void handleDelete(item)} aria-label={`Delete ${item.file_name}`} className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/65 text-white opacity-100 transition hover:bg-red-500/80 sm:opacity-0 sm:group-hover:opacity-100"><Trash2 size={14} /></button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-10 text-center">
+              <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-white/[.08] bg-[#141416] text-zinc-300"><ImageIcon size={23} /></div>
+              <h3 className="text-base font-semibold text-zinc-200">Your media will appear here</h3>
+              <p className="mt-1 max-w-sm text-sm text-zinc-500">Images and videos you generate or upload are collected in this grid.</p>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
