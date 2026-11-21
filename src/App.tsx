@@ -7,6 +7,7 @@ import { BroadcastBanner } from './components/broadcast-banner';
 import { HomePage } from './pages/HomePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AssistantPage } from './pages/AssistantPage';
+import { SharedConversationPage } from './pages/SharedConversationPage';
 import { VoicePage } from './pages/VoicePage';
 import { PricingPage } from './pages/PricingPage';
 import { LoginPage, SignupPage } from './pages/LoginPage';
@@ -59,6 +60,7 @@ export function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/status" element={<StatusPage />} />
+            <Route path="/share/:token" element={<SharedConversationPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
