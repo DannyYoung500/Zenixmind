@@ -42,7 +42,8 @@ import {
   ChevronDown,
   Zap,
   Star,
-  HardDrive
+  HardDrive,
+  Info
 } from 'lucide-react';
 
 
@@ -873,7 +874,7 @@ function ImagesView() {
   const [generating, setGenerating] = useState(false);
   const [generationNotice, setGenerationNotice] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const [generatedImages, setGeneratedImages] = useState<Array<{ id: string; prompt: string; url: string; title: string }>>([]);
+  const [generatedImages, setGeneratedImages] = useState<Array<{ id: string; prompt: string; url: string; title: string; mimeType?: string }>>([]);
 
   const trendingStyles = [
     {
@@ -1001,9 +1002,32 @@ function ImagesView() {
     }
   ];
 
+  const downloadGeneratedImage = async (img: { url: string; title: string; mimeType?: string }) => {
+    try {
+      const response = await fetch(img.url);
+      if (!response.ok) throw new Error('Could not prepare this image for download.');
+      const blob = await response.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      const extension = img.mimeType?.split('/')[1]?.replace('jpeg', 'jpg').replace(/[^a-z0-9]/gi, '') || 'png';
+      anchor.download = (img.title || 'zenixmind-image').replace(/[^a-z0-9-_]+/gi, '-').slice(0, 48) + '.' + extension;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+    } catch (error: any) {
+      setGenerationNotice(error?.message || 'Image download failed.');
+    }
+  };
+
   const handleGenerate = async (customPrompt?: string) => {
     const textToUse = customPrompt || prompt;
     if (!textToUse.trim() || generating) return;
+    if (!user?.id) {
+      setGenerationNotice('Sign in to generate and save images to your Library.');
+      return;
+    }
     setGenerating(true);
     setGenerationNotice('');
     try {
@@ -1028,12 +1052,13 @@ function ImagesView() {
         id: 'gen-' + Date.now(),
         title: textToUse.slice(0, 30),
         prompt: textToUse.trim(),
-        url: previewUrl
+        url: previewUrl,
+        mimeType
       };
       setGeneratedImages((prev) => [generated, ...prev]);
 
       const extension = mimeType.split('/')[1]?.replace('jpeg', 'jpg').replace(/[^a-z0-9]/gi, '') || 'jpg';
-      const storagePath = user!.id + '/' + crypto.randomUUID() + '-generated.' + extension;
+      const storagePath = user.id + '/' + crypto.randomUUID() + '-generated.' + extension;
       const { error: uploadError } = await getSupabase().storage.from('library')
         .upload(storagePath, blob, { contentType: mimeType, upsert: false });
       if (uploadError) {
@@ -1042,7 +1067,7 @@ function ImagesView() {
       }
 
       const { error: rowError } = await getSupabase().from('library_items').insert({
-        user_id: user!.id,
+        user_id: user.id,
         file_name: generated.title + '.' + extension,
         mime_type: mimeType,
         storage_path: storagePath,
@@ -1177,8 +1202,11 @@ function ImagesView() {
               {generatedImages.map((img) => (
                 <div key={img.id} className="group relative rounded-2xl overflow-hidden aspect-square border border-white/[.1] bg-[#121215]">
                   <img src={img.url} alt={img.prompt} className="h-full w-full object-cover group-hover:opacity-95 transition-opacity duration-200" />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-2.5">
-                    <p className="truncate text-xs font-medium text-white">{img.prompt}</p>
+                  <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-2.5">
+                    <p className="min-w-0 truncate text-xs font-medium text-white">{img.prompt}</p>
+                    <button type="button" onClick={() => void downloadGeneratedImage(img)} aria-label="Download generated image" title="Download image" className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/15 bg-black/70 text-white hover:bg-white hover:text-black">
+                      <Download size={14} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -1365,10 +1393,10 @@ function LibraryView() {
     } catch (error: any) { setNotice(error?.message || 'Could not permanently delete this file.'); }
   };
 
-  const getSignedUrl = async (item: LibraryItem, expiresIn: number, allowDownload = false) => {
+  const getSignedUrl = async (item: LibraryItem, expiresIn: number, downloadName: boolean | string = false) => {
     if (!item.storage_path) throw new Error('This item has no stored file.');
     const { data, error } = await getSupabase().storage.from('library')
-      .createSignedUrl(item.storage_path, expiresIn, allowDownload ? { download: true } : undefined);
+      .createSignedUrl(item.storage_path, expiresIn, downloadName ? { download: downloadName } : undefined);
     if (error || !data?.signedUrl) throw new Error(error?.message || 'Could not create a secure link.');
     return data.signedUrl;
   };
@@ -1380,6 +1408,21 @@ function LibraryView() {
       if (canPreview) setPreviewItem({ ...item, url });
       else window.open(url, '_blank', 'noopener,noreferrer');
     } catch (error: any) { setNotice(error?.message || 'Could not open this file.'); }
+  };
+
+  const handleDownload = async (item: LibraryItem) => {
+    try {
+      const url = await getSignedUrl(item, 60 * 10, item.file_name);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = item.file_name;
+      anchor.rel = 'noopener noreferrer';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } catch (error: any) {
+      setNotice(error?.message || 'Could not download this file.');
+    }
   };
 
   const handleShare = async (item: LibraryItem, expiresIn = 60 * 60 * 24 * 7, allowDownload = false) => {
@@ -1429,6 +1472,7 @@ function LibraryView() {
     <div className="flex shrink-0 items-center gap-1">
       {!inTrash && <button type="button" onClick={() => void updateItem(item, { is_favorite: !item.is_favorite })} aria-label={item.is_favorite ? 'Remove favorite' : 'Add favorite'} title={item.is_favorite ? 'Remove favorite' : 'Add favorite'} className={`grid h-9 w-9 place-items-center rounded-full hover:bg-white/[.07] ${item.is_favorite ? 'text-amber-300' : 'text-zinc-500 hover:text-white'}`}><Star size={15} fill={item.is_favorite ? 'currentColor' : 'none'} /></button>}
       {!inTrash && <button type="button" onClick={() => void handleShare(item)} aria-label="Share file" title="Share for 7 days" className="grid h-9 w-9 place-items-center rounded-full text-zinc-500 hover:bg-white/[.07] hover:text-white"><Share2 size={15} /></button>}
+      {!inTrash && <button type="button" onClick={() => void handleDownload(item)} aria-label="Download file" title="Download file" className="grid h-9 w-9 place-items-center rounded-full text-zinc-500 hover:bg-white/[.07] hover:text-white"><Download size={15} /></button>}
       <button type="button" onClick={() => setSelectedItem(item)} aria-label="File details" title="File details" className="grid h-9 w-9 place-items-center rounded-full text-zinc-500 hover:bg-white/[.07] hover:text-white"><Info size={15} /></button>
       {inTrash ? (
         <>
@@ -1479,13 +1523,13 @@ function LibraryView() {
             </section>
             <section aria-labelledby="library-media-heading">
               <div className="mb-4 flex items-center justify-between"><h2 id="library-media-heading" className="text-xl font-semibold tracking-tight text-zinc-100">Media</h2><span className="text-xs text-zinc-600">{media.length}</span></div>
-              {media.length ? <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5 lg:grid-cols-4">{media.map((item) => <article key={item.id} className="group relative aspect-square overflow-hidden rounded-lg bg-[#151518]"><button type="button" onClick={() => void handleOpen(item)} className="absolute inset-0 h-full w-full" aria-label={`Preview ${item.file_name}`}>{item.mime_type?.startsWith('image/') && item.url ? <img src={item.url} alt={item.file_name} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"/> : item.mime_type?.startsWith('video/') && item.url ? <video src={item.url} className="h-full w-full object-cover" muted playsInline preload="metadata"/> : <div className="flex h-full w-full items-center justify-center text-zinc-500"><ImageIcon size={25}/></div>}</button><div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2.5 pt-8"><p className="truncate text-[11px] font-medium text-white">{item.file_name}</p></div><div className="absolute right-1 top-1 flex gap-1"><button type="button" onClick={() => void updateItem(item,{is_favorite:!item.is_favorite})} aria-label="Toggle favorite" className="grid h-8 w-8 place-items-center rounded-full bg-black/65 text-white"><Star size={14} fill={item.is_favorite ? 'currentColor' : 'none'} className={item.is_favorite ? 'text-amber-300' : ''}/></button><button type="button" onClick={() => setSelectedItem(item)} aria-label="File details" className="grid h-8 w-8 place-items-center rounded-full bg-black/65 text-white"><Info size={14}/></button></div></article>)}</div> : <div className="flex min-h-[170px] flex-col items-center justify-center rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-10 text-center"><ImageIcon size={24} className="mb-3 text-zinc-500"/><h3 className="text-base font-semibold text-zinc-200">Your media will appear here</h3><p className="mt-1 text-sm text-zinc-500">Images and videos you generate or upload are collected here.</p></div>}
+              {media.length ? <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5 lg:grid-cols-4">{media.map((item) => <article key={item.id} className="group relative aspect-square overflow-hidden rounded-lg bg-[#151518]"><button type="button" onClick={() => void handleOpen(item)} className="absolute inset-0 h-full w-full" aria-label={`Preview ${item.file_name}`}>{item.mime_type?.startsWith('image/') && item.url ? <img src={item.url} alt={item.file_name} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"/> : item.mime_type?.startsWith('video/') && item.url ? <video src={item.url} className="h-full w-full object-cover" muted playsInline preload="metadata"/> : <div className="flex h-full w-full items-center justify-center text-zinc-500"><ImageIcon size={25}/></div>}</button><div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2.5 pt-8"><p className="truncate text-[11px] font-medium text-white">{item.file_name}</p></div><div className="absolute right-1 top-1 flex gap-1"><button type="button" onClick={() => void updateItem(item,{is_favorite:!item.is_favorite})} aria-label="Toggle favorite" className="grid h-8 w-8 place-items-center rounded-full bg-black/65 text-white"><Star size={14} fill={item.is_favorite ? 'currentColor' : 'none'} className={item.is_favorite ? 'text-amber-300' : ''}/></button><button type="button" onClick={() => setSelectedItem(item)} aria-label="File details" className="grid h-8 w-8 place-items-center rounded-full bg-black/65 text-white"><Info size={14}/></button><button type="button" onClick={() => void handleDownload(item)} aria-label="Download media" title="Download" className="grid h-8 w-8 place-items-center rounded-full bg-black/65 text-white"><Download size={14}/></button></div></article>)}</div> : <div className="flex min-h-[170px] flex-col items-center justify-center rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-10 text-center"><ImageIcon size={24} className="mb-3 text-zinc-500"/><h3 className="text-base font-semibold text-zinc-200">Your media will appear here</h3><p className="mt-1 text-sm text-zinc-500">Images and videos you generate or upload are collected here.</p></div>}
             </section>
           </>
         )}
       </div>
 
-      {selectedItem && <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setSelectedItem(null)}><section role="dialog" aria-modal="true" aria-label="File details" className="w-full max-w-md rounded-t-2xl border border-white/[.1] bg-[#111113] p-5 sm:rounded-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold text-white">File details</h2><button type="button" onClick={() => setSelectedItem(null)} aria-label="Close details" className="rounded-full p-2 text-zinc-400 hover:bg-white/[.08]"><X size={17}/></button></div><p className="break-all text-sm font-medium text-zinc-100">{selectedItem.file_name}</p><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-zinc-500">File type</dt><dd className="text-right text-zinc-200">{selectedItem.mime_type || 'Unknown'}</dd></div><div className="flex justify-between gap-4"><dt className="text-zinc-500">Size</dt><dd className="text-zinc-200">{formatSize(selectedItem.size_bytes)}</dd></div><div className="flex justify-between gap-4"><dt className="text-zinc-500">Added</dt><dd className="text-zinc-200">{formatDate(selectedItem.created_at)}</dd></div><div className="flex justify-between gap-4"><dt className="text-zinc-500">Source</dt><dd className="text-zinc-200">{selectedItem.source === 'generated' ? 'Generated by ZenixMind' : 'Uploaded'}</dd></div><div className="flex justify-between gap-4"><dt className="text-zinc-500">Favorite</dt><dd className="text-zinc-200">{selectedItem.is_favorite ? 'Yes' : 'No'}</dd></div></dl>{selectedItem.prompt && <div className="mt-4 rounded-xl bg-black/40 p-3"><p className="mb-1 text-xs text-zinc-500">Generation prompt</p><p className="text-sm text-zinc-300">{selectedItem.prompt}</p></div>}<div className="mt-5 grid grid-cols-2 gap-2"><button type="button" onClick={() => void handleOpen(selectedItem)} className="rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black">Preview</button><button type="button" onClick={() => void handleShare(selectedItem, 60 * 60, false)} className="rounded-full border border-white/[.12] px-3 py-2.5 text-xs font-medium text-white">View · 1 hour</button><button type="button" onClick={() => void handleShare(selectedItem, 60 * 60 * 24 * 7, false)} className="rounded-full border border-white/[.12] px-3 py-2.5 text-xs font-medium text-white">View · 7 days</button><button type="button" onClick={() => void handleShare(selectedItem, 60 * 60 * 24 * 7, true)} className="rounded-full border border-white/[.12] px-3 py-2.5 text-xs font-medium text-white">Download · 7 days</button></div></section></div>}
+      {selectedItem && <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setSelectedItem(null)}><section role="dialog" aria-modal="true" aria-label="File details" className="w-full max-w-md rounded-t-2xl border border-white/[.1] bg-[#111113] p-5 sm:rounded-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold text-white">File details</h2><button type="button" onClick={() => setSelectedItem(null)} aria-label="Close details" className="rounded-full p-2 text-zinc-400 hover:bg-white/[.08]"><X size={17}/></button></div><p className="break-all text-sm font-medium text-zinc-100">{selectedItem.file_name}</p><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-zinc-500">File type</dt><dd className="text-right text-zinc-200">{selectedItem.mime_type || 'Unknown'}</dd></div><div className="flex justify-between gap-4"><dt className="text-zinc-500">Size</dt><dd className="text-zinc-200">{formatSize(selectedItem.size_bytes)}</dd></div><div className="flex justify-between gap-4"><dt className="text-zinc-500">Added</dt><dd className="text-zinc-200">{formatDate(selectedItem.created_at)}</dd></div><div className="flex justify-between gap-4"><dt className="text-zinc-500">Source</dt><dd className="text-zinc-200">{selectedItem.source === 'generated' ? 'Generated by ZenixMind' : 'Uploaded'}</dd></div><div className="flex justify-between gap-4"><dt className="text-zinc-500">Favorite</dt><dd className="text-zinc-200">{selectedItem.is_favorite ? 'Yes' : 'No'}</dd></div></dl>{selectedItem.prompt && <div className="mt-4 rounded-xl bg-black/40 p-3"><p className="mb-1 text-xs text-zinc-500">Generation prompt</p><p className="text-sm text-zinc-300">{selectedItem.prompt}</p></div>}<div className="mt-5 grid grid-cols-2 gap-2"><button type="button" onClick={() => void handleOpen(selectedItem)} className="rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black">Preview</button><button type="button" onClick={() => void handleDownload(selectedItem)} className="rounded-full border border-white/[.12] px-3 py-2.5 text-xs font-medium text-white">Download now</button><button type="button" onClick={() => void handleShare(selectedItem, 60 * 60, false)} className="rounded-full border border-white/[.12] px-3 py-2.5 text-xs font-medium text-white">View · 1 hour</button><button type="button" onClick={() => void handleShare(selectedItem, 60 * 60 * 24 * 7, false)} className="rounded-full border border-white/[.12] px-3 py-2.5 text-xs font-medium text-white">View · 7 days</button><button type="button" onClick={() => void handleShare(selectedItem, 60 * 60 * 24 * 7, true)} className="rounded-full border border-white/[.12] px-3 py-2.5 text-xs font-medium text-white">Download · 7 days</button></div></section></div>}
 
       {previewItem && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90 p-3 sm:p-6" onClick={() => setPreviewItem(null)}><section role="dialog" aria-modal="true" aria-label={`Preview ${previewItem.file_name}`} className="flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/[.1] bg-[#101012]" onClick={(event) => event.stopPropagation()}><header className="flex items-center justify-between gap-3 border-b border-white/[.08] px-4 py-3"><p className="truncate text-sm font-medium text-zinc-200">{previewItem.file_name}</p><button type="button" onClick={() => setPreviewItem(null)} aria-label="Close preview" className="rounded-full p-2 text-zinc-400 hover:bg-white/[.08]"><X size={18}/></button></header><div className="flex min-h-0 flex-1 items-center justify-center bg-black p-2">{previewItem.mime_type?.startsWith('image/') ? <img src={previewItem.url} alt={previewItem.file_name} className="max-h-full max-w-full object-contain"/> : previewItem.mime_type?.startsWith('video/') ? <video src={previewItem.url} controls autoPlay className="max-h-full max-w-full"/> : <iframe title={previewItem.file_name} src={previewItem.url} className="h-full w-full rounded-lg bg-white"/>}</div></section></div>}
     </div>
@@ -1718,16 +1762,10 @@ export function AssistantPage() {
   const urlConvId = searchParams.get('conversation');
   const urlQuery = searchParams.get('q');
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior, block: 'end' });
-    }
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTo({
-        top: chatScrollRef.current.scrollHeight,
-        behavior
-      });
-    }
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const container = chatScrollRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior });
   }, []);
 
   const handleScroll = useCallback(() => {
@@ -1745,7 +1783,7 @@ export function AssistantPage() {
     if (!container) return;
 
     const observer = new ResizeObserver(() => {
-      if (isAtBottomRef.current || isStreaming || busy) {
+      if (isAtBottomRef.current) {
         scrollToBottom('auto');
       }
     });
@@ -1868,20 +1906,38 @@ export function AssistantPage() {
         if (d.conversation?.model) {
           handleModelChange(d.conversation.model);
         }
-        setMessages(
+        const restoredMessages = await Promise.all(
           (d.messages || [])
             .filter((m: Message) => m.role === 'user' || m.role === 'assistant')
-            .map((m: Message) => ({
-              role: m.role,
-              content: m.content,
-              model_used: m.model_used,
-              sources: m.sources,
-              liked: m.liked,
-              disliked: m.disliked,
-              reactions: m.reactions,
-              userReactions: m.userReactions
-            }))
+            .map(async (m: Message) => {
+              let content = m.content;
+              const mediaPath = content.match(/zenix-(?:storage|download):\/\/([^\s)]+)/)?.[1];
+              if (mediaPath && user?.id && mediaPath.startsWith(user.id + '/')) {
+                const [imageResult, downloadResult] = await Promise.all([
+                  getSupabase().storage.from('library').createSignedUrl(mediaPath, 60 * 60),
+                  getSupabase().storage.from('library').createSignedUrl(mediaPath, 60 * 60, { download: true })
+                ]);
+                if (imageResult.data?.signedUrl && downloadResult.data?.signedUrl) {
+                  content = content
+                    .replace(/zenix-storage:\/\/[^\s)]+/, imageResult.data.signedUrl)
+                    .replace(/zenix-download:\/\/[^\s)]+/, downloadResult.data.signedUrl);
+                } else {
+                  content = 'This generated image is still in your Library, but its preview link could not be refreshed. Open Library to access it.';
+                }
+              }
+              return {
+                role: m.role,
+                content,
+                model_used: m.model_used,
+                sources: m.sources,
+                liked: m.liked,
+                disliked: m.disliked,
+                reactions: m.reactions,
+                userReactions: m.userReactions
+              };
+            })
         );
+        setMessages(restoredMessages);
         if (chatScrollRef.current) {
           chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
         }
@@ -1908,10 +1964,10 @@ export function AssistantPage() {
   }, [urlConvId, searchParams, loadEmptyGreeting]);
 
   useEffect(() => {
-    if (isAtBottomRef.current || isStreaming || busy) {
-      scrollToBottom('smooth');
+    if (isAtBottomRef.current) {
+      scrollToBottom('auto');
     }
-  }, [messages, busy, isStreaming, scrollToBottom]);
+  }, [messages, scrollToBottom]);
 
   const handleUpdateMessageReaction = (index: number, updates: Partial<Message>) => {
     setMessages((prev) =>
@@ -1958,6 +2014,90 @@ export function AssistantPage() {
   const handleSend = async (overridePrompt?: string, voiceMode = false): Promise<string | undefined> => {
     const text = overridePrompt || input.trim();
     if (!text || busy || isStreaming) return;
+
+    const imageIntent = text.match(/^\s*(?:please\s+)?(?:create|generate|draw|make|design)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|illustration|artwork)\s*(?:of|showing|with|:)?\s+([\s\S]+)$/i);
+    if (imageIntent?.[1]?.trim()) {
+      if (!user?.id) {
+        setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'Sign in to generate images and save them to your ZenixMind Library.' }]);
+        return;
+      }
+      const imagePrompt = imageIntent[1].trim();
+      setInput('');
+      setBusy(true);
+      setIsStreaming(true);
+      setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'Creating your image…', isStreaming: true }]);
+      try {
+        const supabase = getSupabase();
+        let activeConversationId = conversationId;
+        if (activeConversationId) {
+          const { data: existingConversation, error: conversationError } = await supabase.from('conversations')
+            .select('id').eq('id', activeConversationId).eq('user_id', user.id).maybeSingle();
+          if (conversationError || !existingConversation) throw new Error('This conversation could not be verified. Start a new chat and try again.');
+        } else {
+          const { data: createdConversation, error: createError } = await supabase.from('conversations')
+            .insert({ user_id: user.id, title: imagePrompt.slice(0, 64), model: selectedModel }).select('id').single();
+          if (createError || !createdConversation) throw new Error('Could not create a conversation for this image.');
+          activeConversationId = createdConversation.id;
+          setConversationId(activeConversationId);
+        }
+        if (!activeConversationId) throw new Error('Could not prepare this conversation for the generated image.');
+        const response = await chatApiFetch('/api/generate-image', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: imagePrompt, model: 'zimage', width: 1024, height: 1024 })
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.error || 'Image generation failed. Please try again.');
+        }
+        const blob = await response.blob();
+        const mimeType = blob.type || 'image/jpeg';
+        if (!mimeType.startsWith('image/') || !blob.size || blob.size > 15 * 1024 * 1024) throw new Error('The image provider returned an invalid image.');
+        const extension = mimeType.split('/')[1]?.replace('jpeg', 'jpg').replace(/[^a-z0-9]/gi, '') || 'jpg';
+        const storagePath = user.id + '/' + crypto.randomUUID() + '-chat-image.' + extension;
+        const { error: uploadError } = await supabase.storage.from('library').upload(storagePath, blob, { contentType: mimeType, upsert: false });
+        if (uploadError) throw new Error('Image created but could not be saved to your Library: ' + uploadError.message);
+        const fileName = 'ZenixMind image.' + extension;
+        const { error: libraryError } = await supabase.from('library_items').insert({
+          user_id: user.id, file_name: fileName, mime_type: mimeType, storage_path: storagePath,
+          size_bytes: blob.size, source: 'generated', prompt: imagePrompt
+        });
+        if (libraryError) {
+          await supabase.storage.from('library').remove([storagePath]);
+          throw new Error('Image could not be added to your Library: ' + libraryError.message);
+        }
+        const [{ data: imageLink, error: imageLinkError }, { data: downloadLink, error: downloadLinkError }] = await Promise.all([
+          supabase.storage.from('library').createSignedUrl(storagePath, 60 * 60 * 24 * 7),
+          supabase.storage.from('library').createSignedUrl(storagePath, 60 * 60 * 24 * 7, { download: fileName })
+        ]);
+        if (imageLinkError || downloadLinkError || !imageLink?.signedUrl || !downloadLink?.signedUrl) throw new Error('Image saved to your Library, but its chat links could not be created.');
+        const assistantContent = '![Generated image](' + imageLink.signedUrl + ')\n\n[Download image](' + downloadLink.signedUrl + ')';
+        const persistedContent = '![Generated image](zenix-storage://' + storagePath + ')\n\n[Download image](zenix-download://' + storagePath + ')';
+        const { error: messagesError } = await supabase.from('messages').insert([
+          { conversation_id: activeConversationId, user_id: user.id, role: 'user', content: text },
+          { conversation_id: activeConversationId, user_id: user.id, role: 'assistant', content: persistedContent }
+        ]);
+        if (messagesError) throw new Error('Image saved to your Library, but this chat could not be saved.');
+        setSearchParams((previous) => {
+          const next = new URLSearchParams(previous);
+          next.set('conversation', activeConversationId!);
+          return next;
+        });
+        await supabase.from('conversations').update({ updated_at: new Date().toISOString(), model: selectedModel })
+          .eq('id', activeConversationId).eq('user_id', user.id);
+        setMessages((previous) => previous.map((message, index) =>
+          index === previous.length - 1 ? { role: 'assistant', content: assistantContent } : message
+        ));
+        void loadConversations();
+      } catch (error: any) {
+        setMessages((previous) => previous.map((message, index) =>
+          index === previous.length - 1 ? { role: 'assistant', content: error?.message || 'Image generation failed. Please try again.' } : message
+        ));
+      } finally {
+        setBusy(false);
+        setIsStreaming(false);
+      }
+      return;
+    }
 
     let fullPrompt = text;
     let attachmentPayload: any = null;

@@ -173,8 +173,9 @@ export function MessageRenderer({ content, className = '' }: MessageRendererProp
   // Parse content into blocks: Code Blocks (```), Display LaTeX ($$...$$), and Paragraphs
   const blocks = useMemo(() => {
     const result: Array<{
-      type: 'code' | 'display-math' | 'heading' | 'list' | 'table' | 'quote' | 'paragraph';
+      type: 'code' | 'display-math' | 'heading' | 'list' | 'table' | 'quote' | 'paragraph' | 'image' | 'link';
       content: string;
+      url?: string;
       language?: string;
       level?: number;
       items?: string[];
@@ -190,6 +191,17 @@ export function MessageRenderer({ content, className = '' }: MessageRendererProp
       for (const p of paragraphs) {
         const trimmed = p.trim();
         if (!trimmed) continue;
+
+        const imageMatch = trimmed.match(/^!\[([^\]]*)\]\((https:\/\/[^\s)]+)\)$/);
+        if (imageMatch) {
+          result.push({ type: 'image', content: imageMatch[1] || 'Generated image', url: imageMatch[2] });
+          continue;
+        }
+        const linkMatch = trimmed.match(/^\[([^\]]+)\]\((https:\/\/[^\s)]+)\)$/);
+        if (linkMatch) {
+          result.push({ type: 'link', content: linkMatch[1], url: linkMatch[2] });
+          continue;
+        }
 
         // Headings
         if (trimmed.startsWith('### ')) {
@@ -242,6 +254,12 @@ export function MessageRenderer({ content, className = '' }: MessageRendererProp
   return (
     <div className={`space-y-2.5 leading-relaxed text-zinc-300 font-light ${className}`}>
       {blocks.map((block, idx) => {
+        if (block.type === 'image' && block.url) {
+          return <figure key={idx} className="my-3 overflow-hidden rounded-2xl border border-white/[.08] bg-[#09090c]"><img src={block.url} alt={block.content} loading="lazy" className="block max-h-[560px] w-full object-contain" /><figcaption className="border-t border-white/[.06] px-3 py-2 text-[11px] text-zinc-500">{block.content}</figcaption></figure>;
+        }
+        if (block.type === 'link' && block.url) {
+          return <p key={idx} className="text-xs"><a href={block.url} target="_blank" rel="noopener noreferrer" download className="inline-flex items-center gap-2 rounded-full border border-white/[.12] bg-white/[.04] px-3 py-2 font-medium text-zinc-200 hover:bg-white/[.1]">{block.content}</a></p>;
+        }
         if (block.type === 'code') {
           return <CodeBlock key={idx} code={block.content} language={block.language || 'code'} />;
         }

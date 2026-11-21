@@ -48,3 +48,41 @@ test('image generation reports provider errors in the page instead of blocking b
   const imageHandler = assistantPage.slice(assistantPage.indexOf('const handleGenerate = async'), assistantPage.indexOf('const handleDictate ='));
   assert.doesNotMatch(imageHandler, /window\.alert/);
 });
+
+
+const assistantSource = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+const rendererSource = readFileSync(fileURLToPath(new URL('../src/components/message-renderer.tsx', import.meta.url)), 'utf8');
+const workspaceSource = readFileSync(fileURLToPath(new URL('../src/components/workspace-shell.tsx', import.meta.url)), 'utf8');
+
+test('chat image creation is explicit, authenticated, and saved to the private library and conversation', () => {
+  assert.match(assistantSource, /const imageIntent = text\.match/);
+  assert.match(assistantSource, /if \(!user\?\.id\)/);
+  assert.match(assistantSource, /\/api\/generate-image/);
+  assert.match(assistantSource, /storage\.from\('library'\)\.upload/);
+  assert.match(assistantSource, /from\('library_items'\)\.insert/);
+  assert.match(assistantSource, /from\('messages'\)\.insert/);
+});
+
+test('chat media renderer displays generated images and download links', () => {
+  assert.match(rendererSource, /\| 'image' \| 'link'/);
+  assert.match(rendererSource, /<img src=\{block\.url\}/);
+  assert.match(rendererSource, /download className/);
+});
+
+test('chat scroll remains inside its own panel and never forces scrolling while busy', () => {
+  assert.match(assistantSource, /container\.scrollTo\(\{ top: container\.scrollHeight, behavior \}\)/);
+  assert.doesNotMatch(assistantSource, /scrollIntoView\(\{ behavior/);
+  assert.doesNotMatch(assistantSource, /isAtBottomRef\.current \|\| isStreaming \|\| busy/);
+});
+
+test('workspace layout uses a single dynamic viewport with nested flex constraints', () => {
+  assert.match(workspaceSource, /h-\[100dvh\] overflow-hidden/);
+  assert.match(workspaceSource, /flex min-h-0 flex-1 flex-col overflow-hidden/);
+});
+
+
+test('chat image messages persist a private storage reference and refresh signed links on history load', () => {
+  assert.match(assistantSource, /zenix-storage:\/\//);
+  assert.match(assistantSource, /zenix-download:\/\//);
+  assert.match(assistantSource, /createSignedUrl\(mediaPath, 60 \* 60/);
+});
