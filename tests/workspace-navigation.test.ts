@@ -35,3 +35,17 @@ test('workspace shell does not expose project creation or project navigation', (
   assert.doesNotMatch(workspaceShell, /\.from\(['"]projects['"]\)|showAddProjectModal|handleAddProject/);
   assert.doesNotMatch(workspaceShell, /\/\* Projects Section \*\//);
 });
+
+test('assistant message reactions use restrained selected states', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  assert.match(assistantPage, /liked \? 'bg-white\/\[\.08\] text-white border border-white\/\[\.12\]'/);
+  assert.match(assistantPage, /disliked \? 'bg-rose-500\/\[\.08\] text-rose-300 border border-rose-400\/20'/);
+});
+
+test('chat dictation microphone has a clear neutral idle state and accessible listening state', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  assert.match(assistantPage, /bg-\[#151518\] border border-white\/\[\.1\] text-zinc-300 hover:bg-\[#202024\] hover:text-white/);
+  assert.match(assistantPage, /bg-rose-500\/\[\.12\] border border-rose-400\/30 text-rose-300/);
+});
