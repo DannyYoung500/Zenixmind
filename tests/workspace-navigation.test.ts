@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { WORKSPACE_NAVIGATION } from '../src/lib/workspace-navigation.ts';
 
 test('workspace navigation contains only the four primary product destinations', () => {
@@ -17,4 +19,11 @@ test('workspace navigation contains only the four primary product destinations',
 test('primary navigation has no decorative badges or coming-soon labels', () => {
   assert.equal(WORKSPACE_NAVIGATION.some((item) => 'badge' in item), false);
   assert.equal(WORKSPACE_NAVIGATION.some((item) => /coming soon|beta|superuser/i.test(item.label)), false);
+});
+
+test('profile menu does not expose the Voice Assistant destination', () => {
+  const workspaceShellPath = fileURLToPath(new URL('../src/components/workspace-shell.tsx', import.meta.url));
+  const workspaceShell = readFileSync(workspaceShellPath, 'utf8');
+  assert.doesNotMatch(workspaceShell, /to=["']\/assistant\/voice["']/);
+  assert.doesNotMatch(workspaceShell, />\s*Voice Assistant\s*</);
 });

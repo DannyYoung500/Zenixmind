@@ -26,7 +26,6 @@ import {
   Edit2,
   FolderPlus,
   Shield,
-  VenetianMask,
   Workflow,
  } from 'lucide-react';
 
@@ -772,15 +771,6 @@ export function WorkspaceShell({
                     <Settings size={14} className="text-zinc-400" />
                     <span>Preferences & Memory</span>
                   </button>
-
-                  <Link
-                    to="/assistant/voice"
-                    onClick={() => setShowProfileMenu(false)}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-zinc-300 hover:bg-[#1c1c1f]"
-                  >
-                    <VenetianMask size={14} className="text-amber-400" />
-                    <span>Voice Assistant</span>
-                  </Link>
 
                   <Link
                     to="/pricing"
