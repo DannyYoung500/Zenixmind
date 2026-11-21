@@ -80,7 +80,7 @@ function getOrCreateClientSessionId(): string {
 
 async function postSessionHeartbeat(accessToken: string) {
   try {
-    await fetch('/api/session/heartbeat', {
+    const response = await fetch('/api/session/heartbeat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -88,6 +88,12 @@ async function postSessionHeartbeat(accessToken: string) {
       },
       body: JSON.stringify({ clientSessionId: getOrCreateClientSessionId() })
     });
+    if (response.status === 403) {
+      const result = await response.json().catch(() => ({}));
+      if (result.code === 'SESSION_REVOKED') {
+        await getSupabase().auth.signOut();
+      }
+    }
   } catch {
     // Non-blocking
   }
