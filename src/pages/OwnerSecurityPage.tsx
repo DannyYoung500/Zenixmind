@@ -48,28 +48,6 @@ function relTime(iso?: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-function mergeSessions(primary: SessionRow[], heartbeat: SessionRow[]): SessionRow[] {
-  const map = new Map<string, SessionRow>();
-  for (const s of primary) {
-    map.set(s.id, { ...s, source: s.source || 'monitor' });
-  }
-  for (const s of heartbeat) {
-    if (!map.has(s.id)) {
-      map.set(s.id, { ...s, source: 'heartbeat' });
-    } else {
-      const existing = map.get(s.id)!;
-      const a = new Date(existing.lastActiveAt || existing.startedAt || 0).getTime();
-      const b = new Date(s.lastActiveAt || s.startedAt || 0).getTime();
-      if (b > a) map.set(s.id, { ...existing, ...s, source: existing.source });
-    }
-  }
-  return Array.from(map.values()).sort((a, b) => {
-    const ta = new Date(a.lastActiveAt || a.startedAt || 0).getTime();
-    const tb = new Date(b.lastActiveAt || b.startedAt || 0).getTime();
-    return tb - ta;
-  });
-}
-
 export function OwnerSecurityPage() {
   const { user, loading } = useAuth();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
@@ -88,37 +66,21 @@ export function OwnerSecurityPage() {
     setError(null);
     try {
       const token = await withToken();
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-      const [monitorRes, heartbeatRes] = await Promise.all([
-        fetch('/api/admin/security/monitor', { headers }),
-        fetch('/api/admin/sessions', { headers })
-      ]);
-
-      let primary: SessionRow[] = [];
-      let heartbeat: SessionRow[] = [];
-
-      if (monitorRes.ok) {
-        const data = await monitorRes.json();
-        primary = Array.isArray(data.sessions) ? data.sessions : Array.isArray(data) ? data : [];
-      } else if (monitorRes.status === 401 || monitorRes.status === 403) {
+      const response = await fetch('/api/admin/sessions', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        cache: 'no-store'
+      });
+      if (response.status === 401 || response.status === 403) {
         setError('Owner session required.');
         setSessions([]);
         return;
       }
-
-      if (heartbeatRes.ok) {
-        const data = await heartbeatRes.json();
-        heartbeat = Array.isArray(data.sessions) ? data.sessions : [];
-      }
-
-      setSessions(mergeSessions(primary, heartbeat));
+      if (!response.ok) throw new Error(`Could not load sessions (${response.status}).`);
+      const data = await response.json();
+      setSessions(Array.isArray(data.sessions) ? data.sessions : []);
       setLastRefreshAt(new Date().toISOString());
-      if (!monitorRes.ok && !heartbeatRes.ok) {
-        setError(`Could not load sessions (${monitorRes.status})`);
-      }
-    } catch {
-      setError('Could not reach security monitor.');
+    } catch (error: any) {
+      setError(error?.message || 'Could not reach the security session ledger.');
     } finally {
       setBusy(false);
     }
@@ -137,7 +99,7 @@ export function OwnerSecurityPage() {
     setError(null);
     try {
       const token = await withToken();
-      const res = await fetch('/api/admin/security/sessions/revoke', {
+      const res = await fetch('/api/admin/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,7 +129,7 @@ export function OwnerSecurityPage() {
     setMessage(null);
     try {
       const token = await withToken();
-      const res = await fetch('/api/admin/security/sessions/revoke', {
+      const res = await fetch('/api/admin/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -216,7 +178,7 @@ export function OwnerSecurityPage() {
             <div>
               <h1 className="text-sm font-bold text-white">Active sessions & risk</h1>
               <p className="text-xs text-zinc-400 mt-0.5">
-                Merged ledger: security monitor + login heartbeat sessions.
+                Persistent Supabase session ledger.
               </p>
             </div>
           </div>
