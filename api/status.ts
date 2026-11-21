@@ -11,9 +11,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   checks.push({ name: 'service', ok: true, detail: 'ZenixMind' });
 
   checks.push({
-    name: 'gemini',
-    ok: Boolean(process.env.GEMINI_API_KEY),
-    detail: process.env.GEMINI_API_KEY ? 'configured' : 'GEMINI_API_KEY missing'
+    name: 'groq',
+    ok: Boolean(process.env.GROQ_API_KEY?.trim()),
+    detail: process.env.GROQ_API_KEY?.trim() ? 'configured' : 'GROQ_API_KEY missing'
   });
 
   checks.push({
