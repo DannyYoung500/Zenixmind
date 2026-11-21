@@ -405,7 +405,7 @@ export const CompactFloatingComposer = React.forwardRef<
       )}
 
       {/* Main Composer Box */}
-      <div className="relative rounded-[28px] border border-white/[.1] bg-[#18181b] p-3 sm:p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.7)] transition-all focus-within:border-white/[.2]">
+      <div className="relative rounded-[28px] border border-white/[.1] bg-[#18181b] p-3 sm:p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.7)] transition-colors focus-within:border-white/[.2]">
         {/* Hidden File Input */}
         <input
           ref={fileInputRef}
@@ -425,7 +425,7 @@ export const CompactFloatingComposer = React.forwardRef<
           onKeyDown={handleKeyDown}
           rows={Math.min(5, Math.max(1, value.split('\n').length))}
           placeholder="Ask anything"
-          className="w-full resize-none bg-transparent px-2 sm:px-3 pt-1 text-sm sm:text-base text-zinc-100 outline-none placeholder:text-zinc-400/90 max-h-36 font-normal tracking-[-0.01em]"
+          className="w-full resize-none bg-transparent px-2 sm:px-3 pt-1 text-base text-zinc-100 outline-none placeholder:text-zinc-400/90 max-h-36 font-normal tracking-[-0.01em]"
         />
 
         {/* Bottom Actions Row */}
@@ -1005,59 +1005,52 @@ function ImagesView() {
     if (!textToUse.trim() || generating) return;
     setGenerating(true);
     try {
-      const response = await fetch('/api/generate-image', {
+      const response = await chatApiFetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: textToUse.trim() })
+        body: JSON.stringify({ prompt: textToUse.trim(), model: 'zimage', width: 1024, height: 1024 })
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload.error || 'Image generation failed. Please try again.');
       }
-      const data = await response.json();
-      if (!data.imageUrl || typeof data.imageUrl !== 'string') {
-        throw new Error('The image provider did not return an image URL.');
+
+      const blob = await response.blob();
+      const mimeType = blob.type || 'image/jpeg';
+      if (!mimeType.startsWith('image/') || !blob.size) {
+        throw new Error('The image provider returned an invalid image.');
       }
 
+      const previewUrl = URL.createObjectURL(blob);
       const generated = {
         id: 'gen-' + Date.now(),
         title: textToUse.slice(0, 30),
         prompt: textToUse.trim(),
-        url: data.imageUrl
+        url: previewUrl
       };
       setGeneratedImages((prev) => [generated, ...prev]);
 
-      // Persist the actual generated asset in the user's private Library.
-      if (user?.id) {
-        try {
-          const imageResponse = await fetch(data.imageUrl);
-          if (!imageResponse.ok) throw new Error('Could not retrieve generated image bytes.');
-          const blob = await imageResponse.blob();
-          const mimeType = blob.type || 'image/png';
-          if (!mimeType.startsWith('image/')) throw new Error('The generated result is not an image file.');
-          const extension = mimeType.split('/')[1]?.replace('jpeg', 'jpg').replace(/[^a-z0-9]/gi, '') || 'png';
-          const storagePath = user.id + '/' + crypto.randomUUID() + '-generated.' + extension;
-          const { error: uploadError } = await getSupabase().storage.from('library')
-            .upload(storagePath, blob, { contentType: mimeType, upsert: false });
-          if (uploadError) throw uploadError;
-          const { error: rowError } = await getSupabase().from('library_items').insert({
-            user_id: user.id,
-            file_name: generated.title + '.' + extension,
-            mime_type: mimeType,
-            storage_path: storagePath,
-            size_bytes: blob.size,
-            source: 'generated',
-            prompt: generated.prompt
-          });
-          if (rowError) {
-            await getSupabase().storage.from('library').remove([storagePath]);
-            throw rowError;
-          }
-        } catch (saveError) {
-          console.error('[library] generated image auto-save failed', saveError);
-          // Keep the generated image available in the current session and tell the user why it was not saved.
-          window.dispatchEvent(new CustomEvent('zenixmind-library-save-error'));
-        }
+      const extension = mimeType.split('/')[1]?.replace('jpeg', 'jpg').replace(/[^a-z0-9]/gi, '') || 'jpg';
+      const storagePath = user!.id + '/' + crypto.randomUUID() + '-generated.' + extension;
+      const { error: uploadError } = await getSupabase().storage.from('library')
+        .upload(storagePath, blob, { contentType: mimeType, upsert: false });
+      if (uploadError) {
+        setNotice('Image generated, but it could not be saved to your Library: ' + uploadError.message);
+        return;
+      }
+
+      const { error: rowError } = await getSupabase().from('library_items').insert({
+        user_id: user!.id,
+        file_name: generated.title + '.' + extension,
+        mime_type: mimeType,
+        storage_path: storagePath,
+        size_bytes: blob.size,
+        source: 'generated',
+        prompt: generated.prompt
+      });
+      if (rowError) {
+        await getSupabase().storage.from('library').remove([storagePath]);
+        setNotice('Image generated, but it could not be saved to your Library: ' + rowError.message);
       }
     } catch (error: any) {
       window.alert(error?.message || 'Image generation failed. Please try again.');
@@ -1234,7 +1227,7 @@ function ImagesView() {
               }
             }}
             placeholder="Describe an image"
-            className="min-w-0 flex-1 bg-transparent text-xs sm:text-sm text-zinc-100 placeholder:text-zinc-500 outline-none font-normal"
+            className="min-w-0 flex-1 bg-transparent text-base sm:text-sm text-zinc-100 placeholder:text-zinc-500 outline-none font-normal"
           />
 
           {/* Dictate Button */}
@@ -2255,7 +2248,7 @@ export function AssistantPage() {
       headerAction={view !== 'chat' ? 'none' : 'new'}
       onNewChat={handleStartNewChat}
     >
-      <div className="relative flex-1 flex flex-col h-[calc(100vh-56px)] overflow-hidden bg-[#050506]">
+      <div className="relative flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 overflow-hidden bg-[#050506]">
         {projectId && !projectChatId && <ProjectView projectId={projectId} userId={user?.id} onDeleted={handleProjectDeleted} />}
         {!projectId && view === 'images' && <ImagesView />}
         {!projectId && view === 'library' && <LibraryView />}
@@ -2267,7 +2260,7 @@ export function AssistantPage() {
             <div
               ref={chatScrollRef}
               onScroll={handleScroll}
-              className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 pb-44 sm:pb-32 scroll-smooth"
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-6 sm:px-8 pb-44 sm:pb-32"
             >
               {!messages.length ? (
                 <div className="flex h-full flex-col items-center justify-center px-4 text-center max-w-2xl mx-auto py-8">
@@ -2344,7 +2337,7 @@ export function AssistantPage() {
             )}
 
             {/* Bottom Floating Glassmorphic Composer */}
-            <div className="absolute inset-x-0 bottom-0 pointer-events-none pb-4 pt-8 bg-gradient-to-t from-[#050506] via-[#050506]/90 to-transparent">
+            <div className="absolute inset-x-0 bottom-0 z-20 pointer-events-none pb-[max(1rem,env(safe-area-inset-bottom))] pt-8 bg-gradient-to-t from-[#050506] via-[#050506]/90 to-transparent">
               <div className="pointer-events-auto">
                 <CompactFloatingComposer
                   ref={inputRef}
