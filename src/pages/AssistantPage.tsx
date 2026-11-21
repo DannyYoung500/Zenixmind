@@ -1512,7 +1512,7 @@ function LibraryView() {
           {loading ? (
             <div className="rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-12 text-center text-sm text-zinc-500">Loading your media…</div>
           ) : media.length ? (
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2.5 lg:grid-cols-4">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5 lg:grid-cols-4">
               {media.map((item) => (
                 <article key={item.id} className="group relative aspect-square overflow-hidden rounded-lg bg-[#151518]">
                   <button type="button" onClick={() => void handleOpen(item)} className="absolute inset-0 h-full w-full" aria-label={`Open ${item.file_name}`}>
