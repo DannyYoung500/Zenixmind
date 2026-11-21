@@ -17,6 +17,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   checks.push({
+    name: 'image_generation',
+    ok: true,
+    detail: process.env.POLLINATIONS_API_KEY?.trim() ? 'Pollinations configured' : 'Optional: add POLLINATIONS_API_KEY to enable image generation'
+  });
+
+  checks.push({
     name: 'supabase',
     ok: Boolean(
       process.env.VITE_SUPABASE_URL ||
