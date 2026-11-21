@@ -648,6 +648,7 @@ function ChatMessageItem({
   const [speaking, setSpeaking] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareDone, setShareDone] = useState(false);
+  const [shareFailed, setShareFailed] = useState(false);
   const [liked, setLiked] = useState(message.liked || false);
   const [disliked, setDisliked] = useState(message.disliked || false);
 
@@ -701,8 +702,12 @@ emoji handler  const handleSpeak = () => {
     setSharing(true);
     try {
       await onShare();
+      setShareFailed(false);
       setShareDone(true);
       window.setTimeout(() => setShareDone(false), 1800);
+    } catch {
+      setShareFailed(true);
+      window.setTimeout(() => setShareFailed(false), 2200);
     } finally {
       setSharing(false);
     }
@@ -820,7 +825,7 @@ emoji handler  const handleSpeak = () => {
                 aria-label="Share this chat"
               >
                 <Share2 size={13} />
-                <span>{sharing ? 'Sharing…' : shareDone ? 'Shared' : 'Share'}</span>
+                <span>{sharing ? 'Sharing…' : shareFailed ? 'Try again' : shareDone ? 'Copied' : 'Share'}</span>
               </button>
             )}
 
