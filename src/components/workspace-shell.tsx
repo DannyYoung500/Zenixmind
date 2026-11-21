@@ -438,7 +438,7 @@ export function WorkspaceShell({
                       ) : (
                         messageSearchItems.map((item) => {
                           const conversation = conversationById.get(item.conversation_id);
-                          const snippet = item.content.replace(/s+/g, ' ').trim();
+                          const snippet = item.content.replace(/\s+/g, ' ').trim();
                           return (
                             <Link
                               key={`message-${item.id}`}
@@ -522,8 +522,9 @@ export function WorkspaceShell({
             </button>
           </div>
 
-          {/* Core Navigation Items */}
-          <nav className="space-y-0.5">
+          {/* Primary workspace navigation */}
+          {!sidebarCollapsed && <div className="px-2 pb-2 pt-1 text-[9px] font-semibold uppercase tracking-[.16em] text-zinc-600">Workspace</div>}
+          <nav className="space-y-1">
             {/* Owner Console item if user is platform owner */}
             {(user?.isOwner || isOwnerEmail(user?.email)) && (
               <Link
@@ -589,7 +590,7 @@ export function WorkspaceShell({
               {/* Projects Section */}
               <div className="mt-5 border-t border-white/[.05] pt-3">
                 <div className="flex items-center justify-between px-2 py-1">
-                  <span className="text-[11px] font-medium text-zinc-500">Projects</span>
+                  <span className="text-[9px] font-semibold uppercase tracking-[.15em] text-zinc-600">Projects</span>
                   <button
                     type="button"
                     onClick={() => setShowAddProjectModal(true)}
@@ -631,7 +632,7 @@ export function WorkspaceShell({
               {/* Chats Section */}
               <div className="mt-4 flex-1 min-h-0 flex flex-col border-t border-white/[.05] pt-3">
                 <div className="flex items-center justify-between px-2 py-1">
-                  <span className="text-[11px] font-medium text-zinc-500">Chats</span>
+                  <span className="text-[9px] font-semibold uppercase tracking-[.15em] text-zinc-600">Recent chats</span>
                 </div>
 
                 <div className="flex-1 overflow-y-auto space-y-0.5 pr-0.5 mt-0.5">
