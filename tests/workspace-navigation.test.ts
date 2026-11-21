@@ -40,7 +40,7 @@ test('assistant message reactions use restrained selected states', () => {
   const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
   const assistantPage = readFileSync(assistantPagePath, 'utf8');
   assert.match(assistantPage, /liked \? 'bg-white\/\[\.08\] text-white border border-white\/\[\.12\]'/);
-  assert.match(assistantPage, /disliked \? 'bg-rose-500\/\[\.08\] text-rose-300 border border-rose-400\/20'/);
+  assert.match(assistantPage, /disliked \? 'bg-rose-500\/\[\.08\] text-rose-300 border-rose-400\/20'/);
 });
 
 test('chat dictation microphone has a clear neutral idle state and accessible listening state', () => {
