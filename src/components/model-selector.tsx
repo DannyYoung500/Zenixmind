@@ -5,7 +5,7 @@ import { getSupabase } from '../lib/supabase';
 export interface ModelOption {
   id: string;
   name: string;
-  provider: 'Google' | 'xAI' | 'Anthropic' | 'OpenAI' | 'DeepSeek';
+  provider: 'Groq' | 'Google' | 'xAI' | 'Anthropic' | 'OpenAI' | 'DeepSeek';
   tag: string;
   badge: string;
   description: string;
@@ -60,11 +60,11 @@ export function ModelSelector({
         const mapped = live.map((m: any) => ({
           id: m.id,
           name: m.name,
-          provider: m.provider === 'google' ? 'Google' : m.provider === 'xai' ? 'xAI' : m.provider === 'anthropic' ? 'Anthropic' : m.provider === 'openai' ? 'OpenAI' : 'DeepSeek',
+          provider: m.provider === 'groq' ? 'Groq' : m.provider === 'google' ? 'Google' : m.provider === 'xai' ? 'xAI' : m.provider === 'anthropic' ? 'Anthropic' : m.provider === 'openai' ? 'OpenAI' : 'DeepSeek',
           tag: m.tag,
           badge: m.badge || 'ZenixMind',
           description: m.description,
-          badgeColor: m.provider === 'google' ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' : m.provider === 'xai' ? 'text-zinc-100 bg-white/10 border-white/20' : m.provider === 'anthropic' ? 'text-orange-400 bg-orange-400/10 border-orange-400/20' : m.provider === 'openai' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' : 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20'
+          badgeColor: m.provider === 'groq' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' : m.provider === 'google' ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' : m.provider === 'xai' ? 'text-zinc-100 bg-white/10 border-white/20' : m.provider === 'anthropic' ? 'text-orange-400 bg-orange-400/10 border-orange-400/20' : m.provider === 'openai' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' : 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20'
         }));
         if (cancelled) return;
         setAvailableModels(mapped);
@@ -100,6 +100,7 @@ export function ModelSelector({
         title="Select AI Model"
       >
         <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+          current?.provider === 'Groq' ? 'bg-emerald-400' :
           current?.provider === 'Google' ? 'bg-amber-400' :
           current?.provider === 'xAI' ? 'bg-zinc-100' :
           current?.provider === 'Anthropic' ? 'bg-orange-400' :
