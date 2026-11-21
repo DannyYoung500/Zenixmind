@@ -46,6 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         process.env.GIT_COMMIT ||
         null,
       region: process.env.VERCEL_REGION || null,
+      groqConfigured: Boolean(process.env.GROQ_API_KEY?.trim()),
       geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
       supabaseConfigured: Boolean(
         process.env.VITE_SUPABASE_URL ||
