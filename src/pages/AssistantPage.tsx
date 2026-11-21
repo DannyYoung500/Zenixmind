@@ -42,10 +42,8 @@ import {
   ChevronDown,
   Zap,
   Star,
-  RotateCcw,
   HardDrive,
-  Eye,
-  Share2
+  Eye
 } from 'lucide-react';
 
 
@@ -1013,38 +1011,57 @@ function ImagesView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: textToUse.trim() })
       });
-      if (response.ok) {
-        const data = await response.json();
-        setGeneratedImages((prev) => [
-          {
-            id: 'gen-' + Date.now(),
-            title: textToUse.slice(0, 30),
-            prompt: textToUse.trim(),
-            url: data.imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80'
-          },
-          ...prev
-        ]);
-      } else {
-        setGeneratedImages((prev) => [
-          {
-            id: 'gen-' + Date.now(),
-            title: textToUse.slice(0, 30),
-            prompt: textToUse.trim(),
-            url: `https://picsum.photos/seed/${encodeURIComponent(textToUse.slice(0, 10))}/600/600`
-          },
-          ...prev
-        ]);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'Image generation failed. Please try again.');
       }
-    } catch {
-      setGeneratedImages((prev) => [
-        {
-          id: 'gen-' + Date.now(),
-          title: textToUse.slice(0, 30),
-          prompt: textToUse.trim(),
-          url: `https://picsum.photos/seed/${encodeURIComponent(textToUse.slice(0, 10))}/600/600`
-        },
-        ...prev
-      ]);
+      const data = await response.json();
+      if (!data.imageUrl || typeof data.imageUrl !== 'string') {
+        throw new Error('The image provider did not return an image URL.');
+      }
+
+      const generated = {
+        id: 'gen-' + Date.now(),
+        title: textToUse.slice(0, 30),
+        prompt: textToUse.trim(),
+        url: data.imageUrl
+      };
+      setGeneratedImages((prev) => [generated, ...prev]);
+
+      // Persist the actual generated asset in the user's private Library.
+      if (user?.id) {
+        try {
+          const imageResponse = await fetch(data.imageUrl);
+          if (!imageResponse.ok) throw new Error('Could not retrieve generated image bytes.');
+          const blob = await imageResponse.blob();
+          const mimeType = blob.type || 'image/png';
+          if (!mimeType.startsWith('image/')) throw new Error('The generated result is not an image file.');
+          const extension = mimeType.split('/')[1]?.replace('jpeg', 'jpg').replace(/[^a-z0-9]/gi, '') || 'png';
+          const storagePath = user.id + '/' + crypto.randomUUID() + '-generated.' + extension;
+          const { error: uploadError } = await getSupabase().storage.from('library')
+            .upload(storagePath, blob, { contentType: mimeType, upsert: false });
+          if (uploadError) throw uploadError;
+          const { error: rowError } = await getSupabase().from('library_items').insert({
+            user_id: user.id,
+            file_name: generated.title + '.' + extension,
+            mime_type: mimeType,
+            storage_path: storagePath,
+            size_bytes: blob.size,
+            source: 'generated',
+            prompt: generated.prompt
+          });
+          if (rowError) {
+            await getSupabase().storage.from('library').remove([storagePath]);
+            throw rowError;
+          }
+        } catch (saveError) {
+          console.error('[library] generated image auto-save failed', saveError);
+          // Keep the generated image available in the current session and tell the user why it was not saved.
+          window.dispatchEvent(new CustomEvent('zenixmind-library-save-error'));
+        }
+      }
+    } catch (error: any) {
+      window.alert(error?.message || 'Image generation failed. Please try again.');
     } finally {
       setGenerating(false);
     }
