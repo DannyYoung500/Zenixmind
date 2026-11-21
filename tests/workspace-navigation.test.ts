@@ -27,3 +27,11 @@ test('profile menu does not expose the Voice Assistant destination', () => {
   assert.doesNotMatch(workspaceShell, /to=["']\/assistant\/voice["']/);
   assert.doesNotMatch(workspaceShell, />\s*Voice Assistant\s*</);
 });
+
+test('workspace shell does not expose project creation or project navigation', () => {
+  const workspaceShellPath = fileURLToPath(new URL('../src/components/workspace-shell.tsx', import.meta.url));
+  const workspaceShell = readFileSync(workspaceShellPath, 'utf8');
+  assert.doesNotMatch(workspaceShell, /Create New Project|Create your first project|title="Create project"/);
+  assert.doesNotMatch(workspaceShell, /\.from\(['"]projects['"]\)|showAddProjectModal|handleAddProject/);
+  assert.doesNotMatch(workspaceShell, /\/\* Projects Section \*\//);
+});
