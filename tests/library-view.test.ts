@@ -30,7 +30,7 @@ test('Library supports document preview, file details, storage usage and expirin
 });
 
 test('generated images are stored in the signed-in user private Library', () => {
-  assert.match(assistantPage, /Auto-save the actual generated asset/);
+  assert.match(assistantPage, /Persist the actual generated asset/);
   assert.match(assistantPage, /source: 'generated'/);
   assert.match(assistantPage, /storagePath/);
 });
