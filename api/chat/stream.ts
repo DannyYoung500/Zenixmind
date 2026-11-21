@@ -4,6 +4,7 @@ import { createConversationTitle } from '../_lib/chat-utils.ts';
 import { streamGroqChatCompletion } from '../_lib/groq-client.ts';
 import { buildZenixMessages } from '../_lib/zenix-system-prompt.ts';
 import { getChatContext } from '../_lib/chat-store.ts';
+import { addWebSourcesToMessages, searchWeb } from '../_lib/web-search.ts';
 
 function sendEvent(res: VercelResponse, event: Record<string, unknown>) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -37,6 +38,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey?.trim()) {
     return res.status(503).json({ error: 'Groq is not configured on the server. Add GROQ_API_KEY to the Production environment.', code: 'GROQ_NOT_CONFIGURED' });
+  }
+
+  const webSearchRequested = body.webSearch === true;
+  let sources: Awaited<ReturnType<typeof searchWeb>> = [];
+  let modelMessages = buildZenixMessages(messages);
+  if (webSearchRequested) {
+    const searchKey = process.env.TAVILY_API_KEY;
+    if (!searchKey?.trim()) {
+      return res.status(503).json({ error: 'Web Search needs a TAVILY_API_KEY. Add it to the Vercel Production environment to enable live internet sources.', code: 'WEB_SEARCH_NOT_CONFIGURED' });
+    }
+    try {
+      const query = messages[messages.length - 1].content;
+      sources = await searchWeb(query, searchKey);
+      modelMessages = addWebSourcesToMessages(modelMessages, sources);
+    } catch (error: any) {
+      console.error('[chat/stream] web search failed', error?.message || 'Unknown search error');
+      return res.status(502).json({ error: 'Live web search failed. Please try again or turn off Web Search.', code: 'WEB_SEARCH_FAILED' });
+    }
   }
 
   const { user, supabase } = context;
@@ -84,11 +103,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
   sendEvent(res, { type: 'status', status: 'thinking' });
-  sendEvent(res, { type: 'meta', conversationId: conversation.id, modelUsed: selected.id, provider: 'groq', sources: [] });
+  sendEvent(res, { type: 'meta', conversationId: conversation.id, modelUsed: selected.id, provider: 'groq', sources });
 
   let assistantText = '';
   try {
-    for await (const text of streamGroqChatCompletion(buildZenixMessages(messages), selected.providerModel, apiKey)) {
+    for await (const text of streamGroqChatCompletion(modelMessages, selected.providerModel, apiKey)) {
       assistantText += text;
       sendEvent(res, { type: 'delta', text });
     }
