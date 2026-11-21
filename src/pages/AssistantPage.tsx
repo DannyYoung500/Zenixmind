@@ -563,14 +563,16 @@ export const CompactFloatingComposer = React.forwardRef<
             <button
               type="button"
               onClick={onDictate}
-              className={`grid h-9 w-9 place-items-center rounded-full transition-colors shadow-sm ${
+              className={`grid h-9 w-9 place-items-center rounded-full border transition-all duration-200 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 ${
                 isListening
-                  ? 'bg-red-500/20 border border-red-500/40 text-red-400 animate-pulse'
-                  : 'bg-[#27272a] hover:bg-[#323236] text-zinc-200 hover:text-white'
+                  ? 'bg-rose-500/[.12] border-rose-400/30 text-rose-300 shadow-[0_0_0_3px_rgba(244,63,94,0.06)]'
+                  : 'bg-[#151518] border-white/[.1] text-zinc-300 hover:bg-[#202024] hover:border-white/[.18] hover:text-white'
               }`}
               title={isListening ? 'Listening for speech...' : 'Dictate speech to text'}
+              aria-label={isListening ? 'Stop voice dictation' : 'Start voice dictation'}
+              aria-pressed={isListening}
             >
-              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+              {isListening ? <MicOff size={16} strokeWidth={2} /> : <Mic size={16} strokeWidth={2} />}
             </button>
 
             {/* Adaptive Action Pill:
@@ -794,23 +796,27 @@ function ChatMessageItem({
             <button
               type="button"
               onClick={handleLike}
-              className={`grid h-7 w-7 place-items-center rounded-lg transition-colors ${
-                liked ? 'bg-emerald-500/10 text-emerald-300' : 'text-zinc-500 hover:bg-white/[.045] hover:text-zinc-200'
+              className={`grid h-8 w-8 place-items-center rounded-lg border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 ${
+                liked ? 'bg-white/[.08] text-white border border-white/[.12]' : 'border-transparent text-zinc-500 hover:bg-white/[.06] hover:text-zinc-200'
               }`}
               title="Like"
+              aria-label="Like response"
+              aria-pressed={liked}
             >
-              <ThumbsUp size={13} className={liked ? 'fill-emerald-400/20' : ''} />
+              <ThumbsUp size={14} strokeWidth={1.9} className={liked ? 'fill-white/15' : ''} />
             </button>
 
             <button
               type="button"
               onClick={handleDislike}
-              className={`grid h-7 w-7 place-items-center rounded-lg transition-colors ${
-                disliked ? 'bg-rose-500/10 text-rose-300' : 'text-zinc-500 hover:bg-white/[.045] hover:text-zinc-200'
+              className={`grid h-8 w-8 place-items-center rounded-lg border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/30 ${
+                disliked ? 'bg-rose-500/[.08] text-rose-300 border-rose-400/20' : 'border-transparent text-zinc-500 hover:bg-white/[.06] hover:text-zinc-200'
               }`}
               title="Dislike"
+              aria-label="Dislike response"
+              aria-pressed={disliked}
             >
-              <ThumbsDown size={13} className={disliked ? 'fill-rose-400/20' : ''} />
+              <ThumbsDown size={14} strokeWidth={1.9} className={disliked ? 'fill-rose-400/15' : ''} />
             </button>
 
             <div className="mx-1 h-4 w-px bg-white/[.07]" />
@@ -1204,12 +1210,14 @@ function ImagesView() {
           <button
             type="button"
             onClick={handleDictate}
-            className={`grid h-8 w-8 place-items-center rounded-full transition-colors ${
-              isListening ? 'bg-red-500/20 text-red-400 animate-pulse' : 'text-zinc-300 hover:text-white'
+            className={`grid h-8 w-8 place-items-center rounded-full border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 ${
+              isListening ? 'bg-rose-500/[.12] border-rose-400/30 text-rose-300' : 'border-transparent bg-[#151518] text-zinc-300 hover:bg-[#202024] hover:border-white/[.12] hover:text-white'
             }`}
-            title="Dictate prompt"
+            title={isListening ? 'Listening for speech...' : 'Dictate prompt'}
+            aria-label={isListening ? 'Stop voice dictation' : 'Start voice dictation'}
+            aria-pressed={isListening}
           >
-            <Mic size={17} />
+            {isListening ? <MicOff size={16} /> : <Mic size={16} />}
           </button>
 
           {/* Generate / Send Arrow Button */}
