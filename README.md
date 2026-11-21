@@ -1,0 +1,138 @@
+# ZenixMind
+
+ZenixMind is an AI workspace for authenticated conversations, model selection, image generation, and a personal chat/library experience. The interface and product identity are ZenixMind; GroqCloud and Pollinations are server-side providers.
+
+## Features
+
+- Authenticated chat and conversation history backed by Supabase.
+- Zenix model catalogue with free-tier model routing.
+- Groq-powered chat responses and streaming endpoints.
+- Authenticated image generation through Pollinations.
+- Shareable conversation links and owner-only provider diagnostics.
+- Responsive dark interface and an offline fallback page.
+- Production-only service-worker registration. The worker caches only the public offline page; it does not cache API responses or private user content.
+
+## Stack
+
+- React 19, TypeScript, Vite 8
+- Tailwind CSS 4
+- Supabase Auth and database client
+- GroqCloud chat API
+- Pollinations image API
+- Express development server and Vercel serverless API routes
+
+## Requirements
+
+- Node.js 20 or newer (Node.js 22 LTS recommended)
+- npm
+- A Supabase project
+- A Groq API key for chat
+- A Pollinations API key for image generation
+
+## Local setup
+
+1. Clone the repository and enter the project directory.
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+3. Copy the example environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Set the environment variables in `.env`:
+
+   | Variable | Purpose |
+   | --- | --- |
+   | `VITE_SUPABASE_URL` | Supabase project URL used by the server-side auth checks |
+   | `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key; safe for browser use |
+   | `GROQ_API_KEY` | Server-side Groq key for chat and streaming |
+   | `POLLINATIONS_API_KEY` | Server-side Pollinations key for image generation |
+
+   Never expose provider secrets in browser code or commit a real `.env` file.
+
+5. Start the local Express development server:
+
+   ```bash
+   npm run dev
+   ```
+
+   The server listens on port `3000` by default. Set `PORT` to change it.
+
+## Commands
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the Express development server |
+| `npm test` | Run the Node.js test suite through `tsx` |
+| `npm run lint` | Run the TypeScript compiler without emitting files |
+| `npm run build` | Run tests, then create the Vite production build |
+| `npm run preview` | Preview the generated Vite build |
+| `npm start` | Start the Express server |
+
+The production build command deliberately runs tests before Vite builds the frontend.
+
+## Vercel deployment
+
+The repository is configured for a Vite frontend with serverless API handlers under `/api`.
+
+1. Import the GitHub repository into Vercel.
+2. Use the repository root as the project root.
+3. Set the production environment variables listed above in **Project Settings → Environment Variables**.
+4. Use `npm install` as the install command and `npm run build` as the build command.
+5. Set the output directory to `dist` (or allow Vercel to detect the Vite default).
+6. Deploy to production after the build and tests pass.
+
+Do not add provider secrets with a `VITE_` prefix. Vite variables are exposed to the client bundle.
+
+## API overview
+
+- `GET /api/health` — basic service health response.
+- `GET /api/models` — authenticated model catalogue.
+- `/api/chat` — authenticated conversation history, export, delete, and chat completion.
+- `/api/chat/stream` — streaming chat endpoint.
+- `/api/chat/share` — conversation sharing endpoint.
+- `POST /api/generate-image` — authenticated image generation.
+- `/api/admin/providers` — owner-only provider configuration status.
+- `POST /api/admin/providers/groq/ping` — owner-only Groq connectivity check.
+
+All provider credentials must remain server-side. Authenticated endpoints require a valid Supabase access token.
+
+## Offline behavior
+
+In production, the app registers `/sw.js`. The service worker uses a network-first navigation strategy and falls back to `/offline.html` when the network is unavailable. It excludes API routes and does not cache authenticated responses, generated media, or private library data.
+
+## Security notes
+
+- Keep `GROQ_API_KEY` and `POLLINATIONS_API_KEY` in Vercel server-side environment variables.
+- Use Supabase Row Level Security for user-owned database records.
+- Never commit `.env`, service-role keys, access tokens, or user data.
+- The Supabase publishable key is intended for client use; it is not a substitute for Row Level Security.
+- Owner-only endpoints verify the authenticated user's email on the server.
+
+## Project layout
+
+```text
+api/                 Vercel API handlers and shared server utilities
+public/              Static assets, manifest, offline page and service worker
+src/                 React application
+tests/               Node.js test files
+server.ts            Local Express development server
+vite.config.ts       Vite configuration
+```
+
+## Contributing
+
+Keep changes focused, add or update regression tests for behavior changes, and run:
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+Do not mark a release as production-ready until the test suite, TypeScript check, and production build have completed successfully.
