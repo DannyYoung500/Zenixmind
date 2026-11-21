@@ -1026,7 +1026,7 @@ export function OwnerPage() {
                     onClick={async () => {
                       addToast('Running Provider Health Checks', 'Pinging all connected AI neural endpoints...', 'info');
                       const pList = providers.length > 0 ? providers : [
-                        { id: 'google-gemini' }, { id: 'anthropic' }, { id: 'xai' }, { id: 'openai' }, { id: 'deepseek' }
+                        { id: 'groq' }
                       ];
                       for (const p of pList) {
                         try {
@@ -1071,7 +1071,7 @@ export function OwnerPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   {(providers.length > 0 ? providers : [
-                    { id: 'google-gemini', name: 'Google Gemini AI', status: 'active', latencyMs: 112, modelsCount: 2, apiKeyMasked: 'AIzaSy...4f12', capabilities: ['Multimodal', 'Reasoning', '1M+ Context', 'Vision'] },
+                    { id: 'groq', name: 'GroqCloud', status: 'active', latencyMs: 0, modelsCount: 2, apiKeyMasked: 'Configured securely in Vercel', capabilities: ['Chat completions', 'Token streaming', 'GPT-OSS 20B', 'GPT-OSS 120B'] },
                     { id: 'anthropic', name: 'Anthropic Claude', status: 'active', latencyMs: 148, modelsCount: 1, apiKeyMasked: 'sk-ant-...98b1', capabilities: ['Code Synthesis', 'Nuanced Prose', 'Architecture'] },
                     { id: 'xai', name: 'xAI Grok', status: 'active', latencyMs: 175, modelsCount: 1, apiKeyMasked: 'xai-...310a', capabilities: ['Real-time Candor', 'Direct Search', 'Deep Logic'] },
                     { id: 'openai', name: 'OpenAI Direct', status: 'active', latencyMs: 139, modelsCount: 1, apiKeyMasked: 'sk-proj-...88c2', capabilities: ['Omnimodal', 'Vision', 'Function Calling'] },

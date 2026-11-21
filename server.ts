@@ -152,6 +152,60 @@ app.all('/api/chat/stream', chatStreamApiHandler as any);
 app.all('/api/chat/share', chatShareApiHandler as any);
 app.all('/api/admin/sessions', adminSessionsApiHandler as any);
 
+app.get('/api/admin/providers', requireOwner, (_req, res) => {
+  const configured = Boolean(process.env.GROQ_API_KEY?.trim());
+  return res.json({
+    providers: [{
+      id: 'groq',
+      name: 'GroqCloud',
+      status: configured ? 'active' : 'missing',
+      configured,
+      latencyMs: 0,
+      modelsCount: 2,
+      apiKeyMasked: configured ? 'Configured securely in Vercel' : 'Not configured',
+      capabilities: ['Chat completions', 'Token streaming', 'GPT-OSS 20B', 'GPT-OSS 120B']
+    }]
+  });
+});
+
+app.post('/api/admin/providers/:providerId/ping', requireOwner, async (req, res) => {
+  if (req.params.providerId !== 'groq') {
+    return res.status(404).json({ error: 'Provider not found.' });
+  }
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey?.trim()) {
+    return res.status(503).json({ status: 'missing', error: 'GROQ_API_KEY is not configured.' });
+  }
+  const startedAt = Date.now();
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) {
+      return res.status(response.status === 401 ? 401 : 502).json({
+        status: 'error',
+        latencyMs: Date.now() - startedAt,
+        error: response.status === 401 ? 'Groq rejected the API key. Check the Vercel secret.' : `Groq returned HTTP ${response.status}.`
+      });
+    }
+    const payload = await response.json() as { data?: Array<{ id?: string }> };
+    const modelsCount = Array.isArray(payload.data) ? payload.data.length : 0;
+    return res.json({
+      status: 'operational',
+      latencyMs: Date.now() - startedAt,
+      modelsCount,
+      detail: `Groq authentication succeeded; ${modelsCount} models are visible.`
+    });
+  } catch {
+    return res.status(502).json({
+      status: 'error',
+      latencyMs: Date.now() - startedAt,
+      error: 'Unable to reach Groq. Check the network and try again.'
+    });
+  }
+});
+
 app.get('/api/admin/usage', requireOwner, (_req, res) => {
   const modelUsage = telemetry.modelUsage || {};
   let estimatedAiCostUSD = 0;
@@ -165,7 +219,7 @@ app.get('/api/admin/usage', requireOwner, (_req, res) => {
       totalTokens: Number(u.inputTokens || 0) + Number(u.outputTokens || 0),
       cost,
       modelName: modelId,
-      provider: 'google'
+      provider: 'groq'
     };
   }
   return res.json({
@@ -352,6 +406,7 @@ app.get('/api/admin/overview', requireOwner, (_req, res) => {
     usersApprox: 0,
     totalRequests: telemetry.totalRequests,
     activeSessions: activeSessions.filter((s) => s.status === 'active').length,
+    groqConfigured: Boolean(process.env.GROQ_API_KEY?.trim()),
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
     time: new Date().toISOString()
   });

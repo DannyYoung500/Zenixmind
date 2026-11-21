@@ -18,7 +18,7 @@ interface OverviewPayload {
   time: string;
   commit: string | null;
   region: string | null;
-  geminiConfigured: boolean;
+  groqConfigured: boolean;
   supabaseConfigured: boolean;
   serviceRoleConfigured: boolean;
   ownerEmail: string;
@@ -48,17 +48,11 @@ export function OwnerSystemPage() {
       }
       setData(await res.json());
 
-      // Lightweight chat route probe (no auth)
-      const chatRes = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [{ role: 'user', content: 'ping' }] })
-      });
-      const chatBody = await chatRes.json().catch(() => ({}));
-      if (chatRes.ok) setChatProbe('Chat route healthy');
-      else if (chatBody.code === 'AI_NOT_CONFIGURED')
-        setChatProbe('Chat route up · GEMINI_API_KEY missing');
-      else setChatProbe(`Chat route error (${chatRes.status})`);
+      const statusRes = await fetch('/api/status', { cache: 'no-store' });
+      const statusBody = await statusRes.json().catch(() => ({}));
+      const groqCheck = (statusBody.checks || []).find((check: any) => check.name === 'groq');
+      if (groqCheck?.ok) setChatProbe('Groq key is configured · use Provider Health Check to verify authentication');
+      else setChatProbe('GROQ_API_KEY missing from this deployment');
     } catch {
       setError('Could not load system overview.');
     } finally {
@@ -119,9 +113,9 @@ export function OwnerSystemPage() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Metric
-            label="Gemini"
-            value={data?.geminiConfigured ? 'Ready' : 'Missing'}
-            ok={data?.geminiConfigured}
+            label="Groq"
+            value={data?.groqConfigured ? 'Configured' : 'Missing'}
+            ok={data?.groqConfigured}
           />
           <Metric
             label="Service role"
@@ -178,13 +172,11 @@ export function OwnerSystemPage() {
           </ul>
         </div>
 
-        {!data?.geminiConfigured && (
+        {!data?.groqConfigured && (
           <div className="rounded-2xl border border-amber-400/25 bg-amber-500/[.08] p-4 text-xs text-amber-100 leading-relaxed">
             <p className="font-semibold text-amber-200">Action required</p>
             <p className="mt-1 text-amber-100/80">
-              Add <code className="font-mono text-[11px]">GEMINI_API_KEY</code> in Vercel → Settings →
-              Environment Variables, then redeploy. Until then, chat returns{' '}
-              <code className="font-mono text-[11px]">AI_NOT_CONFIGURED</code>.
+              Add <code className="font-mono text-[11px]">GROQ_API_KEY</code> to the Vercel Production environment, then redeploy. Chat uses Groq for both standard and streaming responses.
             </p>
           </div>
         )}
