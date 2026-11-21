@@ -7,6 +7,7 @@ import { resolveAvailableModel, validateChatMessages, verifySupabaseAccessToken,
 import chatApiHandler from './api/chat.ts';
 import chatStreamApiHandler from './api/chat/stream.ts';
 import chatShareApiHandler from './api/chat/share.ts';
+import adminSessionsApiHandler from './api/admin/sessions.ts';
 
 dotenv.config();
 
@@ -149,6 +150,7 @@ app.get('/api/models', async (req, res) => {
 app.all('/api/chat', chatApiHandler as any);
 app.all('/api/chat/stream', chatStreamApiHandler as any);
 app.all('/api/chat/share', chatShareApiHandler as any);
+app.all('/api/admin/sessions', adminSessionsApiHandler as any);
 
 app.get('/api/admin/usage', requireOwner, (_req, res) => {
   const modelUsage = telemetry.modelUsage || {};
