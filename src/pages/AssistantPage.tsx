@@ -40,7 +40,12 @@ import {
   Keyboard,
   Plus,
   ChevronDown,
-  Zap
+  Zap,
+  Star,
+  RotateCcw,
+  HardDrive,
+  Eye,
+  Share2
 } from 'lucide-react';
 
 
@@ -81,6 +86,8 @@ interface LibraryItem {
   prompt?: string;
   created_at: string;
   url?: string;
+  is_favorite?: boolean;
+  deleted_at?: string | null;
 }
 
 function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClearChats: () => void }) {
@@ -1251,295 +1258,218 @@ function ImagesView() {
 function LibraryView() {
   const { user } = useAuth();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | 'images' | 'videos' | 'files'>('all');
+  const [filter, setFilter] = useState<'all' | 'images' | 'videos' | 'files' | 'favorites' | 'trash'>('all');
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [notice, setNotice] = useState('');
+  const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null);
+  const [previewItem, setPreviewItem] = useState<LibraryItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadItems = useCallback(async () => {
-    if (!user?.id) {
-      setItems([]);
-      setLoading(false);
-      return;
-    }
+    if (!user?.id) { setItems([]); setLoading(false); return; }
     setLoading(true);
     setNotice('');
     try {
-      const supabase = getSupabase();
-      const { data, error } = await supabase
+      const { data, error } = await getSupabase()
         .from('library_items')
-        .select('id,file_name,mime_type,storage_path,size_bytes,source,prompt,created_at')
+        .select('id,file_name,mime_type,storage_path,size_bytes,source,prompt,created_at,is_favorite,deleted_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-
       const withPreviews = await Promise.all((data || []).map(async (item: LibraryItem) => {
-        if (!item.storage_path) return item;
-        const { data: signed, error: signedError } = await supabase
-          .storage
-          .from('library')
-          .createSignedUrl(item.storage_path, 60 * 60);
+        if (!item.storage_path || item.deleted_at) return item;
+        const { data: signed, error: signedError } = await getSupabase()
+          .storage.from('library').createSignedUrl(item.storage_path, 60 * 60);
         return { ...item, url: signedError ? undefined : signed?.signedUrl };
       }));
       setItems(withPreviews as LibraryItem[]);
     } catch (error: any) {
       setNotice(error?.message || 'Could not load your library.');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [user?.id]);
 
-  useEffect(() => {
-    void loadItems();
-  }, [loadItems]);
+  useEffect(() => { void loadItems(); }, [loadItems]);
 
   const handleUpload = async (file: File) => {
     if (!user?.id || uploading) return;
-    setUploading(true);
-    setNotice('');
+    if (file.size > 50 * 1024 * 1024) { setNotice('Files must be 50 MB or smaller.'); return; }
+    setUploading(true); setNotice('');
     try {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const path = user.id + '/' + crypto.randomUUID() + '-' + safeName;
-      const { error: uploadError } = await getSupabase()
-        .storage
-        .from('library')
+      const { error: uploadError } = await getSupabase().storage.from('library')
         .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
       if (uploadError) throw uploadError;
-
-      const { error: rowError } = await getSupabase()
-        .from('library_items')
-        .insert({
-          user_id: user.id,
-          file_name: file.name,
-          mime_type: file.type || null,
-          storage_path: path,
-          size_bytes: file.size,
-          source: 'uploaded'
-        });
-      if (rowError) {
-        await getSupabase().storage.from('library').remove([path]);
-        throw rowError;
-      }
+      const { error: rowError } = await getSupabase().from('library_items').insert({
+        user_id: user.id, file_name: file.name, mime_type: file.type || null,
+        storage_path: path, size_bytes: file.size, source: 'uploaded'
+      });
+      if (rowError) { await getSupabase().storage.from('library').remove([path]); throw rowError; }
       await loadItems();
-    } catch (error: any) {
-      setNotice(error?.message || 'Upload failed.');
-    } finally {
-      setUploading(false);
-    }
+    } catch (error: any) { setNotice(error?.message || 'Upload failed.'); }
+    finally { setUploading(false); }
+  };
+
+  const updateItem = async (item: LibraryItem, values: Partial<Pick<LibraryItem, 'is_favorite' | 'deleted_at'>>) => {
+    const { error } = await getSupabase().from('library_items').update(values)
+      .eq('id', item.id).eq('user_id', user?.id || '');
+    if (error) { setNotice(error.message || 'Could not update this file.'); return false; }
+    setItems((prev) => prev.map((entry) => entry.id === item.id ? { ...entry, ...values } : entry));
+    setSelectedItem((prev) => prev?.id === item.id ? { ...prev, ...values } : prev);
+    return true;
   };
 
   const handleDelete = async (item: LibraryItem) => {
-    setNotice('');
+    if (await updateItem(item, { deleted_at: new Date().toISOString() })) {
+      setPreviewItem(null); setSelectedItem(null);
+      setNotice('Moved to Recently deleted. You can restore it for now.');
+    }
+  };
+
+  const handleRestore = async (item: LibraryItem) => {
+    if (await updateItem(item, { deleted_at: null })) setNotice('File restored to your Library.');
+  };
+
+  const handlePermanentDelete = async (item: LibraryItem) => {
     try {
       if (item.storage_path) {
-        const { error: storageError } = await getSupabase()
-          .storage
-          .from('library')
-          .remove([item.storage_path]);
+        const { error: storageError } = await getSupabase().storage.from('library').remove([item.storage_path]);
         if (storageError) throw storageError;
       }
-      const { error } = await getSupabase()
-        .from('library_items')
-        .delete()
-        .eq('id', item.id)
-        .eq('user_id', user?.id || '');
+      const { error } = await getSupabase().from('library_items').delete()
+        .eq('id', item.id).eq('user_id', user?.id || '');
       if (error) throw error;
-      setItems((prev) => prev.filter((x) => x.id !== item.id));
-    } catch (error: any) {
-      setNotice(error?.message || 'Could not delete that file.');
-    }
+      setItems((prev) => prev.filter((entry) => entry.id !== item.id));
+      setSelectedItem(null); setPreviewItem(null);
+      setNotice('File permanently deleted.');
+    } catch (error: any) { setNotice(error?.message || 'Could not permanently delete this file.'); }
+  };
+
+  const getSignedUrl = async (item: LibraryItem, expiresIn: number) => {
+    if (!item.storage_path) throw new Error('This item has no stored file.');
+    const { data, error } = await getSupabase().storage.from('library')
+      .createSignedUrl(item.storage_path, expiresIn);
+    if (error || !data?.signedUrl) throw new Error(error?.message || 'Could not create a secure link.');
+    return data.signedUrl;
   };
 
   const handleOpen = async (item: LibraryItem) => {
-    if (item.url) {
-      window.open(item.url, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    if (!item.storage_path) return;
-    const { data, error } = await getSupabase()
-      .storage
-      .from('library')
-      .createSignedUrl(item.storage_path, 60 * 10);
-    if (error || !data?.signedUrl) {
-      setNotice(error?.message || 'Could not open this file.');
-      return;
-    }
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    try {
+      const url = await getSignedUrl(item, 60 * 10);
+      const canPreview = item.mime_type?.startsWith('image/') || item.mime_type?.startsWith('video/') || item.mime_type === 'application/pdf';
+      if (canPreview) setPreviewItem({ ...item, url });
+      else window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error: any) { setNotice(error?.message || 'Could not open this file.'); }
   };
 
+  const handleShare = async (item: LibraryItem) => {
+    try {
+      const url = await getSignedUrl(item, 60 * 60 * 24 * 7);
+      const shareData = { title: item.file_name, text: 'Shared from ZenixMind Library', url };
+      if (navigator.share) await navigator.share(shareData);
+      else {
+        await navigator.clipboard.writeText(url);
+        setNotice('A view-only link was copied. It expires in 7 days.');
+      }
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') setNotice(error?.message || 'Could not share this file.');
+    }
+  };
+
+  const activeItems = items.filter((item) => !item.deleted_at);
+  const trashItems = items.filter((item) => !!item.deleted_at);
   const filteredItems = useMemo(() => {
     const term = query.trim().toLowerCase();
-    return items.filter((item) => {
-      const matchQuery =
-        !term ||
-        item.file_name.toLowerCase().includes(term) ||
-        (item.prompt || '').toLowerCase().includes(term);
-      if (filter === 'images') return matchQuery && !!item.mime_type?.startsWith('image/');
-      if (filter === 'videos') return matchQuery && !!item.mime_type?.startsWith('video/');
-      if (filter === 'files') return matchQuery && !item.mime_type?.startsWith('image/') && !item.mime_type?.startsWith('video/');
-      return matchQuery;
+    const base = filter === 'trash' ? trashItems : activeItems;
+    return base.filter((item) => {
+      const matches = !term || item.file_name.toLowerCase().includes(term) || (item.prompt || '').toLowerCase().includes(term);
+      if (!matches) return false;
+      if (filter === 'favorites') return !!item.is_favorite;
+      if (filter === 'images') return !!item.mime_type?.startsWith('image/');
+      if (filter === 'videos') return !!item.mime_type?.startsWith('video/');
+      if (filter === 'files') return !item.mime_type?.startsWith('image/') && !item.mime_type?.startsWith('video/');
+      return true;
     });
   }, [items, query, filter]);
 
-  const documents = filteredItems.filter((item) =>
-    !item.mime_type?.startsWith('image/') && !item.mime_type?.startsWith('video/')
-  );
-  const media = filteredItems.filter((item) =>
-    item.mime_type?.startsWith('image/') || item.mime_type?.startsWith('video/')
-  );
-
+  const documents = filteredItems.filter((item) => !item.mime_type?.startsWith('image/') && !item.mime_type?.startsWith('video/'));
+  const media = filteredItems.filter((item) => item.mime_type?.startsWith('image/') || item.mime_type?.startsWith('video/'));
+  const storageUsed = activeItems.reduce((sum, item) => sum + Number(item.size_bytes || 0), 0);
+  const largestItem = [...activeItems].sort((a, b) => Number(b.size_bytes || 0) - Number(a.size_bytes || 0))[0];
   const formatSize = (bytes?: number) => {
-    if (!bytes) return '0 B';
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    const size = Number(bytes || 0);
+    if (size < 1024) return size + ' B';
+    if (size < 1024 * 1024) return (size / 1024).toFixed(1) + ' KB';
+    if (size < 1024 * 1024 * 1024) return (size / (1024 * 1024)).toFixed(1) + ' MB';
+    return (size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
   };
+  const formatDate = (date: string) => new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  const renderActions = (item: LibraryItem, inTrash = false) => (
+    <div className="flex shrink-0 items-center gap-1">
+      {!inTrash && <button type="button" onClick={() => void updateItem(item, { is_favorite: !item.is_favorite })} aria-label={item.is_favorite ? 'Remove favorite' : 'Add favorite'} title={item.is_favorite ? 'Remove favorite' : 'Add favorite'} className={`grid h-9 w-9 place-items-center rounded-full hover:bg-white/[.07] ${item.is_favorite ? 'text-amber-300' : 'text-zinc-500 hover:text-white'}`}><Star size={15} fill={item.is_favorite ? 'currentColor' : 'none'} /></button>}
+      {!inTrash && <button type="button" onClick={() => void handleShare(item)} aria-label="Share file" title="Share for 7 days" className="grid h-9 w-9 place-items-center rounded-full text-zinc-500 hover:bg-white/[.07] hover:text-white"><Share2 size={15} /></button>}
+      <button type="button" onClick={() => setSelectedItem(item)} aria-label="File details" title="File details" className="grid h-9 w-9 place-items-center rounded-full text-zinc-500 hover:bg-white/[.07] hover:text-white"><Info size={15} /></button>
+      {inTrash ? (
+        <>
+          <button type="button" onClick={() => void handleRestore(item)} aria-label="Restore file" title="Restore" className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 hover:bg-white/[.07] hover:text-white"><RotateCcw size={15} /></button>
+          <button type="button" onClick={() => void handlePermanentDelete(item)} aria-label="Delete permanently" title="Delete permanently" className="grid h-9 w-9 place-items-center rounded-full text-red-400 hover:bg-red-500/10"><Trash2 size={15} /></button>
+        </>
+      ) : <button type="button" onClick={() => void handleDelete(item)} aria-label="Move to Recently deleted" title="Move to Recently deleted" className="grid h-9 w-9 place-items-center rounded-full text-zinc-500 hover:bg-red-500/10 hover:text-red-300"><Trash2 size={15} /></button>}
+    </div>
+  );
 
   return (
     <div className="h-full min-h-screen overflow-y-auto bg-black px-4 pb-10 pt-7 sm:px-8">
       <div className="mx-auto w-full max-w-6xl">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Library</h1>
-            <p className="mt-1 text-sm text-zinc-500">Your documents, images, videos and saved creations.</p>
-          </div>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Library</h1><p className="mt-1 text-sm text-zinc-500">Your documents, media and saved creations.</p></div>
           <div className="flex w-full items-center gap-2 sm:w-auto">
             <div className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-white/[.08] bg-[#111113] px-4 sm:w-72 sm:flex-none">
-              <Search size={16} className="shrink-0 text-zinc-500" />
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search your library"
-                aria-label="Search your library"
-                className="min-w-0 flex-1 bg-transparent text-sm text-zinc-200 outline-none placeholder:text-zinc-600"
-              />
-              {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear library search" className="text-zinc-500 hover:text-white"><X size={14} /></button>}
+              <Search size={16} className="shrink-0 text-zinc-500" /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search your library" aria-label="Search your library" className="min-w-0 flex-1 bg-transparent text-sm text-zinc-200 outline-none placeholder:text-zinc-600"/>
+              {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear library search" className="text-zinc-500 hover:text-white"><X size={14}/></button>}
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*,.pdf,.doc,.docx,.txt,.md,.csv,.xls,.xlsx,.ppt,.pptx"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.currentTarget.value = '';
-                if (file) void handleUpload(file);
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading || !user}
-              className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-zinc-100 px-4 text-sm font-semibold text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Plus size={16} />
-              <span>{uploading ? 'Adding…' : 'Add files'}</span>
-            </button>
+            <input ref={fileInputRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx,.txt,.md,.csv,.xls,.xlsx,.ppt,.pptx" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void handleUpload(file); }}/>
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading || !user} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-zinc-100 px-4 text-sm font-semibold text-black transition hover:bg-white disabled:opacity-50"><Plus size={16}/><span>{uploading ? 'Adding…' : 'Add files'}</span></button>
           </div>
         </div>
 
-        {notice && (
-          <div role="alert" className="mb-6 rounded-xl border border-red-400/20 bg-red-400/[.06] px-4 py-3 text-sm text-red-300">
-            {notice}
-          </div>
-        )}
+        <section className="mb-7 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="rounded-xl border border-white/[.07] bg-[#0d0d0f] p-3"><div className="flex items-center gap-2 text-xs text-zinc-500"><HardDrive size={14}/> Storage used</div><p className="mt-2 text-lg font-semibold text-zinc-100">{formatSize(storageUsed)}</p></div>
+          <div className="rounded-xl border border-white/[.07] bg-[#0d0d0f] p-3"><div className="text-xs text-zinc-500">Saved items</div><p className="mt-2 text-lg font-semibold text-zinc-100">{activeItems.length}</p></div>
+          <div className="col-span-2 rounded-xl border border-white/[.07] bg-[#0d0d0f] p-3 sm:col-span-1"><div className="text-xs text-zinc-500">Largest file</div><p className="mt-2 truncate text-sm font-semibold text-zinc-100">{largestItem ? largestItem.file_name : 'No files yet'}</p><p className="text-[11px] text-zinc-500">{largestItem ? formatSize(largestItem.size_bytes) : 'Add a file to get started'}</p></div>
+        </section>
 
-        <div className="mb-8 flex flex-wrap items-center gap-2">
+        {notice && <div role="status" className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-white/[.08] bg-[#111113] px-4 py-3 text-sm text-zinc-300"><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Dismiss notice"><X size={15}/></button></div>}
+
+        <div className="mb-7 flex flex-wrap items-center gap-2">
           {([
-            ['all', 'All items'],
-            ['images', 'Images'],
-            ['videos', 'Videos'],
-            ['files', 'Files']
-          ] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setFilter(value)}
-              aria-pressed={filter === value}
-              className={`rounded-full border px-3.5 py-2 text-xs font-medium transition-colors ${
-                filter === value
-                  ? 'border-white/[.18] bg-white text-black'
-                  : 'border-white/[.08] bg-[#111113] text-zinc-400 hover:bg-[#1b1b1e] hover:text-zinc-200'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+            ['all','All items'],['images','Images'],['videos','Videos'],['files','Files'],['favorites','Favorites'],['trash','Recently deleted']
+          ] as const).map(([value,label]) => <button key={value} type="button" onClick={() => setFilter(value)} aria-pressed={filter === value} className={`rounded-full border px-3.5 py-2 text-xs font-medium transition-colors ${filter === value ? 'border-white/[.18] bg-white text-black' : 'border-white/[.08] bg-[#111113] text-zinc-400 hover:bg-[#1b1b1e] hover:text-zinc-200'}`}>{label}{value === 'trash' ? ` (${trashItems.length})` : ''}</button>)}
           <span className="ml-auto text-xs text-zinc-600">{filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}</span>
         </div>
 
-        <section aria-labelledby="library-documents-heading" className="mb-10">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 id="library-documents-heading" className="text-xl font-semibold tracking-tight text-zinc-100">Documents</h2>
-            <span className="text-xs text-zinc-600">{documents.length}</span>
-          </div>
-          {loading ? (
-            <div className="rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-12 text-center text-sm text-zinc-500">Loading your documents…</div>
-          ) : documents.length ? (
-            <div className="divide-y divide-white/[.06] overflow-hidden rounded-2xl border border-white/[.07] bg-[#09090b]">
-              {documents.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-white/[.025] sm:px-5">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.06] text-zinc-300"><FileText size={19} /></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-zinc-200">{item.file_name}</p>
-                    <p className="mt-1 text-[11px] text-zinc-500">{formatSize(item.size_bytes)} · {formatDate(item.created_at)} · {item.source === 'generated' ? 'Created with ZenixMind' : 'Uploaded'}</p>
-                  </div>
-                  <button type="button" onClick={() => void handleOpen(item)} className="rounded-full px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[.07] hover:text-white">Open</button>
-                  <button type="button" onClick={() => void handleDelete(item)} aria-label={`Delete ${item.file_name}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-zinc-600 hover:bg-red-500/10 hover:text-red-300"><Trash2 size={15} /></button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-10 text-center">
-              <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-white/[.08] bg-[#141416] text-zinc-300"><FileText size={23} /></div>
-              <h3 className="text-base font-semibold text-zinc-200">No documents yet</h3>
-              <p className="mt-1 max-w-sm text-sm text-zinc-500">Documents you create or upload will appear here.</p>
-            </div>
-          )}
-        </section>
-
-        <section aria-labelledby="library-media-heading">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 id="library-media-heading" className="text-xl font-semibold tracking-tight text-zinc-100">Media</h2>
-            <span className="text-xs text-zinc-600">{media.length}</span>
-          </div>
-          {loading ? (
-            <div className="rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-12 text-center text-sm text-zinc-500">Loading your media…</div>
-          ) : media.length ? (
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5 lg:grid-cols-4">
-              {media.map((item) => (
-                <article key={item.id} className="group relative aspect-square overflow-hidden rounded-lg bg-[#151518]">
-                  <button type="button" onClick={() => void handleOpen(item)} className="absolute inset-0 h-full w-full" aria-label={`Open ${item.file_name}`}>
-                    {item.mime_type?.startsWith('image/') && item.url ? (
-                      <img src={item.url} alt={item.file_name} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
-                    ) : item.mime_type?.startsWith('video/') && item.url ? (
-                      <video src={item.url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
-                    ) : (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-zinc-500"><ImageIcon size={25} /><span className="max-w-[85%] truncate text-[10px]">{item.file_name}</span></div>
-                    )}
-                  </button>
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2.5 pt-8">
-                    <p className="truncate text-[11px] font-medium text-white">{item.file_name}</p>
-                  </div>
-                  <button type="button" onClick={() => void handleDelete(item)} aria-label={`Delete ${item.file_name}`} className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/65 text-white opacity-100 transition hover:bg-red-500/80 sm:opacity-0 sm:group-hover:opacity-100"><Trash2 size={14} /></button>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-10 text-center">
-              <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-white/[.08] bg-[#141416] text-zinc-300"><ImageIcon size={23} /></div>
-              <h3 className="text-base font-semibold text-zinc-200">Your media will appear here</h3>
-              <p className="mt-1 max-w-sm text-sm text-zinc-500">Images and videos you generate or upload are collected in this grid.</p>
-            </div>
-          )}
-        </section>
+        {loading ? <div className="rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-12 text-center text-sm text-zinc-500">Loading your Library…</div> : filter === 'trash' ? (
+          <section><h2 className="mb-4 text-xl font-semibold text-zinc-100">Recently deleted</h2>{filteredItems.length ? <div className="divide-y divide-white/[.06] overflow-hidden rounded-2xl border border-white/[.07] bg-[#09090b]">{filteredItems.map((item) => <div key={item.id} className="flex items-center gap-3 px-3 py-3 sm:px-5"><FileText size={19} className="shrink-0 text-zinc-500"/><div className="min-w-0 flex-1"><p className="truncate text-sm text-zinc-200">{item.file_name}</p><p className="text-[11px] text-zinc-500">Deleted {item.deleted_at ? formatDate(item.deleted_at) : ''} · {formatSize(item.size_bytes)}</p></div>{renderActions(item,true)}</div>)}</div> : <div className="rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-12 text-center text-sm text-zinc-500">Recently deleted files will appear here.</div>}</section>
+        ) : (
+          <>
+            <section aria-labelledby="library-documents-heading" className="mb-10">
+              <div className="mb-4 flex items-center justify-between"><h2 id="library-documents-heading" className="text-xl font-semibold tracking-tight text-zinc-100">Documents</h2><span className="text-xs text-zinc-600">{documents.length}</span></div>
+              {documents.length ? <div className="divide-y divide-white/[.06] overflow-hidden rounded-2xl border border-white/[.07] bg-[#09090b]">{documents.map((item) => <div key={item.id} className="flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-5"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.06] text-zinc-300"><FileText size={19}/></div><button type="button" onClick={() => void handleOpen(item)} className="min-w-0 flex-1 text-left"><p className="truncate text-sm font-medium text-zinc-200">{item.file_name}</p><p className="mt-1 text-[11px] text-zinc-500">{formatSize(item.size_bytes)} · {formatDate(item.created_at)} · {item.source === 'generated' ? 'Created with ZenixMind' : 'Uploaded'}</p></button>{renderActions(item)}</div>)}</div> : <div className="flex min-h-[170px] flex-col items-center justify-center rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-10 text-center"><FileText size={24} className="mb-3 text-zinc-500"/><h3 className="text-base font-semibold text-zinc-200">No documents yet</h3><p className="mt-1 text-sm text-zinc-500">Documents you create or upload will appear here.</p></div>}
+            </section>
+            <section aria-labelledby="library-media-heading">
+              <div className="mb-4 flex items-center justify-between"><h2 id="library-media-heading" className="text-xl font-semibold tracking-tight text-zinc-100">Media</h2><span className="text-xs text-zinc-600">{media.length}</span></div>
+              {media.length ? <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5 lg:grid-cols-4">{media.map((item) => <article key={item.id} className="group relative aspect-square overflow-hidden rounded-lg bg-[#151518]"><button type="button" onClick={() => void handleOpen(item)} className="absolute inset-0 h-full w-full" aria-label={`Preview ${item.file_name}`}>{item.mime_type?.startsWith('image/') && item.url ? <img src={item.url} alt={item.file_name} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"/> : item.mime_type?.startsWith('video/') && item.url ? <video src={item.url} className="h-full w-full object-cover" muted playsInline preload="metadata"/> : <div className="flex h-full w-full items-center justify-center text-zinc-500"><ImageIcon size={25}/></div>}</button><div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2.5 pt-8"><p className="truncate text-[11px] font-medium text-white">{item.file_name}</p></div><div className="absolute right-1 top-1 flex gap-1"><button type="button" onClick={() => void updateItem(item,{is_favorite:!item.is_favorite})} aria-label="Toggle favorite" className="grid h-8 w-8 place-items-center rounded-full bg-black/65 text-white"><Star size={14} fill={item.is_favorite ? 'currentColor' : 'none'} className={item.is_favorite ? 'text-amber-300' : ''}/></button><button type="button" onClick={() => setSelectedItem(item)} aria-label="File details" className="grid h-8 w-8 place-items-center rounded-full bg-black/65 text-white"><Info size={14}/></button></div></article>)}</div> : <div className="flex min-h-[170px] flex-col items-center justify-center rounded-2xl border border-white/[.06] bg-[#09090b] px-5 py-10 text-center"><ImageIcon size={24} className="mb-3 text-zinc-500"/><h3 className="text-base font-semibold text-zinc-200">Your media will appear here</h3><p className="mt-1 text-sm text-zinc-500">Images and videos you generate or upload are collected here.</p></div>}
+            </section>
+          </>
+        )}
       </div>
+
+      {selectedItem && <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setSelectedItem(null)}><section role="dialog" aria-modal="true" aria-label="File details" className="w-full max-w-md rounded-t-2xl border border-white/[.1] bg-[#111113] p-5 sm:rounded-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold text-white">File details</h2><button type="button" onClick={() => setSelectedItem(null)} aria-label="Close details" className="rounded-full p-2 text-zinc-400 hover:bg-white/[.08]"><X size={17}/></button></div><p className="break-all text-sm font-medium text-zinc-100">{selectedItem.file_name}</p><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-zinc-500">File type</dt><dd className="text-right text-zinc-200">{selectedItem.mime_type || 'Unknown'}</dd></div><div className="flex justify-between gap-4"><dt className="text-zinc-500">Size</dt><dd className="text-zinc-200">{formatSize(selectedItem.size_bytes)}</dd></div><div className="flex justify-between gap-4"><dt className="text-zinc-500">Added</dt><dd className="text-zinc-200">{formatDate(selectedItem.created_at)}</dd></div><div className="flex justify-between gap-4"><dt className="text-zinc-500">Source</dt><dd className="text-zinc-200">{selectedItem.source === 'generated' ? 'Generated by ZenixMind' : 'Uploaded'}</dd></div><div className="flex justify-between gap-4"><dt className="text-zinc-500">Favorite</dt><dd className="text-zinc-200">{selectedItem.is_favorite ? 'Yes' : 'No'}</dd></div></dl>{selectedItem.prompt && <div className="mt-4 rounded-xl bg-black/40 p-3"><p className="mb-1 text-xs text-zinc-500">Generation prompt</p><p className="text-sm text-zinc-300">{selectedItem.prompt}</p></div>}<div className="mt-5 flex gap-2"><button type="button" onClick={() => void handleOpen(selectedItem)} className="flex-1 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black">Preview</button><button type="button" onClick={() => void handleShare(selectedItem)} className="flex-1 rounded-full border border-white/[.12] px-4 py-2.5 text-sm font-medium text-white">Share 7 days</button></div></section></div>}
+
+      {previewItem && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90 p-3 sm:p-6" onClick={() => setPreviewItem(null)}><section role="dialog" aria-modal="true" aria-label={`Preview ${previewItem.file_name}`} className="flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/[.1] bg-[#101012]" onClick={(event) => event.stopPropagation()}><header className="flex items-center justify-between gap-3 border-b border-white/[.08] px-4 py-3"><p className="truncate text-sm font-medium text-zinc-200">{previewItem.file_name}</p><button type="button" onClick={() => setPreviewItem(null)} aria-label="Close preview" className="rounded-full p-2 text-zinc-400 hover:bg-white/[.08]"><X size={18}/></button></header><div className="flex min-h-0 flex-1 items-center justify-center bg-black p-2">{previewItem.mime_type?.startsWith('image/') ? <img src={previewItem.url} alt={previewItem.file_name} className="max-h-full max-w-full object-contain"/> : previewItem.mime_type?.startsWith('video/') ? <video src={previewItem.url} controls autoPlay className="max-h-full max-w-full"/> : <iframe title={previewItem.file_name} src={previewItem.url} className="h-full w-full rounded-lg bg-white"/>}</div></section></div>}
     </div>
   );
 }
