@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { resolveAvailableModel, validateChatMessages } from '../_lib/model-catalog.ts';
 import { createConversationTitle } from '../_lib/chat-utils.ts';
+import { streamGroqChatCompletion } from '../_lib/groq-client.ts';
 import { getChatContext } from '../_lib/chat-store.ts';
 
 function sendEvent(res: VercelResponse, event: Record<string, unknown>) {
@@ -16,30 +17,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const context = await getChatContext(req.headers.authorization);
-  if (!context) {
-    return res.status(401).json({ error: 'Sign in to use ZenixMind AI.', code: 'AUTH_REQUIRED' });
-  }
+  if (!context) return res.status(401).json({ error: 'Sign in to use ZenixMind AI.', code: 'AUTH_REQUIRED' });
 
   const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
   const selected = resolveAvailableModel(body.model);
   if (!selected) {
     return res.status(403).json({
-      error: 'This model is not available on your current plan. Premium model access will be enabled after billing and provider setup are complete.',
+      error: 'This model is not available on your current plan. Premium model access will be enabled after billing is configured.',
       code: 'MODEL_NOT_ENTITLED'
     });
   }
 
   const messages = validateChatMessages(body.messages);
   if (!messages || messages[messages.length - 1]?.role !== 'user') {
-    return res.status(400).json({
-      error: 'A valid user message is required to start a response.',
-      code: 'INVALID_MESSAGES'
-    });
+    return res.status(400).json({ error: 'A valid user message is required to start a response.', code: 'INVALID_MESSAGES' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return res.status(503).json({ error: 'AI provider is not configured on the server.', code: 'AI_NOT_CONFIGURED' });
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey?.trim()) {
+    return res.status(503).json({ error: 'Groq is not configured on the server. Add GROQ_API_KEY to the Production environment.', code: 'GROQ_NOT_CONFIGURED' });
   }
 
   const { user, supabase } = context;
@@ -53,26 +49,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('id', requestedConversationId)
       .eq('user_id', user.id)
       .maybeSingle();
-
-    if (error) {
-      return res.status(500).json({ error: 'Unable to open this conversation.', code: 'CONVERSATION_LOOKUP_FAILED' });
-    }
-    if (!data) {
-      return res.status(404).json({ error: 'Conversation not found.', code: 'CONVERSATION_NOT_FOUND' });
-    }
+    if (error) return res.status(500).json({ error: 'Unable to open this conversation.', code: 'CONVERSATION_LOOKUP_FAILED' });
+    if (!data) return res.status(404).json({ error: 'Conversation not found.', code: 'CONVERSATION_NOT_FOUND' });
     conversation = data;
   } else {
     const firstPrompt = messages.find((message) => message.role === 'user')?.content || '';
     const { data, error } = await supabase
       .from('conversations')
-      .insert({
-        user_id: user.id,
-        title: createConversationTitle(firstPrompt),
-        model: selected.id
-      })
+      .insert({ user_id: user.id, title: createConversationTitle(firstPrompt), model: selected.id })
       .select('id,title,model')
       .single();
-
     if (error || !data) {
       console.error('[chat/stream] conversation create failed', error);
       return res.status(500).json({ error: 'Unable to create a conversation.', code: 'CONVERSATION_CREATE_FAILED' });
@@ -96,37 +82,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
-
   sendEvent(res, { type: 'status', status: 'thinking' });
-  sendEvent(res, {
-    type: 'meta',
-    conversationId: conversation.id,
-    modelUsed: selected.id,
-    sources: []
-  });
+  sendEvent(res, { type: 'meta', conversationId: conversation.id, modelUsed: selected.id, provider: 'groq', sources: [] });
 
   let assistantText = '';
   try {
-    const { GoogleGenAI } = await import('@google/genai');
-    const ai = new GoogleGenAI({ apiKey });
-    const stream = await ai.models.generateContentStream({
-      model: selected.providerModel,
-      contents: messages.map((message) => ({
-        role: message.role,
-        parts: [{ text: message.content }]
-      }))
-    });
-
-    for await (const chunk of stream) {
-      const text = (chunk as any).text ||
-        (chunk as any).candidates?.[0]?.content?.parts?.map((part: any) => part.text).join('') || '';
-      if (!text) continue;
+    for await (const text of streamGroqChatCompletion(messages, selected.providerModel, apiKey)) {
       assistantText += text;
       sendEvent(res, { type: 'delta', text });
     }
 
     if (!assistantText.trim()) {
-      sendEvent(res, { type: 'error', error: 'The AI provider returned an empty response.' });
+      sendEvent(res, { type: 'error', error: 'Groq returned an empty response.' });
       return res.end();
     }
 
@@ -151,8 +118,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     sendEvent(res, { type: 'done', text: assistantText });
     return res.end();
   } catch (error: any) {
-    console.error('[chat/stream]', error);
-    sendEvent(res, { type: 'error', error: 'The AI response failed. Please try again.' });
+    console.error('[chat/stream]', error?.message || 'Groq stream failed');
+    sendEvent(res, { type: 'error', error: 'The Groq AI response failed. Please try again.' });
     return res.end();
   }
 }
