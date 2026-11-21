@@ -45,6 +45,7 @@ test('image generation uses authenticated server route and stores the returned i
 
 test('image generation reports provider errors in the page instead of blocking browser alerts', () => {
   assert.match(assistantPage, /setGenerationNotice\(error\?\.message/);
-  assert.doesNotMatch(assistantPage, /window\.alert\(error\?\.message/);
+  const imageHandler = assistantPage.slice(assistantPage.indexOf('const handleGenerate = async'), assistantPage.indexOf('const handleDictate ='));
+  assert.doesNotMatch(imageHandler, /window\.alert/);
   assert.doesNotMatch(assistantPage, /active:scale-\[0\.98\]/);
 });
