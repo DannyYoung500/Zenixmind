@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { resolveAvailableModel, validateChatMessages } from './_lib/model-catalog.ts';
 import { createGroqChatCompletion } from './_lib/groq-client.ts';
+import { buildZenixMessages } from './_lib/zenix-system-prompt.ts';
 import {
   deleteConversations,
   exportConversations,
@@ -74,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const start = Date.now();
-    const result = await createGroqChatCompletion(messages, selected.providerModel, apiKey);
+    const result = await createGroqChatCompletion(buildZenixMessages(messages), selected.providerModel, apiKey);
     return res.status(200).json({
       message: { role: 'assistant', content: result.text },
       model: selected.id,
