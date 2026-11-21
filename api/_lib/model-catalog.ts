@@ -15,38 +15,38 @@ type ModelDefinition = {
   description: string;
   access: 'free' | 'paid';
   available: boolean;
-  provider: 'google';
+  provider: 'groq';
   badge: 'ZenixMind';
 };
 
 export const ZENIX_MODELS: ModelDefinition[] = [
-  { id: 'zenix-auto', name: 'Zenix Auto', tag: 'Adaptive', description: 'Automatically selects the best currently available ZenixMind engine.', access: 'free', available: true, provider: 'google', badge: 'ZenixMind' },
-  { id: 'zenix-lite', name: 'Zenix Lite', tag: 'Lightweight', description: 'A lightweight assistant for everyday questions and quick tasks.', access: 'free', available: true, provider: 'google', badge: 'ZenixMind' },
-  { id: 'zenix-4.6-fast', name: 'Zenix 4.6 Fast', tag: 'Fast', description: 'Fast responses for everyday work and building.', access: 'free', available: true, provider: 'google', badge: 'ZenixMind' },
-  { id: 'zenix-4.6-pro', name: 'Zenix 4.6 Pro', tag: 'Pro', description: 'Premium model tier. Billing and provider integration are not enabled yet.', access: 'paid', available: false, provider: 'google', badge: 'ZenixMind' },
-  { id: 'zenix-4.6-reason', name: 'Zenix 4.6 Reason', tag: 'Reasoning', description: 'Premium reasoning tier. Billing and provider integration are not enabled yet.', access: 'paid', available: false, provider: 'google', badge: 'ZenixMind' },
-  { id: 'zenix-4.6-build', name: 'Zenix 4.6 Build', tag: 'Build', description: 'Premium coding and build tier. Billing and provider integration are not enabled yet.', access: 'paid', available: false, provider: 'google', badge: 'ZenixMind' }
+  { id: 'zenix-auto', name: 'Zenix Auto', tag: 'Adaptive', description: 'Automatically selects the strongest currently available ZenixMind engine.', access: 'free', available: true, provider: 'groq', badge: 'ZenixMind' },
+  { id: 'zenix-lite', name: 'Zenix Lite', tag: 'Lightweight', description: 'A lightweight assistant for everyday questions and quick tasks.', access: 'free', available: true, provider: 'groq', badge: 'ZenixMind' },
+  { id: 'zenix-4.6-fast', name: 'Zenix 4.6 Fast', tag: 'Fast', description: 'Fast responses for everyday work and building.', access: 'free', available: true, provider: 'groq', badge: 'ZenixMind' },
+  { id: 'zenix-4.6-pro', name: 'Zenix 4.6 Pro', tag: 'Pro', description: 'Premium model tier. Billing and provider integration are not enabled yet.', access: 'paid', available: false, provider: 'groq', badge: 'ZenixMind' },
+  { id: 'zenix-4.6-reason', name: 'Zenix 4.6 Reason', tag: 'Reasoning', description: 'Premium reasoning tier. Billing and provider integration are not enabled yet.', access: 'paid', available: false, provider: 'groq', badge: 'ZenixMind' },
+  { id: 'zenix-4.6-build', name: 'Zenix 4.6 Build', tag: 'Build', description: 'Premium coding and build tier. Billing and provider integration are not enabled yet.', access: 'paid', available: false, provider: 'groq', badge: 'ZenixMind' }
 ];
 
-const GEMINI_MODEL_BY_ZENIX_ID: Record<ZenixModelId, string> = {
-  'zenix-auto': 'gemini-2.5-flash',
-  'zenix-lite': 'gemini-2.5-flash',
-  'zenix-4.6-fast': 'gemini-2.5-flash',
-  'zenix-4.6-pro': 'gemini-2.5-pro',
-  'zenix-4.6-reason': 'gemini-2.5-pro',
-  'zenix-4.6-build': 'gemini-2.5-pro'
+const GROQ_MODEL_BY_ZENIX_ID: Record<ZenixModelId, string> = {
+  'zenix-auto': 'openai/gpt-oss-120b',
+  'zenix-lite': 'openai/gpt-oss-20b',
+  'zenix-4.6-fast': 'openai/gpt-oss-20b',
+  'zenix-4.6-pro': 'openai/gpt-oss-120b',
+  'zenix-4.6-reason': 'openai/gpt-oss-120b',
+  'zenix-4.6-build': 'openai/gpt-oss-120b'
 };
 
 export function resolveAvailableModel(id: unknown): { id: ZenixModelId; providerModel: string } | null {
   const selected = typeof id === 'string' && id.trim() ? id.trim() : 'zenix-auto';
   const definition = ZENIX_MODELS.find((item) => item.id === selected);
   if (!definition || !definition.available || definition.access !== 'free') return null;
-  return { id: definition.id, providerModel: GEMINI_MODEL_BY_ZENIX_ID[definition.id] };
+  return { id: definition.id, providerModel: GROQ_MODEL_BY_ZENIX_ID[definition.id] };
 }
 
-export function validateChatMessages(value: unknown): Array<{ role: 'user' | 'model'; content: string }> | null {
+export function validateChatMessages(value: unknown): Array<{ role: 'user' | 'assistant'; content: string }> | null {
   if (!Array.isArray(value) || value.length === 0 || value.length > 60) return null;
-  const result: Array<{ role: 'user' | 'model'; content: string }> = [];
+  const result: Array<{ role: 'user' | 'assistant'; content: string }> = [];
   let totalLength = 0;
   for (const item of value) {
     if (!item || typeof item !== 'object') return null;
@@ -58,7 +58,7 @@ export function validateChatMessages(value: unknown): Array<{ role: 'user' | 'mo
     if (!content || content.length > 16000) return null;
     totalLength += content.length;
     if (totalLength > 80000) return null;
-    result.push({ role: role === 'assistant' ? 'model' : 'user', content });
+    result.push({ role, content });
   }
   return result;
 }
