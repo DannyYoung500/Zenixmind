@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { BrandMark } from './brand-mark';
 import { ModelSelector, AI_MODELS as AVAILABLE_MODELS } from './model-selector';
+import { WORKSPACE_NAVIGATION } from '../lib/workspace-navigation';
 export { AVAILABLE_MODELS };
 import { useAuth } from '../lib/auth-context';
 import { isOwnerEmail } from '../lib/owners';
@@ -26,6 +27,7 @@ import {
   FolderPlus,
   Shield,
   VenetianMask,
+  Workflow,
  } from 'lucide-react';
 
 interface Project {
@@ -512,8 +514,9 @@ export function WorkspaceShell({
           )}
 
           {/* New Chat controls */}
-          <div className="mb-2 flex items-center gap-1.5">
-            <button type="button" onClick={() => { onNewChat?.(); setOpen(false); }} title="New chat" className="flex min-w-0 flex-1 items-center rounded-xl px-3 py-2 text-xs text-zinc-300 hover:bg-[#141416] hover:text-zinc-100 transition-colors">
+          <div className="mb-3 flex items-center gap-1.5">
+            <button type="button" onClick={() => { onNewChat?.(); setOpen(false); }} title="New chat" className="flex min-w-0 flex-1 items-center justify-center rounded-xl border border-white/[.1] bg-white text-xs font-semibold text-[#09090b] px-3 py-2.5 shadow-sm transition-colors hover:bg-zinc-200">
+              <SquarePen size={15} className={sidebarCollapsed ? '' : 'mr-2'} />
               {!sidebarCollapsed && <span>New chat</span>}
               {sidebarCollapsed && <span className="sr-only">New chat</span>}
             </button>
@@ -539,38 +542,19 @@ export function WorkspaceShell({
                 {!sidebarCollapsed && (
                   <>
                     <span className="flex-1 truncate font-medium">Owner Console</span>
-                    <span className="rounded bg-amber-400/15 px-1.5 py-0.2 text-[9px] font-mono text-amber-300">
-                      SUPERUSER
-                    </span>
                   </>
                 )}
               </Link>
             )}
 
-            {[
-              {
-                id: 'chat',
-                label: 'Chat',
-                to: '/assistant',
-                icon: SquarePen,
-                badge: null
-              },
-              {
-                id: 'images',
-                label: 'Imagine',
-                to: '/assistant?view=images',
-                icon: Sparkles,
-                badge: 'dot'
-              },
-              {
-                id: 'library',
-                label: 'Library',
-                to: '/assistant?view=library',
-                icon: FolderClosed,
-                badge: null
-              },
-             ].map((item) => {
-              const IconComp = item.icon;
+            {WORKSPACE_NAVIGATION.map((item) => {
+              const IconComp = item.id === 'chat'
+                ? SquarePen
+                : item.id === 'images'
+                ? Sparkles
+                : item.id === 'library'
+                ? FolderClosed
+                : Workflow;
               const isItemActive =
                 (item.id === 'chat' && location.pathname === '/assistant' && !location.search.includes('view=')) ||
                 (item.id === 'images' && location.search.includes('view=images')) ||
@@ -595,9 +579,6 @@ export function WorkspaceShell({
                   {!sidebarCollapsed && (
                     <span className="flex-1 truncate">{item.label}</span>
                   )}
-                  {!sidebarCollapsed && item.badge === 'dot' && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shadow-[0_0_6px_#3b82f6]" />
-                  )}
                 </Link>
               );
             })}
@@ -606,7 +587,7 @@ export function WorkspaceShell({
           {!sidebarCollapsed && (
             <>
               {/* Projects Section */}
-              <div className="mt-5">
+              <div className="mt-5 border-t border-white/[.05] pt-3">
                 <div className="flex items-center justify-between px-2 py-1">
                   <span className="text-[11px] font-medium text-zinc-500">Projects</span>
                   <button
@@ -626,7 +607,7 @@ export function WorkspaceShell({
                       <button
                         key={project.id}
                         type="button"
-                        onClick={() => navigate(`/assistant?project=${project.id}`)}
+                        onClick={() => { navigate(`/assistant?project=${project.id}`); setOpen(false); }}
                         className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs text-zinc-400 hover:bg-[#141416] hover:text-zinc-200 transition-colors"
                         title={project.name}
                       >
@@ -648,7 +629,7 @@ export function WorkspaceShell({
               </div>
 
               {/* Chats Section */}
-              <div className="mt-4 flex-1 min-h-0 flex flex-col">
+              <div className="mt-4 flex-1 min-h-0 flex flex-col border-t border-white/[.05] pt-3">
                 <div className="flex items-center justify-between px-2 py-1">
                   <span className="text-[11px] font-medium text-zinc-500">Chats</span>
                 </div>
