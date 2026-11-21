@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { resolveAvailableModel, validateChatMessages } from './_lib/model-catalog.ts';
+import { createGroqChatCompletion } from './_lib/groq-client.ts';
 import {
   deleteConversations,
   exportConversations,
@@ -21,37 +22,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     if (String(req.query.export || '') === '1') {
       const exported = await exportConversations(supabase, user.id);
-      if (exported.error) {
-        return res.status(500).json({ error: 'Unable to export chat history.', code: 'CHAT_EXPORT_FAILED' });
-      }
+      if (exported.error) return res.status(500).json({ error: 'Unable to export chat history.', code: 'CHAT_EXPORT_FAILED' });
       return res.status(200).json(exported.data);
     }
 
     const conversationId = String(req.query.conversation_id || '').trim();
     if (conversationId) {
       const result = await getConversation(supabase, user.id, conversationId);
-      if (result.error) {
-        return res.status(500).json({ error: 'Unable to load this conversation.', code: 'CHAT_LOAD_FAILED' });
-      }
-      if (!result.conversation) {
-        return res.status(404).json({ error: 'Conversation not found.', code: 'CONVERSATION_NOT_FOUND' });
-      }
+      if (result.error) return res.status(500).json({ error: 'Unable to load this conversation.', code: 'CHAT_LOAD_FAILED' });
+      if (!result.conversation) return res.status(404).json({ error: 'Conversation not found.', code: 'CONVERSATION_NOT_FOUND' });
       return res.status(200).json({ conversation: result.conversation, messages: result.messages || [] });
     }
 
     const { data, error } = await listConversations(supabase, user.id);
-    if (error) {
-      return res.status(500).json({ error: 'Unable to load conversation history.', code: 'CHAT_HISTORY_FAILED' });
-    }
+    if (error) return res.status(500).json({ error: 'Unable to load conversation history.', code: 'CHAT_HISTORY_FAILED' });
     return res.status(200).json({ conversations: data || [] });
   }
 
   if (req.method === 'DELETE') {
     const conversationId = String(req.query.conversation_id || '').trim();
     const { error } = await deleteConversations(supabase, user.id, conversationId || undefined);
-    if (error) {
-      return res.status(500).json({ error: 'Unable to delete conversation history.', code: 'CHAT_DELETE_FAILED' });
-    }
+    if (error) return res.status(500).json({ error: 'Unable to delete conversation history.', code: 'CHAT_DELETE_FAILED' });
     return res.status(200).json({ success: true });
   }
 
@@ -65,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const selected = resolveAvailableModel(body.model);
     if (!selected) {
       return res.status(403).json({
-        error: 'This model is not available on your current plan. Premium model access will be enabled after billing and provider setup are complete.',
+        error: 'This model is not available on your current plan. Premium model access will be enabled after billing is configured.',
         code: 'MODEL_NOT_ENTITLED'
       });
     }
@@ -77,38 +68,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(503).json({ error: 'AI provider is not configured on the server.', code: 'AI_NOT_CONFIGURED' });
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey?.trim()) {
+      return res.status(503).json({ error: 'Groq is not configured on the server. Add GROQ_API_KEY to the Production environment.', code: 'GROQ_NOT_CONFIGURED' });
     }
 
-    const { GoogleGenAI } = await import('@google/genai');
-    const ai = new GoogleGenAI({ apiKey });
     const start = Date.now();
-    const result = await ai.models.generateContent({
-      model: selected.providerModel,
-      contents: messages.map((message) => ({
-        role: message.role,
-        parts: [{ text: message.content }]
-      }))
-    });
-    const responseText = (result as any).text ||
-      (result as any).candidates?.[0]?.content?.parts?.map((part: any) => part.text).join('') || '';
-    if (!responseText) {
-      return res.status(502).json({ error: 'The AI provider returned an empty response.', code: 'EMPTY_AI_RESPONSE' });
-    }
-    const usage = (result as any).usageMetadata || {};
+    const result = await createGroqChatCompletion(messages, selected.providerModel, apiKey);
     return res.status(200).json({
-      message: { role: 'assistant', content: responseText },
+      message: { role: 'assistant', content: result.text },
       model: selected.id,
+      provider: 'groq',
       latencyMs: Date.now() - start,
-      usage: {
-        inputTokens: Number(usage.promptTokenCount || 0),
-        outputTokens: Number(usage.candidatesTokenCount || 0)
-      }
+      usage: result.usage
     });
   } catch (error: any) {
-    console.error('[api/chat]', error);
-    return res.status(500).json({ error: 'Chat request failed. Please try again.', code: 'CHAT_FAILED' });
+    console.error('[api/chat]', error?.message || 'Groq chat request failed');
+    return res.status(502).json({ error: 'Groq chat request failed. Check provider availability and try again.', code: 'GROQ_CHAT_FAILED' });
   }
 }
