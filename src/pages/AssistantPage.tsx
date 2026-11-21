@@ -42,8 +42,7 @@ import {
   ChevronDown,
   Zap,
   Star,
-  HardDrive,
-  Eye
+  HardDrive
 } from 'lucide-react';
 
 
