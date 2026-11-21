@@ -651,6 +651,7 @@ function ChatMessageItem({
   const [sharing, setSharing] = useState(false);
   const [shareDone, setShareDone] = useState(false);
   const [shareFailed, setShareFailed] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const [liked, setLiked] = useState(message.liked || false);
   const [disliked, setDisliked] = useState(message.disliked || false);
 
@@ -740,25 +741,29 @@ function ChatMessageItem({
         )}
 
         {message.sources && message.sources.length > 0 && (
-          <div className="mb-3 rounded-2xl border border-cyan-500/15 bg-cyan-500/[.035] p-3">
-            <div className="mb-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-cyan-400">
-              <Globe size={12} />
-              <span>Sources · {message.sources.length}</span>
-            </div>
-            <div className="grid gap-1.5 sm:grid-cols-2">
-              {message.sources.map((src, i) => (
-                <a
-                  key={i}
-                  href={src.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between rounded-xl border border-white/[.06] bg-[#0c0c0e] px-2.5 py-2 text-[11px] text-zinc-300 transition-colors hover:border-cyan-500/30 hover:text-white"
-                >
-                  <span className="truncate pr-2">{src.title}</span>
-                  <ExternalLink size={11} className="shrink-0 text-zinc-600" />
-                </a>
-              ))}
-            </div>
+          <div className="mb-3">
+            <button type="button" onClick={() => setSourcesOpen(true)} className="inline-flex items-center gap-2 rounded-full border border-white/[.12] bg-[#151518] px-3.5 py-2 text-xs font-medium text-zinc-200 transition-colors hover:bg-[#202024]" aria-label={`View ${message.sources.length} web sources`}>
+              <Globe size={14} /><span>Sources</span><span className="rounded-full bg-white/[.08] px-1.5 py-0.5 text-[10px] text-zinc-400">{message.sources.length}</span>
+            </button>
+            {sourcesOpen && (
+              <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/65 backdrop-blur-[2px]" onClick={() => setSourcesOpen(false)}>
+                <section role="dialog" aria-modal="true" aria-label="Web sources" className="max-h-[82vh] w-full max-w-2xl overflow-hidden rounded-t-[28px] border border-white/[.09] bg-[#171719] shadow-2xl animate-in slide-in-from-bottom-4 duration-200" onClick={(event) => event.stopPropagation()}>
+                  <div className="flex justify-center pb-3 pt-3"><span className="h-1.5 w-14 rounded-full bg-zinc-500/70" /></div>
+                  <div className="flex items-center justify-between px-5 pb-4"><h3 className="text-xl font-medium tracking-tight text-zinc-100">Sources</h3><button type="button" onClick={() => setSourcesOpen(false)} className="grid h-8 w-8 place-items-center rounded-full text-zinc-400 hover:bg-white/[.08]" aria-label="Close sources"><X size={18} /></button></div>
+                  <div className="max-h-[calc(82vh-76px)] space-y-5 overflow-y-auto px-5 pb-8">
+                    {message.sources.map((src, i) => {
+                      let domain = '';
+                      try { domain = new URL(src.url).hostname.replace(/^www\./, ''); } catch {}
+                      return <a key={`${src.url}-${i}`} href={src.url} target="_blank" rel="noopener noreferrer" className="block rounded-xl py-1 text-left transition-colors hover:bg-white/[.035]">
+                        <div className="mb-2 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-full border border-white/[.08] bg-[#242428]"><Globe size={15} className="text-zinc-300" /></span><span className="min-w-0"><span className="block truncate text-xs font-semibold text-zinc-200">{domain || src.title}</span><span className="block text-[11px] text-zinc-500">{domain}</span></span><ExternalLink size={13} className="ml-auto shrink-0 text-zinc-500" /></div>
+                        <h4 className="text-[15px] font-medium leading-6 text-zinc-100">{src.title}</h4>
+                        {src.snippet && <p className="mt-1 line-clamp-3 text-sm leading-6 text-zinc-400">{src.snippet}</p>}
+                      </a>;
+                    })}
+                  </div>
+                </section>
+              </div>
+            )}
           </div>
         )}
 
@@ -846,6 +851,9 @@ function ChatMessageItem({
               </button>
             )}
           </div>
+        )}
+        {!message.isStreaming && message.content.trim() && (
+          <p className="mt-3 text-[11px] leading-4 text-zinc-500">ZenixMind can make mistakes. Double-check important information.</p>
         )}
       </div>
     </div>
