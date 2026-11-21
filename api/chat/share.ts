@@ -79,6 +79,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select('share_token')
       .single();
     if (createError || !created) {
+      // A concurrent share request may have won the unique active-share constraint.
+      const { data: racedShare } = await supabase
+        .from('conversation_shares')
+        .select('share_token')
+        .eq('conversation_id', conversationId)
+        .eq('user_id', user.id)
+        .is('revoked_at', null)
+        .maybeSingle();
+      if (racedShare?.share_token) {
+        return res.status(200).json({ shareToken: racedShare.share_token });
+      }
       console.error('[chat/share] create failed', createError);
       return res.status(500).json({ error: 'Unable to create a share link.' });
     }
