@@ -1,5 +1,5 @@
 export type GroqChatMessage = {
-  role: 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant';
   content: string;
 };
 
