@@ -76,63 +76,9 @@ import {
 } from 'lucide-react';
 import { SecurityMonitor } from '../components/security-monitor';
 import { UsageAndCosts } from '../components/usage-and-costs';
+import { OWNER_MENU_ITEMS, OWNER_NAV_GROUPS, type OwnerSection } from '../lib/owner-navigation';
 
 export const FALLBACK_MODELS: any[] = [];
-
-// Primary owner console navigation
-export type OwnerSection =
-  | 'overview'
-  | 'ai-control'
-  | 'models'
-  | 'providers'
-  | 'voice'
-  | 'search'
-  | 'users'
-  | 'conversations'
-  | 'memory'
-  | 'storage'
-  | 'usage'
-  | 'security'
-  | 'audit-log'
-  | 'health'
-  | 'logs'
-  | 'feature-flags'
-  | 'notifications'
-  | 'integrations'
-  | 'api-keys'
-  | 'env-config'
-  | 'database'
-  | 'deployments'
-  | 'backups'
-  | 'owner-settings';
-
-interface MenuItem {
-  id: OwnerSection;
-  label: string;
-  group: 'Core Platform' | 'Data & Intelligence' | 'System & Security' | 'Operations';
-  icon: React.ElementType;
-}
-
-const MENU_ITEMS: MenuItem[] = [
-  { id: 'overview', label: 'Overview', group: 'Core Platform', icon: LayoutDashboard },
-  { id: 'ai-control', label: 'AI Control Center', group: 'Core Platform', icon: Cpu },
-  { id: 'models', label: 'Models', group: 'Core Platform', icon: Layers },
-  { id: 'providers', label: 'AI Providers', group: 'Core Platform', icon: Server },
-  { id: 'voice', label: 'Voice Engine', group: 'Product', icon: Mic },
-  { id: 'search', label: 'Web & Search', group: 'Product', icon: Globe },
-  { id: 'users', label: 'Users', group: 'Product', icon: Users },
-  { id: 'conversations', label: 'Conversations', group: 'Product', icon: MessageSquare },
-  { id: 'usage', label: 'Usage & Costs', group: 'Product', icon: BarChart3 },
-  { id: 'security', label: 'Security & Access', group: 'Trust & Operations', icon: Shield },
-  { id: 'audit-log', label: 'Audit Log', group: 'Trust & Operations', icon: FileText },
-  { id: 'health', label: 'System Health', group: 'Trust & Operations', icon: Activity },
-  { id: 'integrations', label: 'Plugins', group: 'Operations', icon: Blocks },
-  { id: 'env-config', label: 'Environment', group: 'Operations', icon: Terminal },
-  { id: 'database', label: 'Database', group: 'Operations', icon: Database },
-  { id: 'deployments', label: 'Deployments', group: 'Operations', icon: Rocket },
-  { id: 'backups', label: 'Backups & Recovery', group: 'Operations', icon: Archive },
-  { id: 'owner-settings', label: 'Owner Settings', group: 'Operations', icon: Sliders }
-];
 
 // Real Toast Notification
 interface ToastNotification {
@@ -645,13 +591,13 @@ export function OwnerPage() {
   };
 
   // Filter menu items by search
-  const filteredMenuItems = MENU_ITEMS.filter((item) =>
+  const filteredMenuItems = OWNER_MENU_ITEMS.filter((item) =>
     item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.group.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Grouped Menu items
-  const menuGroups = Array.from(new Set(filteredMenuItems.map((item) => item.group)));
+  const menuGroups = OWNER_NAV_GROUPS.map((group) => group.label).filter((group) => filteredMenuItems.some((item) => item.group === group));
 
   return (
     <div className="relative flex h-screen w-full overflow-hidden bg-[#09090c] text-zinc-100 font-sans antialiased">
@@ -866,12 +812,12 @@ export function OwnerPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-sm font-semibold text-white capitalize">
-                  {MENU_ITEMS.find((m) => m.id === activeSection)?.label}
+                  {OWNER_MENU_ITEMS.find((m) => m.id === activeSection)?.label}
                 </h1>
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
               </div>
               <div className="flex items-center gap-2 text-[10px] text-zinc-500 font-mono">
-                <span>Verified: {user?.email || 'dannyyoungofficial1@gmail.com'}</span>
+                <span>Verified: {user?.email || 'Owner session'}</span>
                 <span>•</span>
                 <span>Updated: {lastRefreshed.toLocaleTimeString()}</span>
               </div>
