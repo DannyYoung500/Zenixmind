@@ -138,3 +138,25 @@ button, input, textarea, select {
 .voice-orb-aurora {
   animation: zenixAurora 8s ease-in-out infinite;
 }
+
+
+/* Mobile keyboard and focus stability */
+html, body, #root {
+  min-height: 100%;
+}
+
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  input, textarea, select, button {
+    scroll-margin-block: 8px;
+  }
+
+  body {
+    overscroll-behavior-y: none;
+  }
+}
