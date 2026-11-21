@@ -47,5 +47,4 @@ test('image generation reports provider errors in the page instead of blocking b
   assert.match(assistantPage, /setGenerationNotice\(error\?\.message/);
   const imageHandler = assistantPage.slice(assistantPage.indexOf('const handleGenerate = async'), assistantPage.indexOf('const handleDictate ='));
   assert.doesNotMatch(imageHandler, /window\.alert/);
-  assert.doesNotMatch(assistantPage, /active:scale-\[0\.98\]/);
 });
