@@ -681,7 +681,7 @@ function ChatMessageItem({
     onUpdateReaction?.({ liked: nextLiked, disliked: nextDisliked });
   };
 
-emoji handler  const handleSpeak = () => {
+  const handleSpeak = () => {
     if (!('speechSynthesis' in window)) return;
     if (speaking) {
       window.speechSynthesis.cancel();
