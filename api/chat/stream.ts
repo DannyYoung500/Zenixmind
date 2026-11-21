@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { resolveAvailableModel, validateChatMessages } from '../_lib/model-catalog.ts';
 import { createConversationTitle } from '../_lib/chat-utils.ts';
 import { streamGroqChatCompletion } from '../_lib/groq-client.ts';
+import { buildZenixMessages } from '../_lib/zenix-system-prompt.ts';
 import { getChatContext } from '../_lib/chat-store.ts';
 
 function sendEvent(res: VercelResponse, event: Record<string, unknown>) {
@@ -87,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let assistantText = '';
   try {
-    for await (const text of streamGroqChatCompletion(messages, selected.providerModel, apiKey)) {
+    for await (const text of streamGroqChatCompletion(buildZenixMessages(messages), selected.providerModel, apiKey)) {
       assistantText += text;
       sendEvent(res, { type: 'delta', text });
     }
