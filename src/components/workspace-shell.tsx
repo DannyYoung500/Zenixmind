@@ -266,8 +266,8 @@ export function WorkspaceShell({
   const initials = (userName?.[0] || 'D').toUpperCase();
 
   return (
-    <main className="min-h-screen bg-[#050506] text-zinc-100 selection:bg-zinc-700 selection:text-white">
-      <div className="flex min-h-screen">
+    <main className="min-h-[100dvh] bg-[#050506] text-zinc-100 selection:bg-zinc-700 selection:text-white">
+      <div className="flex min-h-[100dvh]">
         {/* Mobile Backdrop */}
         {open && (
           <button
@@ -694,7 +694,7 @@ export function WorkspaceShell({
         </aside>
 
         {/* Main Content Area */}
-        <section className="min-w-0 flex-1 flex flex-col min-h-screen">
+        <section className="min-w-0 flex-1 flex flex-col min-h-[100dvh]">
           {/* Top Workspace Header */}
           <header className="flex min-h-[52px] items-center justify-between border-b border-white/[.05] px-4 sm:px-6 bg-[#08080a]/80 backdrop-blur-md sticky top-0 z-30">
             <div className="flex items-center gap-3">
