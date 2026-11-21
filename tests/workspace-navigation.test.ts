@@ -39,13 +39,16 @@ test('workspace shell does not expose project creation or project navigation', (
 test('assistant message reactions use restrained selected states', () => {
   const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
   const assistantPage = readFileSync(assistantPagePath, 'utf8');
-  assert.match(assistantPage, /liked \? 'bg-white\/\[\.08\] text-white border border-white\/\[\.12\]'/);
-  assert.match(assistantPage, /disliked \? 'bg-rose-500\/\[\.08\] text-rose-300 border-rose-400\/20'/);
+  assert.ok(assistantPage.includes("liked ? 'bg-white/[.08] text-white border border-white/[.12]'"));
+  assert.ok(assistantPage.includes("disliked ? 'bg-rose-500/[.08] text-rose-300 border-rose-400/20'"));
+  assert.match(assistantPage, /aria-pressed=\{liked\}/);
+  assert.match(assistantPage, /aria-pressed=\{disliked\}/);
 });
 
 test('chat dictation microphone has a clear neutral idle state and accessible listening state', () => {
   const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
   const assistantPage = readFileSync(assistantPagePath, 'utf8');
-  assert.match(assistantPage, /bg-\[#151518\] border-white\/\[\.1\] text-zinc-300 hover:bg-\[#202024\] hover:text-white/);
-  assert.match(assistantPage, /bg-rose-500\/\[\.12\] border border-rose-400\/30 text-rose-300/);
+  assert.ok(assistantPage.includes("bg-[#151518] border-white/[.1] text-zinc-300 hover:bg-[#202024] hover:border-white/[.18] hover:text-white"));
+  assert.ok(assistantPage.includes("bg-rose-500/[.12] border-rose-400/30 text-rose-300"));
+  assert.match(assistantPage, /aria-label=\{isListening \? 'Stop voice dictation' : 'Start voice dictation'\}/);
 });
