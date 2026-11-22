@@ -139,7 +139,7 @@ test('chat commands route search to web mode and prompt commands through the sel
   assert.match(source, /requestWebSearch = true/);
   assert.match(source, /webSearch: requestWebSearch/);
   assert.match(source, /messages: requestMessages/);
-  assert.match(source, /command\.instruction/);
+  assert.match(source, /command: parsedCommand\?\.command/);
   assert.match(source, /Type \/help to see the available ZenixMind commands/);
 });
 
