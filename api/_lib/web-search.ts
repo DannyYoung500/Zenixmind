@@ -123,7 +123,13 @@ export async function streamTavilyResearch(
     const payload = parsed.payload && typeof parsed.payload === 'object' ? parsed.payload : {};
     const type = String(payload.type || payload.event || parsed.event || '').toLowerCase();
     if (type.includes('tool_call') || type.includes('tool-call') || type === 'planning' || type === 'websearch' || type === 'researchsubtopic' || type === 'generating') {
-      callbacks.onStatus?.('researching');
+      const phase = String(payload.name || type).toLowerCase().replace(/[^a-z]/g, '');
+      const status = phase.includes('planning') ? 'planning research'
+        : phase.includes('websearch') ? 'searching sources'
+        : phase.includes('researchsubtopic') ? 'investigating subtopics'
+        : phase.includes('generating') ? 'writing research report'
+        : 'researching';
+      callbacks.onStatus?.(status);
       return;
     }
     if (type === 'content' || type === 'content_delta' || type === 'delta') {
