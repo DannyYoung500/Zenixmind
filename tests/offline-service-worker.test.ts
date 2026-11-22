@@ -64,3 +64,10 @@ test('service worker handles periodic sync, background sync, and push notificati
   assert.match(worker, /showNotification/);
   assert.match(worker, /notificationclick/);
 });
+
+test('Settings exposes all three progressive web app capabilities without claiming push delivery is configured', () => {
+  assert.match(assistant, /title: 'Periodic Sync'/);
+  assert.match(assistant, /title: 'Background Sync'/);
+  assert.match(assistant, /title: 'Push Notifications'/);
+  assert.match(assistant, /Remote push delivery also requires server-side VAPID keys and a subscription sender/);
+});
