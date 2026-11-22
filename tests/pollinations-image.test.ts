@@ -55,7 +55,7 @@ const rendererSource = readFileSync(fileURLToPath(new URL('../src/components/mes
 const workspaceSource = readFileSync(fileURLToPath(new URL('../src/components/workspace-shell.tsx', import.meta.url)), 'utf8');
 
 test('chat image creation is explicit, authenticated, and saved to the private library and conversation', () => {
-  assert.match(assistantSource, /const imageIntent = text\.match/);
+  assert.match(assistantSource, /const slashImageIntent = text\.match/);
   assert.match(assistantSource, /if \(!user\?\.id\)/);
   assert.match(assistantSource, /\/api\/generate-image/);
   assert.match(assistantSource, /storage\.from\('library'\)\.upload/);
