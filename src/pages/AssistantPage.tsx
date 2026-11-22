@@ -2159,8 +2159,10 @@ export function AssistantPage() {
       if (command?.action === 'search') {
         requestWebSearch = true;
         fullPrompt = parsedCommand.prompt || 'Search the web for the latest relevant information and cite your sources.';
-      } else if (command?.action === 'prompt') {
-        fullPrompt = `${command.instruction}\n\nUser request: ${parsedCommand.prompt || 'Please ask me what I would like help with.'}`;
+      } else if (command?.action === 'prompt' && !parsedCommand.prompt) {
+        setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: `Add a request after ${command.trigger}. For example: ${command.trigger} explain how APIs work` }]);
+        setInput('');
+        return;
       }
     }
     let attachmentPayload: any = null;
@@ -2204,7 +2206,6 @@ export function AssistantPage() {
     }
 
     const nextMessages = [...messages, { role: 'user' as const, content: text }];
-    const requestMessages = [...messages, { role: 'user' as const, content: fullPrompt }];
     setMessages(nextMessages);
     if (!overridePrompt) {
       setInput('');
@@ -2237,11 +2238,13 @@ export function AssistantPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: requestMessages,
+          messages: nextMessages,
           conversationId,
           projectId: activeProjectId,
           model: selectedModel,
           webSearch: requestWebSearch,
+          command: parsedCommand?.command || null,
+          searchQuery: parsedCommand?.command === 'search' ? parsedCommand.prompt : undefined,
           deepThink,
           attachment: attachmentPayload,
           preferences: {
