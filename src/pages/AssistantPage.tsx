@@ -439,6 +439,19 @@ export const CompactFloatingComposer = React.forwardRef<
           }}
         />
 
+        {/* Command suggestions */}
+        {commandSuggestions.length > 0 && (
+          <div className="absolute bottom-full left-3 right-3 z-40 mb-2 max-h-72 overflow-y-auto rounded-2xl border border-white/[.1] bg-[#111114] p-1.5 shadow-2xl" role="listbox" aria-label="Chat commands">
+            {commandSuggestions.map((command, index) => (
+              <button key={command.id} type="button" role="option" aria-selected={activeCommandIndex === index}
+                onMouseDown={(event) => event.preventDefault()} onClick={() => chooseCommand(command.trigger)}
+                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${activeCommandIndex === index ? 'bg-white/[.1]' : 'hover:bg-white/[.06]'}`}>
+                <span className="min-w-0"><span className="block text-xs font-semibold text-zinc-100">{command.trigger} <span className="font-normal text-zinc-400">· {command.label}</span></span><span className="mt-0.5 block truncate text-[10px] text-zinc-500">{command.description}</span></span>
+                <span className="shrink-0 text-[9px] uppercase tracking-wide text-zinc-600">{command.category}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {/* Text Area */}
         <textarea
           ref={textareaRef}
@@ -2043,8 +2056,13 @@ export function AssistantPage() {
       setInput('');
       return;
     }
-    const naturalImageIntent = text.match(/^\\s*(?:please\\s+)?(?:create|generate|draw|make|design)\\s+(?:me\\s+)?(?:an?\\s+)?(?:image|picture|photo|illustration|artwork)\\s*(?:of|showing|with|:)?\\s+([\\s\\S]+)$/i);
+    const naturalImageIntent = text.match(/^\s*(?:please\s+)?(?:create|generate|draw|make|design)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|illustration|artwork)\s*(?:of|showing|with|:)?\s+([\s\S]+)$/i);
     const imagePrompt = parsedCommand?.command === 'image' ? parsedCommand.prompt : naturalImageIntent?.[1]?.trim();
+    if (parsedCommand?.command === 'image' && !imagePrompt) {
+      setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'Add a description after /image. Example: /image a cinematic mountain landscape at sunrise.' }]);
+      setInput('');
+      return;
+    }
     if (imagePrompt) {
       if (!user?.id) {
         setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'Sign in to generate images and save them to your ZenixMind Library.' }]);
@@ -2142,7 +2160,7 @@ export function AssistantPage() {
         requestWebSearch = true;
         fullPrompt = parsedCommand.prompt || 'Search the web for the latest relevant information and cite your sources.';
       } else if (command?.action === 'prompt') {
-        fullPrompt = `${command.instruction}\\n\\nUser request: ${parsedCommand.prompt || 'Please ask me what I would like help with.'}`;
+        fullPrompt = `${command.instruction}\n\nUser request: ${parsedCommand.prompt || 'Please ask me what I would like help with.'}`;
       }
     }
     let attachmentPayload: any = null;
@@ -2178,7 +2196,7 @@ export function AssistantPage() {
           }
         }
 
-        fullPrompt = `[Attached file: ${attachedFile.name}]\\n\\n${fullPrompt}`;
+        fullPrompt = `[Attached file: ${attachedFile.name}]\n\n${fullPrompt}`;
       } catch (error: any) {
         window.alert(error?.message || 'Unable to read that attachment.');
         return;
