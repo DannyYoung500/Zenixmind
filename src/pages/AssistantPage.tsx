@@ -2148,10 +2148,11 @@ export function AssistantPage() {
 
     let fullPrompt = text;
     let requestWebSearch = webSearch;
+    let requestDeepResearch = false;
     if (parsedCommand) {
       const command = getChatCommand(parsedCommand.command);
       if (command?.action === 'help') {
-        const helpText = 'Available commands: /image (aliases: /imagine, /draw, /create-image), /search, /summarize, /write, /translate, /explain, /code, /analyze, and /build. Type a command to see its suggestion, then add your prompt. Image generation saves results to your private Library.';
+        const helpText = 'Available commands: /image (aliases: /imagine, /draw, /create-image), /search for quick web search, /research (alias: /deep-research) for a cited deep research report, /summarize, /write, /translate, /explain, /code, /analyze, and /build. Type a command to see its suggestion, then add your prompt. Image generation saves results to your private Library.';
         setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: helpText }]);
         setInput('');
         return;
@@ -2163,6 +2164,13 @@ export function AssistantPage() {
           return;
         }
         requestWebSearch = true;
+      } else if (command?.action === 'research') {
+        if (!parsedCommand.prompt) {
+          setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'Add a research topic after /research. Example: /research compare the leading AI coding tools.' }]);
+          setInput('');
+          return;
+        }
+        requestDeepResearch = true;
       } else if (command?.action === 'prompt' && !parsedCommand.prompt) {
         setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: `Add a request after ${command.trigger}. For example: ${command.trigger} explain how APIs work` }]);
         setInput('');
@@ -2248,8 +2256,9 @@ export function AssistantPage() {
           projectId: activeProjectId,
           model: selectedModel,
           webSearch: requestWebSearch,
+          research: requestDeepResearch,
           command: parsedCommand?.command || null,
-          searchQuery: parsedCommand?.command === 'search' ? parsedCommand.prompt : undefined,
+          searchQuery: parsedCommand && ['search', 'research'].includes(parsedCommand.command) ? parsedCommand.prompt : undefined,
           deepThink,
           attachment: attachmentPayload,
           preferences: {
@@ -2296,6 +2305,20 @@ export function AssistantPage() {
                 ...updated[assistantMsgIndex],
                 model_used: event.modelUsed,
                 sources: event.sources
+              };
+            }
+            return updated;
+          });
+          return;
+        }
+        if (event.type === 'sources') {
+          if (meta) meta.sources = event.sources || [];
+          setMessages((curr) => {
+            const updated = [...curr];
+            if (updated[assistantMsgIndex]) {
+              updated[assistantMsgIndex] = {
+                ...updated[assistantMsgIndex],
+                sources: event.sources || []
               };
             }
             return updated;
