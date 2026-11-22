@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { searchWeb, addWebSourcesToMessages, streamTavilyResearch } from '../api/_lib/web-search.ts';
+import { searchWeb, addWebSourcesToMessages, appendWebSourceReferences, streamTavilyResearch } from '../api/_lib/web-search.ts';
 
 test('quick search uses Tavily basic depth and server-side bearer authentication', async () => {
   const originalFetch = globalThis.fetch;
@@ -100,4 +100,13 @@ test('deep research rejects missing keys, empty prompts, and provider failures s
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('source references are appended to the saved report when citations are not already linked', () => {
+  const report = appendWebSourceReferences('A grounded finding.', [
+    { title: 'Official documentation', url: 'https://docs.example.com/page' }
+  ]);
+  assert.match(report, /### Sources/);
+  assert.match(report, /\[Official documentation\]\(https:\/\/docs\.example\.com\/page\)/);
+  assert.equal(appendWebSourceReferences(report, [{ title: 'Official documentation', url: 'https://docs.example.com/page' }]), report);
 });
