@@ -2227,7 +2227,7 @@ export function AssistantPage() {
 
     setBusy(true);
     setIsStreaming(true);
-    setThinkingStatus(requestWebSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking');
+    setThinkingStatus(requestDeepResearch ? 'researching' : requestWebSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking');
     setIsAtBottom(true);
     isAtBottomRef.current = true;
     setTimeout(() => scrollToBottom('smooth'), 20);
@@ -2548,6 +2548,10 @@ export function AssistantPage() {
                             ? 'Analyzing'
                             : thinkingStatus === 'writing'
                             ? 'Writing'
+                            : thinkingStatus === 'researching'
+                            ? 'Researching'
+                            : ['planning research', 'searching sources', 'investigating subtopics', 'writing research report'].includes(thinkingStatus)
+                            ? thinkingStatus.charAt(0).toUpperCase() + thinkingStatus.slice(1)
                             : 'Thinking'}
                         </span>
                       </div>
