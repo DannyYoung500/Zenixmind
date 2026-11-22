@@ -2209,7 +2209,8 @@ export function AssistantPage() {
       }
     }
 
-    const nextMessages = [...messages, { role: 'user' as const, content: text }];
+    const displayUserMessage = attachedFile ? fullPrompt : text;
+    const nextMessages = [...messages, { role: 'user' as const, content: displayUserMessage }];
     setMessages(nextMessages);
     if (!overridePrompt) {
       setInput('');
