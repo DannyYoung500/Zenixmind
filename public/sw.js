@@ -74,7 +74,10 @@ self.addEventListener('sync', (event) => {
 // Push payloads are treated as untrusted display text; links are restricted to same-origin paths.
 self.addEventListener('push', (event) => {
   let payload = {};
-  try { payload = event.data ? event.data.json() : {}; } catch {
+  try {
+    const parsed = event.data ? event.data.json() : {};
+    payload = parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
     payload = { body: event.data ? event.data.text() : 'You have a new ZenixMind notification.' };
   }
   const title = typeof payload.title === 'string' ? payload.title.slice(0, 80) : 'ZenixMind';
