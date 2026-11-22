@@ -109,7 +109,8 @@ import { getChatCommand, getCommandSuggestions, parseChatCommand } from '../src/
 test('command registry exposes only implemented or explicitly labelled commands', () => {
   const image = getChatCommand('image');
   assert.equal(image?.id, 'image');
-  assert.equal(image?.status, 'available');
+  assert.equal(image?.action, 'image');
+  assert.equal(getChatCommand('draw')?.id, 'image');
   assert.equal(getChatCommand('unknown-command'), undefined);
 });
 
@@ -120,7 +121,24 @@ test('slash command parser separates command name and user prompt', () => {
 });
 
 test('command autocomplete filters by the typed slash prefix', () => {
-  assert.ok(getCommandSuggestions('/im').some((command) => command.id === 'imagine'));
+  assert.ok(getCommandSuggestions('/im').some((command) => command.id === 'image'));
   assert.ok(getCommandSuggestions('/search').some((command) => command.id === 'search'));
   assert.deepEqual(getCommandSuggestions('hello'), []);
+});
+
+test('chat command UI exposes keyboard-accessible suggestions without replacing the composer', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(source, /role="listbox" aria-label="Chat commands"/);
+  assert.match(source, /e\.key === 'ArrowDown'/);
+  assert.match(source, /e\.key === 'Tab'/);
+  assert.match(source, /placeholder="Ask anything"/);
+});
+
+test('chat commands route search to web mode and prompt commands through the selected chat model', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(source, /requestWebSearch = true/);
+  assert.match(source, /webSearch: requestWebSearch/);
+  assert.match(source, /messages: requestMessages/);
+  assert.match(source, /command\.instruction/);
+  assert.match(source, /Type \/help to see the available ZenixMind commands/);
 });
