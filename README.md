@@ -89,16 +89,24 @@ The repository is configured for a Vite frontend with serverless API handlers un
 
 Do not add provider secrets with a `VITE_` prefix. Vite variables are exposed to the client bundle.
 
-## Chat image commands
+## Chat commands
 
-Use any of these in the chat composer:
+The chat composer supports a command palette. Type `/` to discover commands, use the arrow keys to navigate, and press Tab or tap a suggestion to insert it. The existing composer layout and free-form chat behavior remain unchanged.
 
-- `/image a rainy neon city at night`
-- `/imagine a cinematic product photograph of a glass perfume bottle`
-- `/draw a friendly robot mascot, clean vector illustration`
-- `/create-image a realistic mountain landscape at sunrise`
+| Command | Behavior |
+| --- | --- |
+| `/image`, `/imagine`, `/draw`, `/create-image` | Generate an image through the authenticated server endpoint and save it to the user's private Library |
+| `/search` | Enable the existing web-search mode for the request |
+| `/summarize` | Summarize supplied text or attached content |
+| `/write` | Draft requested written content |
+| `/translate` | Translate text while preserving meaning and tone |
+| `/explain` | Explain a topic step by step |
+| `/code` | Help write, review, or debug code |
+| `/analyze` | Analyze supplied information or an attachment |
+| `/build` | Plan and produce code for an app, website, or software feature |
+| `/help` | Display the command list |
 
-The command prompt is sent to the authenticated `POST /api/generate-image` endpoint. Pollinations credentials remain server-side. Generated images are saved to the signed-in user's private Supabase Library and the conversation stores a private storage reference. The app also continues to recognize natural-language requests such as “Create an image of …”. Puter frontend generation is intentionally not used because it would add a separate browser identity/provider flow.
+Commands other than image generation use the selected ZenixMind chat model. `/search` uses the app's existing web-search mode; availability still depends on its configured server-side search provider. `/build` provides architecture and code assistance but does not claim to deploy projects or modify external systems. Image generation remains authenticated through `POST /api/generate-image`; Pollinations credentials stay server-side, and generated images are saved to the signed-in user's private Supabase Library. Natural-language image requests remain supported. Puter frontend generation is intentionally not used because it would add a separate browser identity/provider flow.
 
 
 - `GET /api/health` — basic service health response.
