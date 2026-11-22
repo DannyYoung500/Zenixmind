@@ -7,7 +7,7 @@ ZenixMind is an AI workspace for authenticated conversations, model selection, i
 - Authenticated chat and conversation history backed by Supabase.
 - Zenix model catalogue with free-tier model routing.
 - Groq-powered chat responses and streaming endpoints.
-- Authenticated image generation through Pollinations.
+- Authenticated image generation through Pollinations, triggered with `/image`, `/imagine`, `/draw`, or `/create-image` in chat (natural-language image requests are also supported).
 - Shareable conversation links and owner-only provider diagnostics.
 - Responsive dark interface and an offline fallback page.
 - Production-only service-worker registration. The worker caches only the public offline page; it does not cache API responses or private user content.
@@ -89,7 +89,17 @@ The repository is configured for a Vite frontend with serverless API handlers un
 
 Do not add provider secrets with a `VITE_` prefix. Vite variables are exposed to the client bundle.
 
-## API overview
+## Chat image commands
+
+Use any of these in the chat composer:
+
+- `/image a rainy neon city at night`
+- `/imagine a cinematic product photograph of a glass perfume bottle`
+- `/draw a friendly robot mascot, clean vector illustration`
+- `/create-image a realistic mountain landscape at sunrise`
+
+The command prompt is sent to the authenticated `POST /api/generate-image` endpoint. Pollinations credentials remain server-side. Generated images are saved to the signed-in user's private Supabase Library and the conversation stores a private storage reference. The app also continues to recognize natural-language requests such as “Create an image of …”. Puter frontend generation is intentionally not used because it would add a separate browser identity/provider flow.
+
 
 - `GET /api/health` — basic service health response.
 - `GET /api/models` — authenticated model catalogue.
