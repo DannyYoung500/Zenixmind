@@ -55,7 +55,7 @@ const rendererSource = readFileSync(fileURLToPath(new URL('../src/components/mes
 const workspaceSource = readFileSync(fileURLToPath(new URL('../src/components/workspace-shell.tsx', import.meta.url)), 'utf8');
 
 test('chat image creation is explicit, authenticated, and saved to the private library and conversation', () => {
-  assert.match(assistantSource, /const slashImageIntent = text\.match/);
+  assert.match(assistantSource, /const parsedCommand = parseChatCommand\(text\)/);
   assert.match(assistantSource, /if \(!user\?\.id\)/);
   assert.match(assistantSource, /\/api\/generate-image/);
   assert.match(assistantSource, /storage\.from\('library'\)\.upload/);
@@ -90,15 +90,15 @@ test('chat image messages persist a private storage reference and refresh signed
 
 test('chat composer supports explicit image slash commands and natural-language aliases', () => {
   const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
-  assert.match(source, /\/\(\?:image\|imagine\|draw\|create-image\)/);
+  assert.match(source, /parseChatCommand\(text\)/);
   assert.match(source, /naturalImageIntent/);
-  assert.match(source, /placeholder="Ask anything · try \/image a rainy neon city"/);
+  assert.match(source, /placeholder="Ask anything"/);
 });
 
 test('image slash command continues through authenticated server generation and private library persistence', () => {
   const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
   const sendHandler = source.slice(source.indexOf('const handleSend = async'), source.indexOf('let fullPrompt = text;', source.indexOf('const handleSend = async')));
-  assert.match(sendHandler, /slashImageIntent \|\| naturalImageIntent/);
+  assert.match(sendHandler, /parsedCommand\?\.command === 'image'/);
   assert.match(sendHandler, /chatApiFetch\('\/api\/generate-image'/);
   assert.match(sendHandler, /storage\.from\('library'\)\.upload/);
 });
