@@ -156,5 +156,5 @@ test('stream API applies command instructions server-side and accepts a bounded 
   const source = readFileSync(fileURLToPath(new URL('../api/chat/stream.ts', import.meta.url)), 'utf8');
   assert.match(source, /getChatCommandInstruction\(body\.command\)/);
   assert.match(source, /body\.searchQuery\.trim\(\)\.slice\(0, 1000\)/);
-  assert.match(source, /messages: body\.messages/);
+  assert.match(source, /validateChatMessages\(body\.messages\)/);
 });
