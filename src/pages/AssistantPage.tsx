@@ -88,6 +88,113 @@ interface LibraryItem {
   deleted_at?: string | null;
 }
 
+function PwaCapabilities() {
+  const [periodicStatus, setPeriodicStatus] = useState('Checking browser support…');
+  const [backgroundStatus, setBackgroundStatus] = useState('Checking browser support…');
+  const [pushStatus, setPushStatus] = useState('Checking notification permission…');
+  const [working, setWorking] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    const check = async () => {
+      if (!('serviceWorker' in navigator)) {
+        if (active) {
+          setPeriodicStatus('Not supported by this browser');
+          setBackgroundStatus('Not supported by this browser');
+        }
+      } else {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          const periodic = (registration as any).periodicSync;
+          const background = (registration as any).sync;
+          const tags = periodic?.getTags ? await periodic.getTags() : [];
+          if (active) {
+            setPeriodicStatus(periodic ? (tags.includes('zenixmind-periodic-refresh') ? 'Enabled · checks daily when the browser allows' : 'Available · not enabled') : 'Not supported by this browser');
+            setBackgroundStatus(background ? 'Available · runs when connectivity returns' : 'Not supported by this browser');
+          }
+        } catch {
+          if (active) {
+            setPeriodicStatus('Service worker is not ready');
+            setBackgroundStatus('Service worker is not ready');
+          }
+        }
+      }
+      if (active) {
+        setPushStatus(!('Notification' in window) ? 'Not supported by this browser' :
+          Notification.permission === 'granted' ? 'Permission granted · delivery needs server setup' :
+          Notification.permission === 'denied' ? 'Blocked in browser settings' : 'Permission not granted');
+      }
+    };
+    void check();
+    return () => { active = false; };
+  }, []);
+
+  const enablePeriodicSync = async () => {
+    setWorking('periodic');
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const periodic = (registration as any).periodicSync;
+      if (!periodic?.register) throw new Error('Periodic Sync is not supported on this browser.');
+      await periodic.register('zenixmind-periodic-refresh', { minInterval: 24 * 60 * 60 * 1000 });
+      setPeriodicStatus('Enabled · checks daily when the browser allows');
+    } catch (error: any) {
+      setPeriodicStatus(error?.message || 'Could not enable Periodic Sync');
+    } finally { setWorking(''); }
+  };
+
+  const enableBackgroundSync = async () => {
+    setWorking('background');
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const sync = (registration as any).sync;
+      if (!sync?.register) throw new Error('Background Sync is not supported on this browser.');
+      await sync.register('zenixmind-background-sync');
+      setBackgroundStatus('Registered · will run after connectivity returns');
+    } catch (error: any) {
+      setBackgroundStatus(error?.message || 'Could not register Background Sync');
+    } finally { setWorking(''); }
+  };
+
+  const enablePushPermission = async () => {
+    setWorking('push');
+    try {
+      if (!('Notification' in window)) throw new Error('Notifications are not supported by this browser.');
+      const permission = await Notification.requestPermission();
+      setPushStatus(permission === 'granted' ? 'Permission granted · delivery needs server setup' :
+        permission === 'denied' ? 'Blocked in browser settings' : 'Permission not granted');
+    } catch (error: any) {
+      setPushStatus(error?.message || 'Could not request notification permission');
+    } finally { setWorking(''); }
+  };
+
+  const rows = [
+    { id: 'periodic', title: 'Periodic Sync', description: 'Let supported browsers wake ZenixMind periodically to refresh its public service status.', status: periodicStatus, action: enablePeriodicSync, button: 'Enable' },
+    { id: 'background', title: 'Background Sync', description: 'Retry a lightweight service check when the device reconnects. Browser support and timing are controlled by the operating system.', status: backgroundStatus, action: enableBackgroundSync, button: 'Register' },
+    { id: 'push', title: 'Push Notifications', description: 'Allow notification permission. Remote push delivery also requires server-side VAPID keys and a subscription sender.', status: pushStatus, action: enablePushPermission, button: 'Allow notifications' }
+  ];
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-white/[.07] bg-[#0b0b0d] p-4">
+      <div>
+        <h3 className="text-xs font-semibold text-zinc-100">Progressive Web App features</h3>
+        <p className="mt-1 text-[11px] leading-5 text-zinc-500">Optional browser capabilities. Availability varies by device and browser; these controls never bypass browser permissions.</p>
+      </div>
+      {rows.map((row) => (
+        <div key={row.id} className="flex flex-col gap-3 border-t border-white/[.06] pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-zinc-200">{row.title}</div>
+            <p className="mt-1 text-[10px] leading-4 text-zinc-500">{row.description}</p>
+            <p role="status" className="mt-1 text-[10px] text-zinc-400">{row.status}</p>
+          </div>
+          <button type="button" disabled={!!working || row.status.startsWith('Not supported') || row.status.startsWith('Blocked')} onClick={() => void row.action()} className="shrink-0 rounded-xl border border-white/[.1] bg-[#17171a] px-3 py-2 text-[10px] font-medium text-zinc-200 hover:bg-[#222226] disabled:cursor-not-allowed disabled:opacity-40">
+            {working === row.id ? 'Working…' : row.button}
+          </button>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClearChats: () => void }) {
   const { user } = useAuth();
   const [memory, setMemory] = useState(() => localStorage.getItem('zenixmind-memory') !== 'off');
@@ -288,6 +395,8 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
                 <textarea value={customInstructions} onChange={(e) => { setCustomInstructions(e.target.value); savePref('zenixmind-custom-instructions', e.target.value); }} placeholder="e.g. You are assisting a lead engineer. Prefer TypeScript code with explanations, skip boilerplate..." rows={3} className="w-full rounded-xl border border-white/[.08] bg-[#0b0b0d] p-3 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-white/[.2]" />
               </div>
             </div>
+
+            <PwaCapabilities />
 
             <div className="space-y-2 pt-2">
               <button type="button" onClick={handleExportData} disabled={exporting} className="flex w-full items-center justify-between rounded-xl border border-white/[.08] bg-[#121215] px-4 py-2.5 text-xs font-medium text-zinc-300 hover:bg-[#18181c] transition-colors"><span>Export workspace data & memories</span><Download size={14} className="text-zinc-400" /></button>
@@ -644,12 +753,14 @@ function ChatMessageItem({
   message,
   onRegenerate,
   onUpdateReaction,
-  onShare
+  onShare,
+  showAccuracyNotice = false
 }: {
   message: Message;
   onRegenerate?: () => void;
   onUpdateReaction?: (update: Partial<Message>) => void;
   onShare?: () => Promise<void>;
+  showAccuracyNotice?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -857,7 +968,7 @@ function ChatMessageItem({
             )}
           </div>
         )}
-        {!message.isStreaming && message.content.trim() && (
+        {showAccuracyNotice && !message.isStreaming && message.content.trim() && (
           <p className="mt-3 text-[11px] leading-4 text-zinc-500">ZenixMind can make mistakes. Double-check important information.</p>
         )}
       </div>
@@ -2376,6 +2487,9 @@ export function AssistantPage() {
     }
   };
 
+  const latestAssistantIndex = messages.reduce((latest, message, index) =>
+    message.role === 'assistant' ? index : latest, -1);
+
   return (
     <WorkspaceShell
       active={view}
@@ -2423,6 +2537,7 @@ export function AssistantPage() {
                     <ChatMessageItem
                       key={idx}
                       message={m}
+                      showAccuracyNotice={idx === latestAssistantIndex && !m.isStreaming}
                       onUpdateReaction={(updates) => handleUpdateMessageReaction(idx, updates)}
                       onShare={conversationId ? handleShareConversation : undefined}
                       onRegenerate={
