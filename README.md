@@ -97,12 +97,12 @@ The chat composer supports a command palette. Type `/` to discover commands, use
 | --- | --- |
 | `/image`, `/imagine`, `/draw`, `/create-image` | Generate an image through the authenticated server endpoint and save it to the user's private Library |
 | `/search` | Enable the existing web-search mode for the request |
-| `/summarize` | Summarize supplied text or attached content |
+| `/summarize` | Summarize supplied text or a topic |
 | `/write` | Draft requested written content |
 | `/translate` | Translate text while preserving meaning and tone |
 | `/explain` | Explain a topic step by step |
 | `/code` | Help write, review, or debug code |
-| `/analyze` | Analyze supplied information or an attachment |
+| `/analyze` | Analyze text or information supplied in chat |
 | `/build` | Plan and produce code for an app, website, or software feature |
 | `/help` | Display the command list |
 
