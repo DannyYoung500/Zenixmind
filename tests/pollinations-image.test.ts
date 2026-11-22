@@ -111,18 +111,22 @@ test('command registry exposes only implemented or explicitly labelled commands'
   assert.equal(image?.id, 'image');
   assert.equal(image?.action, 'image');
   assert.equal(getChatCommand('draw')?.id, 'image');
+  assert.equal(getChatCommand('research')?.action, 'research');
+  assert.equal(getChatCommand('deep-research')?.id, 'research');
   assert.equal(getChatCommand('unknown-command'), undefined);
 });
 
 test('slash command parser separates command name and user prompt', () => {
   assert.deepEqual(parseChatCommand('/image a rainy city'), { command: 'image', prompt: 'a rainy city' });
   assert.deepEqual(parseChatCommand('/search latest AI news'), { command: 'search', prompt: 'latest AI news' });
+  assert.deepEqual(parseChatCommand('/research compare AI agents'), { command: 'research', prompt: 'compare AI agents' });
   assert.equal(parseChatCommand('ordinary chat message'), null);
 });
 
 test('command autocomplete filters by the typed slash prefix', () => {
   assert.ok(getCommandSuggestions('/im').some((command) => command.id === 'image'));
   assert.ok(getCommandSuggestions('/search').some((command) => command.id === 'search'));
+  assert.ok(getCommandSuggestions('/rese').some((command) => command.id === 'research'));
   assert.deepEqual(getCommandSuggestions('hello'), []);
 });
 
@@ -140,6 +144,8 @@ test('chat commands route search to web mode and prompt commands through the sel
   assert.match(source, /webSearch: requestWebSearch/);
   assert.match(source, /messages: nextMessages/);
   assert.match(source, /command: parsedCommand\?\.command/);
+  assert.match(source, /research: requestDeepResearch/);
+  assert.match(source, /searchQuery: parsedCommand && \['search', 'research'\]/);
   assert.match(source, /Type \/help to see the available ZenixMind commands/);
 });
 
@@ -155,6 +161,26 @@ test('server command instructions are allow-listed and never accept arbitrary cl
 test('stream API applies command instructions server-side and accepts a bounded search query', () => {
   const source = readFileSync(fileURLToPath(new URL('../api/chat/stream.ts', import.meta.url)), 'utf8');
   assert.match(source, /getChatCommandInstruction\(body\.command\)/);
-  assert.match(source, /body\.searchQuery\.trim\(\)\.slice\(0, 1000\)/);
+  assert.match(source, /body\.searchQuery\.trim\(\)\.slice\(0, 4000\)/);
+  assert.match(source, /body\.research === true/);
+  assert.match(source, /streamTavilyResearch\(searchQuery/);
+  assert.match(source, /appendWebSourceReferences\(assistantText, sources\)/);
   assert.match(source, /validateChatMessages\(body\.messages\)/);
+});
+
+test('deep research command is routed to Tavily rather than the Groq quick-answer path', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(source, /command\?\.action === 'research'/);
+  assert.match(source, /requestDeepResearch = true/);
+  assert.match(source, /research: requestDeepResearch/);
+  const api = readFileSync(fileURLToPath(new URL('../api/chat/stream.ts', import.meta.url)), 'utf8');
+  assert.match(api, /if \(researchRequested\)/);
+  assert.match(api, /streamTavilyResearch\(searchQuery/);
+  assert.match(api, /onSources: \(researchSources\)/);
+});
+
+test('research citations update the chat source drawer while the report is streaming', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(source, /event\.type === 'sources'/);
+  assert.match(source, /sources: event\.sources \|\| \[\]/);
 });
