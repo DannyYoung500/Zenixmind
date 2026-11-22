@@ -7,6 +7,7 @@ ZenixMind is an AI workspace for authenticated conversations, model selection, i
 - Authenticated chat and conversation history backed by Supabase.
 - Zenix model catalogue with free-tier model routing.
 - Groq-powered chat responses and streaming endpoints.
+- Tavily-powered quick web search and multi-step deep research with citations persisted in chat history.
 - Authenticated image generation through Pollinations, triggered with `/image`, `/imagine`, `/draw`, or `/create-image` in chat (natural-language image requests are also supported).
 - Shareable conversation links and owner-only provider diagnostics.
 - Responsive dark interface and an offline fallback page.
