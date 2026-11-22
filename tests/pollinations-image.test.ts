@@ -86,3 +86,19 @@ test('chat image messages persist a private storage reference and refresh signed
   assert.match(assistantSource, /zenix-download:\/\//);
   assert.match(assistantSource, /createSignedUrl\(mediaPath, 60 \* 60/);
 });
+
+
+test('chat composer supports explicit image slash commands and natural-language aliases', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(source, /\/\(\?:image\|imagine\|draw\|create-image\)/);
+  assert.match(source, /naturalImageIntent/);
+  assert.match(source, /placeholder="Ask anything · try \/image a rainy neon city"/);
+});
+
+test('image slash command continues through authenticated server generation and private library persistence', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  const sendHandler = source.slice(source.indexOf('const handleSend = async'), source.indexOf('let fullPrompt = text;', source.indexOf('const handleSend = async')));
+  assert.match(sendHandler, /slashImageIntent \|\| naturalImageIntent/);
+  assert.match(sendHandler, /chatApiFetch\('\/api\/generate-image'/);
+  assert.match(sendHandler, /storage\.from\('library'\)\.upload/);
+});
