@@ -59,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (webSearchRequested && !researchRequested) {
     try {
-      sources = await searchWeb(searchQuery, searchKey);
+      sources = await searchWeb(searchQuery, searchKey!);
       modelMessages = addWebSourcesToMessages(modelMessages, sources);
     } catch (error: any) {
       console.error('[chat/stream] web search failed', error?.message || 'Unknown search error');
@@ -134,7 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       });
     } else {
-      for await (const text of streamGroqChatCompletion(modelMessages, selected.providerModel, apiKey)) {
+      for await (const text of streamGroqChatCompletion(modelMessages, selected.providerModel, apiKey!)) {
         assistantText += text;
         sendEvent(res, { type: 'delta', text });
       }
