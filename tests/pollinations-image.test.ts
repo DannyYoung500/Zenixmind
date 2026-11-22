@@ -184,3 +184,10 @@ test('research citations update the chat source drawer while the report is strea
   assert.match(source, /event\.type === 'sources'/);
   assert.match(source, /sources: event\.sources \|\| \[\]/);
 });
+
+test('chat status pill displays the Tavily deep research phases', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(source, /thinkingStatus === 'researching'/);
+  assert.match(source, /'planning research', 'searching sources', 'investigating subtopics', 'writing research report'/);
+  assert.match(source, /requestDeepResearch \? 'researching'/);
+});
