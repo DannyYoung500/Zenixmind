@@ -2157,8 +2157,12 @@ export function AssistantPage() {
         return;
       }
       if (command?.action === 'search') {
+        if (!parsedCommand.prompt) {
+          setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'Add a topic after /search. Example: /search latest AI developments.' }]);
+          setInput('');
+          return;
+        }
         requestWebSearch = true;
-        fullPrompt = parsedCommand.prompt || 'Search the web for the latest relevant information and cite your sources.';
       } else if (command?.action === 'prompt' && !parsedCommand.prompt) {
         setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: `Add a request after ${command.trigger}. For example: ${command.trigger} explain how APIs work` }]);
         setInput('');
