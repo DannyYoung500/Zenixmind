@@ -39,12 +39,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey?.trim()) {
-    return res.status(503).json({ error: 'Groq is not configured on the server. Add GROQ_API_KEY to the Production environment.', code: 'GROQ_NOT_CONFIGURED' });
-  }
-
   const webSearchRequested = body.webSearch === true;
   const researchRequested = body.research === true;
+  if (!researchRequested && !apiKey?.trim()) {
+    return res.status(503).json({ error: 'Groq is not configured on the server. Add GROQ_API_KEY to the Production environment.', code: 'GROQ_NOT_CONFIGURED' });
+  }
   const searchKey = process.env.TAVILY_API_KEY;
   const requestedQuery = typeof body.searchQuery === 'string' ? body.searchQuery.trim().slice(0, 4000) : '';
   const searchQuery = requestedQuery || messages[messages.length - 1].content;
