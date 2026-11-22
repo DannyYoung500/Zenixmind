@@ -138,7 +138,7 @@ test('chat commands route search to web mode and prompt commands through the sel
   const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
   assert.match(source, /requestWebSearch = true/);
   assert.match(source, /webSearch: requestWebSearch/);
-  assert.match(source, /messages: requestMessages/);
+  assert.match(source, /messages: nextMessages/);
   assert.match(source, /command: parsedCommand\?\.command/);
   assert.match(source, /Type \/help to see the available ZenixMind commands/);
 });
