@@ -194,3 +194,11 @@ export function addWebSourcesToMessages(
       : message
   );
 }
+
+export function appendWebSourceReferences(content: string, sources: WebSource[]): string {
+  if (!sources.length) return content;
+  const missing = sources.filter((source) => !content.includes(source.url));
+  if (!missing.length) return content;
+  const references = missing.map((source) => `- [${source.title.replace(/[\[\]]/g, '')}](${source.url})`).join('\n');
+  return `${content.trim()}\n\n### Sources\n${references}`;
+}
