@@ -102,3 +102,25 @@ test('image slash command continues through authenticated server generation and 
   assert.match(sendHandler, /chatApiFetch\('\/api\/generate-image'/);
   assert.match(sendHandler, /storage\.from\('library'\)\.upload/);
 });
+
+
+import { getChatCommand, getCommandSuggestions, parseChatCommand } from '../src/lib/chat-commands.ts';
+
+test('command registry exposes only implemented or explicitly labelled commands', () => {
+  const image = getChatCommand('image');
+  assert.equal(image?.id, 'image');
+  assert.equal(image?.status, 'available');
+  assert.equal(getChatCommand('unknown-command'), undefined);
+});
+
+test('slash command parser separates command name and user prompt', () => {
+  assert.deepEqual(parseChatCommand('/image a rainy city'), { command: 'image', prompt: 'a rainy city' });
+  assert.deepEqual(parseChatCommand('/search latest AI news'), { command: 'search', prompt: 'latest AI news' });
+  assert.equal(parseChatCommand('ordinary chat message'), null);
+});
+
+test('command autocomplete filters by the typed slash prefix', () => {
+  assert.ok(getCommandSuggestions('/im').some((command) => command.id === 'imagine'));
+  assert.ok(getCommandSuggestions('/search').some((command) => command.id === 'search'));
+  assert.deepEqual(getCommandSuggestions('hello'), []);
+});
