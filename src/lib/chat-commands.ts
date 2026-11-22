@@ -23,14 +23,14 @@ export const CHAT_COMMANDS: ChatCommand[] = [
 ];
 
 export function getChatCommand(name: string): ChatCommand | undefined {
-  const normalized = name.trim().replace(/^\\//, '').toLowerCase();
+  const normalized = name.trim().replace(/^\//, '').toLowerCase();
   return CHAT_COMMANDS.find((command) =>
     command.trigger.slice(1) === normalized || command.aliases.some((alias) => alias.slice(1) === normalized)
   );
 }
 
 export function parseChatCommand(input: string): { command: string; prompt: string } | null {
-  const match = input.trim().match(/^\\/([a-z][a-z0-9-]*)(?:\\s+([\\s\\S]*))?$/i);
+  const match = input.trim().match(/^\/([a-z][a-z0-9-]*)(?:\s+([\s\S]*))?$/i);
   if (!match) return null;
   const definition = getChatCommand(match[1]);
   if (!definition) return null;
@@ -39,7 +39,7 @@ export function parseChatCommand(input: string): { command: string; prompt: stri
 
 export function getCommandSuggestions(input: string): ChatCommand[] {
   const trimmed = input.trimStart();
-  if (!trimmed.startsWith('/') || /\\s/.test(trimmed)) return [];
+  if (!trimmed.startsWith('/') || /\s/.test(trimmed)) return [];
   const query = trimmed.slice(1).toLowerCase();
   return CHAT_COMMANDS.filter((command) =>
     command.trigger.slice(1).startsWith(query) ||
@@ -49,5 +49,5 @@ export function getCommandSuggestions(input: string): ChatCommand[] {
 
 export function isUnknownSlashCommand(input: string): boolean {
   const trimmed = input.trim();
-  return /^\\/[a-z][a-z0-9-]*(?:\\s|$)/i.test(trimmed) && parseChatCommand(trimmed) === null;
+  return /^\/[a-z][a-z0-9-]*(?:\s|$)/i.test(trimmed) && parseChatCommand(trimmed) === null;
 }
