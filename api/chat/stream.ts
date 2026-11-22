@@ -5,6 +5,7 @@ import { streamGroqChatCompletion } from '../_lib/groq-client.ts';
 import { buildZenixMessages } from '../_lib/zenix-system-prompt.ts';
 import { getChatContext } from '../_lib/chat-store.ts';
 import { addWebSourcesToMessages, searchWeb } from '../_lib/web-search.ts';
+import { getChatCommandInstruction } from '../_lib/chat-command-instructions.ts';
 
 function sendEvent(res: VercelResponse, event: Record<string, unknown>) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -43,13 +44,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const webSearchRequested = body.webSearch === true;
   let sources: Awaited<ReturnType<typeof searchWeb>> = [];
   let modelMessages = buildZenixMessages(messages);
+  const commandInstruction = getChatCommandInstruction(body.command);
+  if (commandInstruction) modelMessages = [...modelMessages, { role: 'system', content: commandInstruction }];
   if (webSearchRequested) {
     const searchKey = process.env.TAVILY_API_KEY;
     if (!searchKey?.trim()) {
       return res.status(503).json({ error: 'Web Search needs a TAVILY_API_KEY. Add it to the Vercel Production environment to enable live internet sources.', code: 'WEB_SEARCH_NOT_CONFIGURED' });
     }
     try {
-      const query = messages[messages.length - 1].content;
+      const requestedQuery = typeof body.searchQuery === 'string' ? body.searchQuery.trim().slice(0, 1000) : '';
+      const query = requestedQuery || messages[messages.length - 1].content;
       sources = await searchWeb(query, searchKey);
       modelMessages = addWebSourcesToMessages(modelMessages, sources);
     } catch (error: any) {
