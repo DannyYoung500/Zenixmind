@@ -5,12 +5,13 @@ export type ChatCommand = {
   label: string;
   description: string;
   category: 'Create' | 'Research' | 'Write' | 'Code' | 'Workspace';
-  action: 'image' | 'search' | 'prompt' | 'help';
+  action: 'image' | 'search' | 'research' | 'prompt' | 'help';
 };
 
 export const CHAT_COMMANDS: ChatCommand[] = [
   { id: 'image', trigger: '/image', aliases: ['/imagine', '/draw', '/create-image'], label: 'Generate an image', description: 'Create an image and save it to your Library', category: 'Create', action: 'image' },
-  { id: 'search', trigger: '/search', aliases: [], label: 'Search the web', description: 'Research a topic using web search', category: 'Research', action: 'search' },
+  { id: 'search', trigger: '/search', aliases: [], label: 'Quick web search', description: 'Find current sources and cite them in your answer', category: 'Research', action: 'search' },
+  { id: 'research', trigger: '/research', aliases: ['/deep-research'], label: 'Deep research', description: 'Run multi-step research and generate a cited report', category: 'Research', action: 'research' },
   { id: 'summarize', trigger: '/summarize', aliases: [], label: 'Summarize', description: 'Summarize text or a topic', category: 'Write', action: 'prompt' },
   { id: 'write', trigger: '/write', aliases: [], label: 'Write content', description: 'Draft articles, emails, proposals, and more', category: 'Write', action: 'prompt' },
   { id: 'translate', trigger: '/translate', aliases: [], label: 'Translate', description: 'Translate text while preserving meaning and tone', category: 'Write', action: 'prompt' },
