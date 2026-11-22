@@ -425,7 +425,7 @@ export const CompactFloatingComposer = React.forwardRef<
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           rows={Math.min(5, Math.max(1, value.split('\n').length))}
-          placeholder="Ask anything"
+          placeholder="Ask anything · try /image a rainy neon city"
           className="w-full resize-none bg-transparent px-2 sm:px-3 pt-1 text-base text-zinc-100 outline-none placeholder:text-zinc-400/90 max-h-36 font-normal tracking-[-0.01em]"
         />
 
@@ -2015,7 +2015,10 @@ export function AssistantPage() {
     const text = overridePrompt || input.trim();
     if (!text || busy || isStreaming) return;
 
-    const imageIntent = text.match(/^\s*(?:please\s+)?(?:create|generate|draw|make|design)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|illustration|artwork)\s*(?:of|showing|with|:)?\s+([\s\S]+)$/i);
+    // Slash commands are explicit, predictable shortcuts. Natural-language image requests remain supported.
+    const slashImageIntent = text.match(/^\s*\/(?:image|imagine|draw|create-image)\s+([\s\S]+)$/i);
+    const naturalImageIntent = text.match(/^\s*(?:please\s+)?(?:create|generate|draw|make|design)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|illustration|artwork)\s*(?:of|showing|with|:)?\s+([\s\S]+)$/i);
+    const imageIntent = slashImageIntent || naturalImageIntent;
     if (imageIntent?.[1]?.trim()) {
       if (!user?.id) {
         setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'Sign in to generate images and save them to your ZenixMind Library.' }]);
