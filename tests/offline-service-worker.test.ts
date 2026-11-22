@@ -43,6 +43,31 @@ test('Library uses the available workspace viewport instead of forcing a full-sc
   const libraryEnd = assistant.indexOf('\nfunction AutomationsView()', libraryStart);
   assert.ok(libraryStart >= 0 && libraryEnd > libraryStart, 'LibraryView should be a distinct component');
   const libraryView = assistant.slice(libraryStart, libraryEnd);
-  assert.match(libraryView, /className="h-full min-h-0 overflow-y-auto/);
+  assert.match(libraryView, /className="h-full min-h-0 w-full flex-1 overflow-y-auto/);
   assert.doesNotMatch(libraryView, /min-h-screen/);
+});
+
+
+test('accuracy reminder is shown only under the newest completed assistant response', () => {
+  assert.match(assistant, /showAccuracyNotice\?: boolean/);
+  assert.match(assistant, /\{showAccuracyNotice && !message\.isStreaming && message\.content\.trim\(\) && \(/);
+  assert.match(assistant, /const latestAssistantIndex = messages\.reduce/);
+  assert.match(assistant, /showAccuracyNotice=\{idx === latestAssistantIndex && !m\.isStreaming\}/);
+});
+
+test('service worker handles periodic sync, background sync, and push notifications', () => {
+  assert.match(worker, /addEventListener\('periodicsync'/);
+  assert.match(worker, /zenixmind-periodic-refresh/);
+  assert.match(worker, /addEventListener\('sync'/);
+  assert.match(worker, /zenixmind-background-sync/);
+  assert.match(worker, /addEventListener\('push'/);
+  assert.match(worker, /showNotification/);
+  assert.match(worker, /notificationclick/);
+});
+
+test('Settings exposes all three progressive web app capabilities without claiming push delivery is configured', () => {
+  assert.match(assistant, /title: 'Periodic Sync'/);
+  assert.match(assistant, /title: 'Background Sync'/);
+  assert.match(assistant, /title: 'Push Notifications'/);
+  assert.match(assistant, /Remote push delivery also requires server-side VAPID keys and a subscription sender/);
 });

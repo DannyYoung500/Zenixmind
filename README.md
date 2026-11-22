@@ -102,7 +102,12 @@ Do not add provider secrets with a `VITE_` prefix. Vite variables are exposed to
 
 All provider credentials must remain server-side. Authenticated endpoints require a valid Supabase access token.
 
-## Offline behavior
+## Progressive Web App capabilities
+
+The production service worker provides opt-in Periodic Sync and Background Sync where the browser supports those APIs. Both currently perform a small public `/api/health` check; they do not queue private messages or cache authenticated content. Browser scheduling is best-effort and may be restricted by battery, permissions, and browser policy.
+
+The service worker can display incoming Web Push payloads and handle notification clicks. The Settings screen can request notification permission, but remote push delivery is **not fully configured yet**: production still needs VAPID key management, a secure subscription endpoint/storage, and a server-side push sender. Do not treat notification permission alone as an active push subscription.
+
 
 In production, the app registers `/sw.js`. The service worker uses a network-first navigation strategy and falls back to `/offline.html` when the network is unavailable. It excludes API routes and does not cache authenticated responses, generated media, or private library data.
 
