@@ -117,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
   sendEvent(res, { type: 'status', status: researchRequested ? 'researching' : 'thinking' });
-  sendEvent(res, { type: 'meta', conversationId: conversation.id, modelUsed: selected.id, provider: researchRequested ? 'tavily' : 'groq', research: researchRequested, sources });
+  sendEvent(res, { type: 'meta', conversationId: conversation.id, modelUsed: researchRequested ? 'Tavily Research' : selected.id, provider: researchRequested ? 'tavily' : 'groq', research: researchRequested, sources });
 
   let assistantText = '';
   try {
