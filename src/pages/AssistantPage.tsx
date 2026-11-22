@@ -399,9 +399,9 @@ export const CompactFloatingComposer = React.forwardRef<
       setActiveCommandIndex((current) => current <= 0 ? commandSuggestions.length - 1 : current - 1);
       return;
     }
-    if (commandSuggestions.length && e.key === 'Tab' && activeCommandIndex >= 0) {
+    if (commandSuggestions.length && e.key === 'Tab') {
       e.preventDefault();
-      chooseCommand(commandSuggestions[activeCommandIndex].trigger);
+      chooseCommand(commandSuggestions[Math.max(0, activeCommandIndex)].trigger);
       return;
     }
     if (e.key === 'Enter' && !e.shiftKey) {
