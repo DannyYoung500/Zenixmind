@@ -84,7 +84,7 @@ test('deep research streams report content and preserves Tavily source citations
     assert.equal(chunks.join(''), '## Findings\nGrounded report.');
     assert.equal(result.content, chunks.join(''));
     assert.deepEqual(result.sources, [{ title: 'Primary source', url: 'https://example.com/source' }]);
-    assert.ok(statuses.includes('researching'));
+    assert.ok(statuses.includes('planning research'));
   } finally {
     globalThis.fetch = originalFetch;
   }
