@@ -7,7 +7,8 @@ ZenixMind is an AI workspace for authenticated conversations, model selection, i
 - Authenticated chat and conversation history backed by Supabase.
 - Zenix model catalogue with free-tier model routing.
 - Groq-powered chat responses and streaming endpoints.
-- Authenticated image generation through Pollinations.
+- Tavily-powered quick web search and multi-step deep research with citations persisted in chat history.
+- Authenticated image generation through Pollinations, triggered with `/image`, `/imagine`, `/draw`, or `/create-image` in chat (natural-language image requests are also supported).
 - Shareable conversation links and owner-only provider diagnostics.
 - Responsive dark interface and an offline fallback page.
 - Production-only service-worker registration. The worker caches only the public offline page; it does not cache API responses or private user content.
@@ -27,6 +28,7 @@ ZenixMind is an AI workspace for authenticated conversations, model selection, i
 - npm
 - A Supabase project
 - A Groq API key for chat
+- A Tavily API key for quick web search and deep research
 - A Pollinations API key for image generation
 
 ## Local setup
@@ -50,7 +52,8 @@ ZenixMind is an AI workspace for authenticated conversations, model selection, i
    | --- | --- |
    | `VITE_SUPABASE_URL` | Supabase project URL used by the server-side auth checks |
    | `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key; safe for browser use |
-   | `GROQ_API_KEY` | Server-side Groq key for chat and streaming |
+   | `GROQ_API_KEY` | Server-side Groq key for normal chat and streaming |
+   | `TAVILY_API_KEY` | Server-side Tavily key for quick search and deep research |
    | `POLLINATIONS_API_KEY` | Server-side Pollinations key for image generation |
 
    Never expose provider secrets in browser code or commit a real `.env` file.
@@ -89,12 +92,31 @@ The repository is configured for a Vite frontend with serverless API handlers un
 
 Do not add provider secrets with a `VITE_` prefix. Vite variables are exposed to the client bundle.
 
-## API overview
+## Chat commands
+
+The chat composer supports a command palette. Type `/` to discover commands, use the arrow keys to navigate, and press Tab or tap a suggestion to insert it. The existing composer layout and free-form chat behavior remain unchanged.
+
+| Command | Behavior |
+| --- | --- |
+| `/image`, `/imagine`, `/draw`, `/create-image` | Generate an image through the authenticated server endpoint and save it to the user's private Library |
+| `/search` | Quick Tavily search, grounded Groq answer, and source citations |
+| `/research`, `/deep-research` | Tavily multi-step research report, streamed with source citations |
+| `/summarize` | Summarize supplied text or a topic |
+| `/write` | Draft requested written content |
+| `/translate` | Translate text while preserving meaning and tone |
+| `/explain` | Explain a topic step by step |
+| `/code` | Help write, review, or debug code |
+| `/analyze` | Analyze text or information supplied in chat |
+| `/build` | Plan and produce code for an app, website, or software feature |
+| `/help` | Display the command list |
+
+Commands other than image generation use the selected ZenixMind chat model unless they are provider-native research actions. Command-specific instructions are selected from a server-side allowlist, so chat history retains the user's original command instead of storing hidden prompt text. `/search` uses Tavily's basic Search API and grounds the selected ZenixMind model with ranked sources. `/research` uses Tavily's streaming Research API (model auto, numbered citations) to create a multi-step report. Both routes require `TAVILY_API_KEY` on the server. Tavily source links are also appended to saved assistant messages so citations remain available after reloading chat history. `/build` provides architecture and code assistance but does not claim to deploy projects or modify external systems. Image generation remains authenticated through `POST /api/generate-image`; Pollinations credentials stay server-side, and generated images are saved to the signed-in user's private Supabase Library. Natural-language image requests remain supported. Puter frontend generation is intentionally not used because it would add a separate browser identity/provider flow.
+
 
 - `GET /api/health` — basic service health response.
 - `GET /api/models` — authenticated model catalogue.
 - `/api/chat` — authenticated conversation history, export, delete, and chat completion.
-- `/api/chat/stream` — streaming chat endpoint.
+- `/api/chat/stream` — authenticated streaming chat, Tavily quick search, and Tavily deep research.
 - `/api/chat/share` — conversation sharing endpoint.
 - `POST /api/generate-image` — authenticated image generation.
 - `/api/admin/providers` — owner-only provider configuration status.
@@ -108,7 +130,7 @@ In production, the app registers `/sw.js`. The service worker uses a network-fir
 
 ## Security notes
 
-- Keep `GROQ_API_KEY` and `POLLINATIONS_API_KEY` in Vercel server-side environment variables.
+- Keep `GROQ_API_KEY`, `TAVILY_API_KEY`, and `POLLINATIONS_API_KEY` in Vercel server-side environment variables.
 - Use Supabase Row Level Security for user-owned database records.
 - Never commit `.env`, service-role keys, access tokens, or user data.
 - The Supabase publishable key is intended for client use; it is not a substitute for Row Level Security.

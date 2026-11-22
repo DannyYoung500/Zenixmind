@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth-context';
 import { getSupabase } from '../lib/supabase';
 import { parseSseEvent, splitSseFrames } from '../lib/sse-parser';
 import { VoiceTalk } from '../components/voice-talk';
+import { getChatCommand, getCommandSuggestions, isUnknownSlashCommand, parseChatCommand } from '../lib/chat-commands';
 import {
   Send,
   Mic,
@@ -363,6 +364,8 @@ export const CompactFloatingComposer = React.forwardRef<
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  const [activeCommandIndex, setActiveCommandIndex] = useState(-1);
+  const commandSuggestions = getCommandSuggestions(value);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const plusRef = useRef<HTMLDivElement>(null);
 
@@ -380,12 +383,30 @@ export const CompactFloatingComposer = React.forwardRef<
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const chooseCommand = (trigger: string) => {
+    setValue(`${trigger} `);
+    setActiveCommandIndex(-1);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (commandSuggestions.length && e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveCommandIndex((current) => (current + 1) % commandSuggestions.length);
+      return;
+    }
+    if (commandSuggestions.length && e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveCommandIndex((current) => current <= 0 ? commandSuggestions.length - 1 : current - 1);
+      return;
+    }
+    if (commandSuggestions.length && e.key === 'Tab') {
+      e.preventDefault();
+      chooseCommand(commandSuggestions[Math.max(0, activeCommandIndex)].trigger);
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (value.trim() && !busy) {
-        onSend();
-      }
+      if (value.trim() && !busy) onSend();
     }
   };
 
@@ -418,6 +439,19 @@ export const CompactFloatingComposer = React.forwardRef<
           }}
         />
 
+        {/* Command suggestions */}
+        {commandSuggestions.length > 0 && (
+          <div className="absolute bottom-full left-3 right-3 z-40 mb-2 max-h-72 overflow-y-auto rounded-2xl border border-white/[.1] bg-[#111114] p-1.5 shadow-2xl" role="listbox" aria-label="Chat commands">
+            {commandSuggestions.map((command, index) => (
+              <button key={command.id} type="button" role="option" aria-selected={activeCommandIndex === index}
+                onMouseDown={(event) => event.preventDefault()} onClick={() => chooseCommand(command.trigger)}
+                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${activeCommandIndex === index ? 'bg-white/[.1]' : 'hover:bg-white/[.06]'}`}>
+                <span className="min-w-0"><span className="block text-xs font-semibold text-zinc-100">{command.trigger} <span className="font-normal text-zinc-400">· {command.label}</span></span><span className="mt-0.5 block truncate text-[10px] text-zinc-500">{command.description}</span></span>
+                <span className="shrink-0 text-[9px] uppercase tracking-wide text-zinc-600">{command.category}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {/* Text Area */}
         <textarea
           ref={textareaRef}
@@ -2015,13 +2049,26 @@ export function AssistantPage() {
     const text = overridePrompt || input.trim();
     if (!text || busy || isStreaming) return;
 
-    const imageIntent = text.match(/^\s*(?:please\s+)?(?:create|generate|draw|make|design)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|illustration|artwork)\s*(?:of|showing|with|:)?\s+([\s\S]+)$/i);
-    if (imageIntent?.[1]?.trim()) {
+    // Commands are parsed centrally so autocomplete, aliases, and execution stay consistent.
+    const parsedCommand = parseChatCommand(text);
+    if (isUnknownSlashCommand(text)) {
+      setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'I do not recognize that command. Type /help to see the available ZenixMind commands.' }]);
+      setInput('');
+      return;
+    }
+    const naturalImageIntent = text.match(/^\s*(?:please\s+)?(?:create|generate|draw|make|design)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|illustration|artwork)\s*(?:of|showing|with|:)?\s+([\s\S]+)$/i);
+    const imagePrompt = parsedCommand?.command === 'image' ? parsedCommand.prompt : naturalImageIntent?.[1]?.trim();
+    if (parsedCommand?.command === 'image' && !imagePrompt) {
+      setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'Add a description after /image. Example: /image a cinematic mountain landscape at sunrise.' }]);
+      setInput('');
+      return;
+    }
+    if (imagePrompt) {
       if (!user?.id) {
         setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'Sign in to generate images and save them to your ZenixMind Library.' }]);
         return;
       }
-      const imagePrompt = imageIntent[1].trim();
+      const cleanImagePrompt = imagePrompt.trim();
       setInput('');
       setBusy(true);
       setIsStreaming(true);
@@ -2035,7 +2082,7 @@ export function AssistantPage() {
           if (conversationError || !existingConversation) throw new Error('This conversation could not be verified. Start a new chat and try again.');
         } else {
           const { data: createdConversation, error: createError } = await supabase.from('conversations')
-            .insert({ user_id: user.id, title: imagePrompt.slice(0, 64), model: selectedModel }).select('id').single();
+            .insert({ user_id: user.id, title: cleanImagePrompt.slice(0, 64), model: selectedModel }).select('id').single();
           if (createError || !createdConversation) throw new Error('Could not create a conversation for this image.');
           activeConversationId = createdConversation.id;
           setConversationId(activeConversationId);
@@ -2043,7 +2090,7 @@ export function AssistantPage() {
         if (!activeConversationId) throw new Error('Could not prepare this conversation for the generated image.');
         const response = await chatApiFetch('/api/generate-image', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: imagePrompt, model: 'zimage', width: 1024, height: 1024 })
+          body: JSON.stringify({ prompt: cleanImagePrompt, model: 'zimage', width: 1024, height: 1024 })
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
@@ -2059,7 +2106,7 @@ export function AssistantPage() {
         const fileName = 'ZenixMind image.' + extension;
         const { error: libraryError } = await supabase.from('library_items').insert({
           user_id: user.id, file_name: fileName, mime_type: mimeType, storage_path: storagePath,
-          size_bytes: blob.size, source: 'generated', prompt: imagePrompt
+          size_bytes: blob.size, source: 'generated', prompt: cleanImagePrompt
         });
         if (libraryError) {
           await supabase.storage.from('library').remove([storagePath]);
@@ -2100,6 +2147,36 @@ export function AssistantPage() {
     }
 
     let fullPrompt = text;
+    let requestWebSearch = webSearch;
+    let requestDeepResearch = false;
+    if (parsedCommand) {
+      const command = getChatCommand(parsedCommand.command);
+      if (command?.action === 'help') {
+        const helpText = 'Available commands: /image (aliases: /imagine, /draw, /create-image), /search for quick web search, /research (alias: /deep-research) for a cited deep research report, /summarize, /write, /translate, /explain, /code, /analyze, and /build. Type a command to see its suggestion, then add your prompt. Image generation saves results to your private Library.';
+        setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: helpText }]);
+        setInput('');
+        return;
+      }
+      if (command?.action === 'search') {
+        if (!parsedCommand.prompt) {
+          setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'Add a topic after /search. Example: /search latest AI developments.' }]);
+          setInput('');
+          return;
+        }
+        requestWebSearch = true;
+      } else if (command?.action === 'research') {
+        if (!parsedCommand.prompt) {
+          setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'Add a research topic after /research. Example: /research compare the leading AI coding tools.' }]);
+          setInput('');
+          return;
+        }
+        requestDeepResearch = true;
+      } else if (command?.action === 'prompt' && !parsedCommand.prompt) {
+        setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: `Add a request after ${command.trigger}. For example: ${command.trigger} explain how APIs work` }]);
+        setInput('');
+        return;
+      }
+    }
     let attachmentPayload: any = null;
     if (attachedFile) {
       try {
@@ -2133,14 +2210,15 @@ export function AssistantPage() {
           }
         }
 
-        fullPrompt = `[Attached file: ${attachedFile.name}]\\n\\n${text}`;
+        fullPrompt = `[Attached file: ${attachedFile.name}]\n\n${fullPrompt}`;
       } catch (error: any) {
         window.alert(error?.message || 'Unable to read that attachment.');
         return;
       }
     }
 
-    const nextMessages = [...messages, { role: 'user' as const, content: fullPrompt }];
+    const displayUserMessage = attachedFile ? fullPrompt : text;
+    const nextMessages = [...messages, { role: 'user' as const, content: displayUserMessage }];
     setMessages(nextMessages);
     if (!overridePrompt) {
       setInput('');
@@ -2149,7 +2227,7 @@ export function AssistantPage() {
 
     setBusy(true);
     setIsStreaming(true);
-    setThinkingStatus(webSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking');
+    setThinkingStatus(requestDeepResearch ? 'researching' : requestWebSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking');
     setIsAtBottom(true);
     isAtBottomRef.current = true;
     setTimeout(() => scrollToBottom('smooth'), 20);
@@ -2177,7 +2255,10 @@ export function AssistantPage() {
           conversationId,
           projectId: activeProjectId,
           model: selectedModel,
-          webSearch,
+          webSearch: requestWebSearch,
+          research: requestDeepResearch,
+          command: parsedCommand?.command || null,
+          searchQuery: parsedCommand && ['search', 'research'].includes(parsedCommand.command) ? parsedCommand.prompt : undefined,
           deepThink,
           attachment: attachmentPayload,
           preferences: {
@@ -2224,6 +2305,20 @@ export function AssistantPage() {
                 ...updated[assistantMsgIndex],
                 model_used: event.modelUsed,
                 sources: event.sources
+              };
+            }
+            return updated;
+          });
+          return;
+        }
+        if (event.type === 'sources') {
+          if (meta) meta.sources = event.sources || [];
+          setMessages((curr) => {
+            const updated = [...curr];
+            if (updated[assistantMsgIndex]) {
+              updated[assistantMsgIndex] = {
+                ...updated[assistantMsgIndex],
+                sources: event.sources || []
               };
             }
             return updated;
@@ -2453,6 +2548,10 @@ export function AssistantPage() {
                             ? 'Analyzing'
                             : thinkingStatus === 'writing'
                             ? 'Writing'
+                            : thinkingStatus === 'researching'
+                            ? 'Researching'
+                            : ['planning research', 'searching sources', 'investigating subtopics', 'writing research report'].includes(thinkingStatus)
+                            ? thinkingStatus.charAt(0).toUpperCase() + thinkingStatus.slice(1)
                             : 'Thinking'}
                         </span>
                       </div>

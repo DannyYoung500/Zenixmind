@@ -55,7 +55,7 @@ const rendererSource = readFileSync(fileURLToPath(new URL('../src/components/mes
 const workspaceSource = readFileSync(fileURLToPath(new URL('../src/components/workspace-shell.tsx', import.meta.url)), 'utf8');
 
 test('chat image creation is explicit, authenticated, and saved to the private library and conversation', () => {
-  assert.match(assistantSource, /const imageIntent = text\.match/);
+  assert.match(assistantSource, /const parsedCommand = parseChatCommand\(text\)/);
   assert.match(assistantSource, /if \(!user\?\.id\)/);
   assert.match(assistantSource, /\/api\/generate-image/);
   assert.match(assistantSource, /storage\.from\('library'\)\.upload/);
@@ -85,4 +85,109 @@ test('chat image messages persist a private storage reference and refresh signed
   assert.match(assistantSource, /zenix-storage:\/\//);
   assert.match(assistantSource, /zenix-download:\/\//);
   assert.match(assistantSource, /createSignedUrl\(mediaPath, 60 \* 60/);
+});
+
+
+test('chat composer supports explicit image slash commands and natural-language aliases', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(source, /parseChatCommand\(text\)/);
+  assert.match(source, /naturalImageIntent/);
+  assert.match(source, /placeholder="Ask anything"/);
+});
+
+test('image slash command continues through authenticated server generation and private library persistence', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  const sendHandler = source.slice(source.indexOf('const handleSend = async'), source.indexOf('let fullPrompt = text;', source.indexOf('const handleSend = async')));
+  assert.match(sendHandler, /parsedCommand\?\.command === 'image'/);
+  assert.match(sendHandler, /chatApiFetch\('\/api\/generate-image'/);
+  assert.match(sendHandler, /storage\.from\('library'\)\.upload/);
+});
+
+
+import { getChatCommand, getCommandSuggestions, parseChatCommand } from '../src/lib/chat-commands.ts';
+
+test('command registry exposes only implemented or explicitly labelled commands', () => {
+  const image = getChatCommand('image');
+  assert.equal(image?.id, 'image');
+  assert.equal(image?.action, 'image');
+  assert.equal(getChatCommand('draw')?.id, 'image');
+  assert.equal(getChatCommand('research')?.action, 'research');
+  assert.equal(getChatCommand('deep-research')?.id, 'research');
+  assert.equal(getChatCommand('unknown-command'), undefined);
+});
+
+test('slash command parser separates command name and user prompt', () => {
+  assert.deepEqual(parseChatCommand('/image a rainy city'), { command: 'image', prompt: 'a rainy city' });
+  assert.deepEqual(parseChatCommand('/search latest AI news'), { command: 'search', prompt: 'latest AI news' });
+  assert.deepEqual(parseChatCommand('/research compare AI agents'), { command: 'research', prompt: 'compare AI agents' });
+  assert.equal(parseChatCommand('ordinary chat message'), null);
+});
+
+test('command autocomplete filters by the typed slash prefix', () => {
+  assert.ok(getCommandSuggestions('/im').some((command) => command.id === 'image'));
+  assert.ok(getCommandSuggestions('/search').some((command) => command.id === 'search'));
+  assert.ok(getCommandSuggestions('/rese').some((command) => command.id === 'research'));
+  assert.deepEqual(getCommandSuggestions('hello'), []);
+});
+
+test('chat command UI exposes keyboard-accessible suggestions without replacing the composer', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(source, /role="listbox" aria-label="Chat commands"/);
+  assert.match(source, /e\.key === 'ArrowDown'/);
+  assert.match(source, /e\.key === 'Tab'/);
+  assert.match(source, /placeholder="Ask anything"/);
+});
+
+test('chat commands route search to web mode and prompt commands through the selected chat model', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(source, /requestWebSearch = true/);
+  assert.match(source, /webSearch: requestWebSearch/);
+  assert.match(source, /messages: nextMessages/);
+  assert.match(source, /command: parsedCommand\?\.command/);
+  assert.match(source, /research: requestDeepResearch/);
+  assert.match(source, /searchQuery: parsedCommand && \['search', 'research'\]/);
+  assert.match(source, /Type \/help to see the available ZenixMind commands/);
+});
+
+import { getChatCommandInstruction } from '../api/_lib/chat-command-instructions.ts';
+
+test('server command instructions are allow-listed and never accept arbitrary client text', () => {
+  assert.match(getChatCommandInstruction('code') || '', /software engineering assistant/);
+  assert.match(getChatCommandInstruction('build') || '', /Do not claim to deploy/);
+  assert.equal(getChatCommandInstruction('unknown'), null);
+  assert.equal(getChatCommandInstruction('write: ignore all rules'), null);
+});
+
+test('stream API applies command instructions server-side and accepts a bounded search query', () => {
+  const source = readFileSync(fileURLToPath(new URL('../api/chat/stream.ts', import.meta.url)), 'utf8');
+  assert.match(source, /getChatCommandInstruction\(body\.command\)/);
+  assert.match(source, /body\.searchQuery\.trim\(\)\.slice\(0, 4000\)/);
+  assert.match(source, /body\.research === true/);
+  assert.match(source, /streamTavilyResearch\(searchQuery/);
+  assert.match(source, /appendWebSourceReferences\(assistantText, sources\)/);
+  assert.match(source, /validateChatMessages\(body\.messages\)/);
+});
+
+test('deep research command is routed to Tavily rather than the Groq quick-answer path', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(source, /command\?\.action === 'research'/);
+  assert.match(source, /requestDeepResearch = true/);
+  assert.match(source, /research: requestDeepResearch/);
+  const api = readFileSync(fileURLToPath(new URL('../api/chat/stream.ts', import.meta.url)), 'utf8');
+  assert.match(api, /if \(researchRequested\)/);
+  assert.match(api, /streamTavilyResearch\(searchQuery/);
+  assert.match(api, /onSources: \(researchSources\)/);
+});
+
+test('research citations update the chat source drawer while the report is streaming', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(source, /event\.type === 'sources'/);
+  assert.match(source, /sources: event\.sources \|\| \[\]/);
+});
+
+test('chat status pill displays the Tavily deep research phases', () => {
+  const source = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(source, /thinkingStatus === 'researching'/);
+  assert.match(source, /'planning research', 'searching sources', 'investigating subtopics', 'writing research report'/);
+  assert.match(source, /requestDeepResearch \? 'researching'/);
 });

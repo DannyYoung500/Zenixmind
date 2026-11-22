@@ -4,11 +4,14 @@ import { createConversationTitle } from '../_lib/chat-utils.ts';
 import { streamGroqChatCompletion } from '../_lib/groq-client.ts';
 import { buildZenixMessages } from '../_lib/zenix-system-prompt.ts';
 import { getChatContext } from '../_lib/chat-store.ts';
-import { addWebSourcesToMessages, searchWeb } from '../_lib/web-search.ts';
+import { addWebSourcesToMessages, appendWebSourceReferences, searchWeb, streamTavilyResearch } from '../_lib/web-search.ts';
+import { getChatCommandInstruction } from '../_lib/chat-command-instructions.ts';
 
 function sendEvent(res: VercelResponse, event: Record<string, unknown>) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
 }
+
+export const config = { maxDuration: 60 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -36,25 +39,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey?.trim()) {
+  const webSearchRequested = body.webSearch === true;
+  const researchRequested = body.research === true;
+  if (!researchRequested && !apiKey?.trim()) {
     return res.status(503).json({ error: 'Groq is not configured on the server. Add GROQ_API_KEY to the Production environment.', code: 'GROQ_NOT_CONFIGURED' });
   }
-
-  const webSearchRequested = body.webSearch === true;
+  const searchKey = process.env.TAVILY_API_KEY;
+  const requestedQuery = typeof body.searchQuery === 'string' ? body.searchQuery.trim().slice(0, 4000) : '';
+  const searchQuery = requestedQuery || messages[messages.length - 1].content;
   let sources: Awaited<ReturnType<typeof searchWeb>> = [];
   let modelMessages = buildZenixMessages(messages);
-  if (webSearchRequested) {
-    const searchKey = process.env.TAVILY_API_KEY;
-    if (!searchKey?.trim()) {
-      return res.status(503).json({ error: 'Web Search needs a TAVILY_API_KEY. Add it to the Vercel Production environment to enable live internet sources.', code: 'WEB_SEARCH_NOT_CONFIGURED' });
-    }
+  const commandInstruction = getChatCommandInstruction(body.command);
+  if (commandInstruction) modelMessages = [...modelMessages, { role: 'system', content: commandInstruction }];
+  if ((webSearchRequested || researchRequested) && !searchKey?.trim()) {
+    return res.status(503).json({
+      error: 'Web Search and Deep Research need TAVILY_API_KEY. Add it to the Vercel Production environment to enable live research.',
+      code: 'WEB_SEARCH_NOT_CONFIGURED'
+    });
+  }
+  if (webSearchRequested && !researchRequested) {
     try {
-      const query = messages[messages.length - 1].content;
-      sources = await searchWeb(query, searchKey);
+      sources = await searchWeb(searchQuery, searchKey!);
       modelMessages = addWebSourcesToMessages(modelMessages, sources);
     } catch (error: any) {
       console.error('[chat/stream] web search failed', error?.message || 'Unknown search error');
-      return res.status(502).json({ error: 'Live web search failed. Please try again or turn off Web Search.', code: 'WEB_SEARCH_FAILED' });
+      return res.status(error?.message === 'WEB_SEARCH_RATE_LIMITED' ? 429 : 502).json({
+        error: error?.message === 'WEB_SEARCH_RATE_LIMITED'
+          ? 'Web Search is temporarily rate-limited. Please wait a moment and try again.'
+          : 'Live web search failed. Please try again or turn off Web Search.',
+        code: error?.message === 'WEB_SEARCH_RATE_LIMITED' ? 'WEB_SEARCH_RATE_LIMITED' : 'WEB_SEARCH_FAILED'
+      });
     }
   }
 
@@ -102,18 +116,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
-  sendEvent(res, { type: 'status', status: 'thinking' });
-  sendEvent(res, { type: 'meta', conversationId: conversation.id, modelUsed: selected.id, provider: 'groq', sources });
+  sendEvent(res, { type: 'status', status: researchRequested ? 'researching' : 'thinking' });
+  sendEvent(res, { type: 'meta', conversationId: conversation.id, modelUsed: researchRequested ? 'Tavily Research' : selected.id, provider: researchRequested ? 'tavily' : 'groq', research: researchRequested, sources });
 
   let assistantText = '';
   try {
-    for await (const text of streamGroqChatCompletion(modelMessages, selected.providerModel, apiKey)) {
-      assistantText += text;
-      sendEvent(res, { type: 'delta', text });
+    if (researchRequested) {
+      await streamTavilyResearch(searchQuery, searchKey!, {
+        onStatus: (status) => sendEvent(res, { type: 'status', status }),
+        onContent: (text) => {
+          assistantText += text;
+          sendEvent(res, { type: 'delta', text });
+        },
+        onSources: (researchSources) => {
+          sources = researchSources;
+          sendEvent(res, { type: 'sources', sources: researchSources });
+        }
+      });
+    } else {
+      for await (const text of streamGroqChatCompletion(modelMessages, selected.providerModel, apiKey!)) {
+        assistantText += text;
+        sendEvent(res, { type: 'delta', text });
+      }
+    }
+
+    if (assistantText.trim() && sources.length) {
+      const withReferences = appendWebSourceReferences(assistantText, sources);
+      if (withReferences !== assistantText) {
+        const references = withReferences.slice(assistantText.length);
+        assistantText = withReferences;
+        sendEvent(res, { type: 'delta', text: references });
+      }
     }
 
     if (!assistantText.trim()) {
-      sendEvent(res, { type: 'error', error: 'Groq returned an empty response.' });
+      sendEvent(res, { type: 'error', error: researchRequested ? 'Tavily returned an empty research report.' : 'Groq returned an empty response.' });
       return res.end();
     }
 
@@ -138,8 +175,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     sendEvent(res, { type: 'done', text: assistantText });
     return res.end();
   } catch (error: any) {
-    console.error('[chat/stream]', error?.message || 'Groq stream failed');
-    sendEvent(res, { type: 'error', error: 'The Groq AI response failed. Please try again.' });
+    console.error('[chat/stream]', error?.message || (researchRequested ? 'Tavily research failed' : 'Groq stream failed'));
+    sendEvent(res, { type: 'error', error: researchRequested
+      ? 'Deep Research could not complete. Check your Tavily key and credits, then try again.'
+      : 'The Groq AI response failed. Please try again.' });
     return res.end();
   }
 }
