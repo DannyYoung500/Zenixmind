@@ -4,7 +4,7 @@ import { createConversationTitle } from '../_lib/chat-utils.ts';
 import { streamGroqChatCompletion } from '../_lib/groq-client.ts';
 import { buildZenixMessages } from '../_lib/zenix-system-prompt.ts';
 import { getChatContext } from '../_lib/chat-store.ts';
-import { addWebSourcesToMessages, searchWeb, streamTavilyResearch } from '../_lib/web-search.ts';
+import { addWebSourcesToMessages, appendWebSourceReferences, searchWeb, streamTavilyResearch } from '../_lib/web-search.ts';
 import { getChatCommandInstruction } from '../_lib/chat-command-instructions.ts';
 
 function sendEvent(res: VercelResponse, event: Record<string, unknown>) {
@@ -141,8 +141,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    if (assistantText.trim() && sources.length) {
+      const withReferences = appendWebSourceReferences(assistantText, sources);
+      if (withReferences !== assistantText) {
+        const references = withReferences.slice(assistantText.length);
+        assistantText = withReferences;
+        sendEvent(res, { type: 'delta', text: references });
+      }
+    }
+
     if (!assistantText.trim()) {
-      sendEvent(res, { type: 'error', error: 'Groq returned an empty response.' });
+      sendEvent(res, { type: 'error', error: researchRequested ? 'Tavily returned an empty research report.' : 'Groq returned an empty response.' });
       return res.end();
     }
 
