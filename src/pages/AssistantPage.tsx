@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth-context';
 import { getSupabase } from '../lib/supabase';
 import { parseSseEvent, splitSseFrames } from '../lib/sse-parser';
 import { VoiceTalk } from '../components/voice-talk';
+import { getChatCommand, getCommandSuggestions, isUnknownSlashCommand, parseChatCommand } from '../lib/chat-commands';
 import {
   Send,
   Mic,
@@ -363,6 +364,8 @@ export const CompactFloatingComposer = React.forwardRef<
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  const [activeCommandIndex, setActiveCommandIndex] = useState(-1);
+  const commandSuggestions = getCommandSuggestions(value);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const plusRef = useRef<HTMLDivElement>(null);
 
@@ -380,12 +383,30 @@ export const CompactFloatingComposer = React.forwardRef<
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const chooseCommand = (trigger: string) => {
+    setValue(`${trigger} `);
+    setActiveCommandIndex(-1);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (commandSuggestions.length && e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveCommandIndex((current) => (current + 1) % commandSuggestions.length);
+      return;
+    }
+    if (commandSuggestions.length && e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveCommandIndex((current) => current <= 0 ? commandSuggestions.length - 1 : current - 1);
+      return;
+    }
+    if (commandSuggestions.length && e.key === 'Tab' && activeCommandIndex >= 0) {
+      e.preventDefault();
+      chooseCommand(commandSuggestions[activeCommandIndex].trigger);
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (value.trim() && !busy) {
-        onSend();
-      }
+      if (value.trim() && !busy) onSend();
     }
   };
 
@@ -425,7 +446,7 @@ export const CompactFloatingComposer = React.forwardRef<
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           rows={Math.min(5, Math.max(1, value.split('\n').length))}
-          placeholder="Ask anything · try /image a rainy neon city"
+          placeholder="Ask anything"
           className="w-full resize-none bg-transparent px-2 sm:px-3 pt-1 text-base text-zinc-100 outline-none placeholder:text-zinc-400/90 max-h-36 font-normal tracking-[-0.01em]"
         />
 
@@ -2015,16 +2036,21 @@ export function AssistantPage() {
     const text = overridePrompt || input.trim();
     if (!text || busy || isStreaming) return;
 
-    // Slash commands are explicit, predictable shortcuts. Natural-language image requests remain supported.
-    const slashImageIntent = text.match(/^\s*\/(?:image|imagine|draw|create-image)\s+([\s\S]+)$/i);
-    const naturalImageIntent = text.match(/^\s*(?:please\s+)?(?:create|generate|draw|make|design)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|illustration|artwork)\s*(?:of|showing|with|:)?\s+([\s\S]+)$/i);
-    const imageIntent = slashImageIntent || naturalImageIntent;
-    if (imageIntent?.[1]?.trim()) {
+    // Commands are parsed centrally so autocomplete, aliases, and execution stay consistent.
+    const parsedCommand = parseChatCommand(text);
+    if (isUnknownSlashCommand(text)) {
+      setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'I do not recognize that command. Type /help to see the available ZenixMind commands.' }]);
+      setInput('');
+      return;
+    }
+    const naturalImageIntent = text.match(/^\\s*(?:please\\s+)?(?:create|generate|draw|make|design)\\s+(?:me\\s+)?(?:an?\\s+)?(?:image|picture|photo|illustration|artwork)\\s*(?:of|showing|with|:)?\\s+([\\s\\S]+)$/i);
+    const imagePrompt = parsedCommand?.command === 'image' ? parsedCommand.prompt : naturalImageIntent?.[1]?.trim();
+    if (imagePrompt) {
       if (!user?.id) {
         setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: 'Sign in to generate images and save them to your ZenixMind Library.' }]);
         return;
       }
-      const imagePrompt = imageIntent[1].trim();
+      const cleanImagePrompt = imagePrompt.trim();
       setInput('');
       setBusy(true);
       setIsStreaming(true);
@@ -2038,7 +2064,7 @@ export function AssistantPage() {
           if (conversationError || !existingConversation) throw new Error('This conversation could not be verified. Start a new chat and try again.');
         } else {
           const { data: createdConversation, error: createError } = await supabase.from('conversations')
-            .insert({ user_id: user.id, title: imagePrompt.slice(0, 64), model: selectedModel }).select('id').single();
+            .insert({ user_id: user.id, title: cleanImagePrompt.slice(0, 64), model: selectedModel }).select('id').single();
           if (createError || !createdConversation) throw new Error('Could not create a conversation for this image.');
           activeConversationId = createdConversation.id;
           setConversationId(activeConversationId);
@@ -2046,7 +2072,7 @@ export function AssistantPage() {
         if (!activeConversationId) throw new Error('Could not prepare this conversation for the generated image.');
         const response = await chatApiFetch('/api/generate-image', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: imagePrompt, model: 'zimage', width: 1024, height: 1024 })
+          body: JSON.stringify({ prompt: cleanImagePrompt, model: 'zimage', width: 1024, height: 1024 })
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
@@ -2062,7 +2088,7 @@ export function AssistantPage() {
         const fileName = 'ZenixMind image.' + extension;
         const { error: libraryError } = await supabase.from('library_items').insert({
           user_id: user.id, file_name: fileName, mime_type: mimeType, storage_path: storagePath,
-          size_bytes: blob.size, source: 'generated', prompt: imagePrompt
+          size_bytes: blob.size, source: 'generated', prompt: cleanImagePrompt
         });
         if (libraryError) {
           await supabase.storage.from('library').remove([storagePath]);
@@ -2103,6 +2129,22 @@ export function AssistantPage() {
     }
 
     let fullPrompt = text;
+    let requestWebSearch = webSearch;
+    if (parsedCommand) {
+      const command = getChatCommand(parsedCommand.command);
+      if (command?.action === 'help') {
+        const helpText = 'Available commands: /image (aliases: /imagine, /draw, /create-image), /search, /summarize, /write, /translate, /explain, /code, /analyze, and /build. Type a command to see its suggestion, then add your prompt. Image generation saves results to your private Library.';
+        setMessages((previous) => [...previous, { role: 'user', content: text }, { role: 'assistant', content: helpText }]);
+        setInput('');
+        return;
+      }
+      if (command?.action === 'search') {
+        requestWebSearch = true;
+        fullPrompt = parsedCommand.prompt || 'Search the web for the latest relevant information and cite your sources.';
+      } else if (command?.action === 'prompt') {
+        fullPrompt = `${command.instruction}\\n\\nUser request: ${parsedCommand.prompt || 'Please ask me what I would like help with.'}`;
+      }
+    }
     let attachmentPayload: any = null;
     if (attachedFile) {
       try {
@@ -2136,14 +2178,15 @@ export function AssistantPage() {
           }
         }
 
-        fullPrompt = `[Attached file: ${attachedFile.name}]\\n\\n${text}`;
+        fullPrompt = `[Attached file: ${attachedFile.name}]\\n\\n${fullPrompt}`;
       } catch (error: any) {
         window.alert(error?.message || 'Unable to read that attachment.');
         return;
       }
     }
 
-    const nextMessages = [...messages, { role: 'user' as const, content: fullPrompt }];
+    const nextMessages = [...messages, { role: 'user' as const, content: text }];
+    const requestMessages = [...messages, { role: 'user' as const, content: fullPrompt }];
     setMessages(nextMessages);
     if (!overridePrompt) {
       setInput('');
@@ -2152,7 +2195,7 @@ export function AssistantPage() {
 
     setBusy(true);
     setIsStreaming(true);
-    setThinkingStatus(webSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking');
+    setThinkingStatus(requestWebSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking');
     setIsAtBottom(true);
     isAtBottomRef.current = true;
     setTimeout(() => scrollToBottom('smooth'), 20);
@@ -2176,11 +2219,11 @@ export function AssistantPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: nextMessages,
+          messages: requestMessages,
           conversationId,
           projectId: activeProjectId,
           model: selectedModel,
-          webSearch,
+          webSearch: requestWebSearch,
           deepThink,
           attachment: attachmentPayload,
           preferences: {
