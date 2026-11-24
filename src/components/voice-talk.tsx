@@ -1,22 +1,30 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { VoiceSunOrb, VoiceState } from './voice-sun-orb';
-import { getSupabase } from '../lib/supabase';
-import { X } from 'lucide-react';
+import { Mic, MicOff, X } from 'lucide-react';
 
 interface VoiceTalkProps {
   open: boolean;
+  busy?: boolean;
   onClose: () => void;
+  /** Sends the spoken transcript into the main chat thread (ChatGPT-style). */
+  onVoiceMessage?: (text: string) => void | Promise<string | undefined>;
 }
 
-export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
-  const [state, setState] = useState<VoiceState>('muted');
+/**
+ * Inline voice session for the assistant page.
+ * Transcripts go into the existing chat — not a separate voice-only conversation.
+ */
+export function VoiceTalk({
+  open,
+  busy = false,
+  onClose,
+  onVoiceMessage
+}: VoiceTalkProps) {
+  const [state, setState] = useState<VoiceState>('idle');
   const [muted, setMuted] = useState(false);
-  const [active, setActive] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [heard, setHeard] = useState('');
-  const [reply, setReply] = useState('');
+  const [interim, setInterim] = useState('');
 
   const recognitionRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -24,13 +32,26 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const frameRef = useRef<number | null>(null);
   const listeningRef = useRef(false);
-  const busyRef = useRef(false);
-  const speakingRef = useRef(false);
   const mutedRef = useRef(false);
+  const busyRef = useRef(false);
+  const sendingRef = useRef(false);
   const restartRef = useRef<number | null>(null);
+  const lastFinalRef = useRef('');
 
   mutedRef.current = muted;
   busyRef.current = busy;
+
+  // Reflect parent chat busy (streaming reply) in the indicator
+  useEffect(() => {
+    if (!open) return;
+    if (busy) {
+      setState('thinking');
+      return;
+    }
+    if (!muted && listeningRef.current) {
+      setState('listening');
+    }
+  }, [busy, open, muted]);
 
   const stopMeter = useCallback(() => {
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
@@ -45,7 +66,9 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
     if (audioContextRef.current) {
       try {
         audioContextRef.current.close();
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     }
     audioContextRef.current = null;
     analyserRef.current = null;
@@ -59,6 +82,13 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
       const Ctor = window.AudioContext || (window as any).webkitAudioContext;
       if (!Ctor) return;
       const ctx = new Ctor();
+      if (ctx.state === 'suspended') {
+        try {
+          await ctx.resume();
+        } catch {
+          /* ignore */
+        }
+      }
       audioContextRef.current = ctx;
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
@@ -87,66 +117,36 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
   const stopRecognition = useCallback(() => {
     try {
       recognitionRef.current?.stop();
-    } catch {}
-  }, []);
-
-  const speak = useCallback((text: string) => {
-    if (!('speechSynthesis' in window) || !text.trim()) {
-      speakingRef.current = false;
-      if (listeningRef.current && !mutedRef.current) setState('listening');
-      return;
+    } catch {
+      /* ignore */
     }
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    speakingRef.current = true;
-    setState('speaking');
-    u.onend = () => {
-      speakingRef.current = false;
-      if (listeningRef.current && !mutedRef.current) setState('listening');
-    };
-    u.onerror = () => {
-      speakingRef.current = false;
-      if (listeningRef.current && !mutedRef.current) setState('listening');
-    };
-    window.speechSynthesis.speak(u);
   }, []);
 
-  const handleFinal = useCallback(
+  const submitTranscript = useCallback(
     async (transcript: string) => {
-      if (!transcript.trim() || busyRef.current) return;
-      setBusy(true);
+      const text = transcript.trim();
+      if (!text || sendingRef.current || busyRef.current) return;
+      if (text === lastFinalRef.current) return;
+      lastFinalRef.current = text;
+      sendingRef.current = true;
+      setInterim('');
       setState('thinking');
-      setHeard(transcript.trim());
       try {
-        const { data: sessionData } = await getSupabase().auth.getSession();
-        const token = sessionData.session?.access_token;
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({
-            messages: [{ role: 'user', content: transcript.trim() }]
-          })
-        });
-        const data = await res.json().catch(() => ({}));
-        const text =
-          data?.message?.content ||
-          data?.content ||
-          (data?.code === 'AI_NOT_CONFIGURED'
-            ? 'AI is not configured yet. Add GEMINI_API_KEY on the server.'
-            : data?.error || 'I could not complete that request.');
-        setReply(String(text));
-        speak(String(text));
+        if (onVoiceMessage) {
+          await onVoiceMessage(text);
+        }
       } catch {
+        setError('Could not send voice message');
         setState('error');
-        setError('Could not reach ZenixMind');
       } finally {
-        setBusy(false);
+        sendingRef.current = false;
+        // Parent `busy` will keep us in thinking until stream ends
+        if (!busyRef.current && listeningRef.current && !mutedRef.current) {
+          setState('listening');
+        }
       }
     },
-    [speak]
+    [onVoiceMessage]
   );
 
   const startRecognition = useCallback(() => {
@@ -159,59 +159,76 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
     }
     try {
       recognitionRef.current?.stop();
-    } catch {}
+    } catch {
+      /* ignore */
+    }
+
     const recognition = new SR();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = navigator.language || 'en-US';
+
     recognition.onresult = (event: any) => {
-      let final = '';
+      let finalChunk = '';
+      let interimChunk = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) final += event.results[i][0].transcript;
+        const piece = event.results[i][0]?.transcript || '';
+        if (event.results[i].isFinal) finalChunk += piece;
+        else interimChunk += piece;
       }
-      if (final.trim()) void handleFinal(final.trim());
+      if (interimChunk) setInterim(interimChunk.trim());
+      if (finalChunk.trim()) void submitTranscript(finalChunk.trim());
     };
-    recognition.onerror = () => {
+
+    recognition.onerror = (event: any) => {
+      if (event?.error === 'not-allowed' || event?.error === 'service-not-allowed') {
+        setError('Microphone permission denied');
+        setState('error');
+        return;
+      }
       if (listeningRef.current && !mutedRef.current && !busyRef.current) {
         restartRef.current = window.setTimeout(() => {
           if (listeningRef.current && !mutedRef.current) startRecognition();
         }, 400);
       }
     };
+
     recognition.onend = () => {
-      if (listeningRef.current && !mutedRef.current && !busyRef.current && !speakingRef.current) {
+      if (listeningRef.current && !mutedRef.current && !busyRef.current && !sendingRef.current) {
         restartRef.current = window.setTimeout(() => {
           if (listeningRef.current && !mutedRef.current) startRecognition();
         }, 250);
       }
     };
+
     recognitionRef.current = recognition;
     try {
       recognition.start();
       listeningRef.current = true;
-      if (!busyRef.current && !speakingRef.current) setState('listening');
+      if (!busyRef.current && !sendingRef.current) setState('listening');
     } catch {
       setState('error');
+      setError('Could not start speech recognition');
     }
-  }, [handleFinal]);
+  }, [submitTranscript]);
 
   useEffect(() => {
     if (!open) return;
-    setActive(true);
+
     setMuted(false);
     setError('');
-    setHeard('');
-    setReply('');
+    setInterim('');
+    lastFinalRef.current = '';
     void startMeter();
     startRecognition();
+
     return () => {
       listeningRef.current = false;
       stopRecognition();
       if (restartRef.current) window.clearTimeout(restartRef.current);
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-      speakingRef.current = false;
       stopAudio();
-      setActive(false);
+      setInterim('');
+      setState('idle');
     };
   }, [open, startMeter, startRecognition, stopAudio, stopRecognition]);
 
@@ -221,7 +238,8 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
     if (next) {
       stopRecognition();
       setState('muted');
-    } else if (active) {
+      setInterim('');
+    } else {
       setState('listening');
       startRecognition();
     }
@@ -231,89 +249,71 @@ export function VoiceTalk({ open, onClose }: VoiceTalkProps) {
     listeningRef.current = false;
     stopRecognition();
     if (restartRef.current) window.clearTimeout(restartRef.current);
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    speakingRef.current = false;
-    setActive(false);
     stopAudio();
+    setInterim('');
     onClose();
   };
 
   if (!open) return null;
 
   const displayLevel =
-    state === 'speaking'
-      ? Math.max(audioLevel, 0.3)
+    state === 'listening'
+      ? audioLevel
       : state === 'thinking'
-        ? 0.2
-        : state === 'listening'
-          ? audioLevel
+        ? 0.18
+        : state === 'speaking'
+          ? Math.max(audioLevel, 0.25)
           : 0;
 
+  const status =
+    error ||
+    (state === 'listening'
+      ? interim
+        ? interim
+        : 'Listening…'
+      : state === 'thinking'
+        ? 'Sending to chat…'
+        : state === 'muted'
+          ? 'Microphone off'
+          : state === 'error'
+            ? 'Voice error'
+            : 'Ready');
+
   return (
-    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-[#050506]/80 backdrop-blur-md p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/[.08] bg-[#0b0b0e] shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between border-b border-white/[.06] px-4 py-3">
-          <span className="text-sm font-medium text-white">Voice</span>
-          <button
-            type="button"
-            onClick={endVoice}
-            className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 hover:bg-white/10 hover:text-white"
-            aria-label="Close"
-          >
-            <X size={16} />
-          </button>
-        </div>
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[65] flex justify-center px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:pb-[calc(6.25rem+env(safe-area-inset-bottom))]">
+      <div className="pointer-events-auto w-full max-w-2xl rounded-2xl border border-white/[.1] bg-[#0c0c0f]/95 shadow-2xl shadow-black/50 backdrop-blur-xl">
+        <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
+          <VoiceSunOrb
+            state={state === 'muted' ? 'muted' : state}
+            audioLevel={displayLevel}
+            size={96}
+          />
 
-        <div className="min-h-[140px] space-y-3 px-4 py-4">
-          {heard && (
-            <div className="flex justify-end">
-              <div className="max-w-[90%] rounded-2xl rounded-br-md bg-white/[.06] px-3 py-2 text-xs text-zinc-200">
-                {heard}
-              </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
+              Voice in chat
             </div>
-          )}
-          {reply && (
-            <div className="flex justify-start">
-              <div className="max-w-[90%] rounded-2xl rounded-bl-md border border-white/[.06] bg-[#08080c] px-3 py-2 text-xs text-zinc-300 leading-relaxed">
-                {reply}
-              </div>
-            </div>
-          )}
-          {!heard && !reply && (
-            <p className="py-6 text-center text-xs text-zinc-500">Speak when you are ready.</p>
-          )}
-          {error && <p className="text-center text-xs text-red-300">{error}</p>}
-        </div>
+            <p className="mt-0.5 truncate text-sm text-zinc-200">{status}</p>
+          </div>
 
-        <div className="flex flex-col items-center gap-3 border-t border-white/[.06] px-4 py-5">
-          <VoiceSunOrb state={state === 'muted' ? 'muted' : state} audioLevel={displayLevel} size={110} />
-          <p className="text-[11px] text-zinc-500">
-            {state === 'listening'
-              ? 'Listening'
-              : state === 'thinking'
-                ? 'Thinking'
-                : state === 'speaking'
-                  ? 'Speaking'
-                  : state === 'muted'
-                    ? 'Muted'
-                    : state === 'error'
-                      ? 'Error'
-                      : 'Ready'}
-          </p>
-          <div className="flex gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               onClick={toggleMute}
-              className="rounded-full border border-white/[.1] bg-white/[.04] px-4 py-2 text-xs text-zinc-300 hover:bg-white/[.08]"
+              className="grid h-9 w-9 place-items-center rounded-full border border-white/[.08] bg-white/[.04] text-zinc-300 transition hover:bg-white/[.08] hover:text-white"
+              aria-label={muted ? 'Unmute microphone' : 'Mute microphone'}
+              title={muted ? 'Unmute' : 'Mute'}
             >
-              {muted ? 'Unmute' : 'Mute'}
+              {muted ? <MicOff size={16} /> : <Mic size={16} />}
             </button>
             <button
               type="button"
               onClick={endVoice}
-              className="rounded-full border border-white/[.1] bg-white/[.04] px-4 py-2 text-xs text-zinc-300 hover:bg-white/[.08]"
+              className="grid h-9 w-9 place-items-center rounded-full border border-white/[.08] bg-white/[.04] text-zinc-300 transition hover:bg-white/[.08] hover:text-white"
+              aria-label="End voice"
+              title="End voice"
             >
-              End
+              <X size={16} />
             </button>
           </div>
         </div>
