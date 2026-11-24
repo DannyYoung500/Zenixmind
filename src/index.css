@@ -12,7 +12,6 @@
 
 html {
   background: #050506;
-  /* Prefer stable viewport; avoid smooth-scroll jank on mobile */
   scroll-behavior: auto;
 }
 
@@ -92,7 +91,6 @@ button, input, textarea, select {
   filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.08));
 }
 
-/* Design utilities */
 .zenix-card {
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: #0b0b0e;
@@ -134,7 +132,6 @@ button, input, textarea, select {
   max-height: 9.5rem;
 }
 
-/* App shell that does not shake with mobile chrome */
 .zenix-app-shell {
   height: var(--vvh, 100dvh);
   max-height: var(--vvh, 100dvh);
@@ -145,7 +142,7 @@ button, input, textarea, select {
   input:not([type="checkbox"]):not([type="radio"]),
   textarea,
   select {
-    font-size: 16px !important; /* prevent iOS zoom-induced shake */
+    font-size: 16px !important;
   }
 
   input, textarea, select, button {
@@ -161,5 +158,14 @@ button, input, textarea, select {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Reduce motion on chat enter animations (stops visual shake) */
+@media (max-width: 900px) {
+  .animate-in,
+  .fade-in,
+  .slide-in-from-bottom-2 {
+    animation: none !important;
   }
 }
