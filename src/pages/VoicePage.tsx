@@ -19,6 +19,7 @@ const PERSONAS: VoicePersona[] = [
   { id: 'sol', name: 'Sol', description: 'Bright and expressive.', pitch: 1.18, rate: 1.08 }
 ];
 
+/** Full-focus voice mode — optional dedicated surface with TTS + barge-in. */
 export function VoicePage() {
   const navigate = useNavigate();
   const [state, setState] = useState<VoiceState>('idle');
@@ -31,6 +32,7 @@ export function VoicePage() {
   const [level, setLevel] = useState(0);
   const [persona, setPersona] = useState(PERSONAS[0]);
   const [settings, setSettings] = useState(false);
+  const [interim, setInterim] = useState('');
 
   const recognitionRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -40,12 +42,18 @@ export function VoicePage() {
   const listeningRef = useRef(false);
   const processingRef = useRef(false);
   const speakingRef = useRef(false);
+  const mutedRef = useRef(false);
   const lastFinalRef = useRef('');
+  const bargeCooldownRef = useRef(0);
+  const levelSmoothRef = useRef(0);
+
+  mutedRef.current = muted;
 
   const stopMeter = useCallback(() => {
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
     setLevel(0);
+    levelSmoothRef.current = 0;
   }, []);
 
   const stopAudio = useCallback(() => {
@@ -61,6 +69,25 @@ export function VoicePage() {
     analyserRef.current = null;
   }, [stopMeter]);
 
+  const cancelSpeech = useCallback(() => {
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
+    speakingRef.current = false;
+  }, []);
+
+  const bargeIn = useCallback(() => {
+    if (!speakingRef.current) return;
+    const now = Date.now();
+    if (now < bargeCooldownRef.current) return;
+    bargeCooldownRef.current = now + 600;
+    cancelSpeech();
+    setState('listening');
+    setStatus('Listening');
+  }, [cancelSpeech]);
+
   const startMeter = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) return;
     try {
@@ -69,10 +96,15 @@ export function VoicePage() {
       const Ctor = window.AudioContext || (window as any).webkitAudioContext;
       if (!Ctor) return;
       const ctx = new Ctor();
+      if (ctx.state === 'suspended') {
+        try {
+          await ctx.resume();
+        } catch {}
+      }
       audioContextRef.current = ctx;
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.88;
+      analyser.smoothingTimeConstant = 0.85;
       ctx.createMediaStreamSource(stream).connect(analyser);
       analyserRef.current = analyser;
       const data = new Uint8Array(analyser.frequencyBinCount);
@@ -84,7 +116,11 @@ export function VoicePage() {
           const v = (data[i] - 128) / 128;
           sum += v * v;
         }
-        setLevel(Math.min(1, Math.sqrt(sum / data.length) * 4));
+        const rms = Math.min(1, Math.sqrt(sum / data.length) * 4);
+        levelSmoothRef.current += (rms - levelSmoothRef.current) * 0.2;
+        const lv = levelSmoothRef.current;
+        setLevel(lv);
+        if (speakingRef.current && lv > 0.28) bargeIn();
         frameRef.current = requestAnimationFrame(tick);
       };
       frameRef.current = requestAnimationFrame(tick);
@@ -93,51 +129,67 @@ export function VoicePage() {
       setState('error');
       setStatus('Allow microphone access');
     }
-  }, []);
+  }, [bargeIn]);
 
   const speak = useCallback(
     (text: string) => {
       if (!('speechSynthesis' in window) || !text.trim()) {
         speakingRef.current = false;
-        if (listeningRef.current && !muted) {
+        if (listeningRef.current && !mutedRef.current) {
           setState('listening');
           setStatus('Listening');
         }
         return;
       }
+
+      const cleaned = text
+        .replace(/```[\s\S]*?```/g, ' code block ')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/#{1,6}\s+/g, '')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/\s+/g, ' ')
+        .trim();
+
       window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
+      const u = new SpeechSynthesisUtterance(cleaned.slice(0, 1600));
       u.pitch = persona.pitch;
       u.rate = persona.rate;
       speakingRef.current = true;
       setState('speaking');
-      setStatus('Speaking');
+      setStatus('Speaking — talk to interrupt');
+      bargeCooldownRef.current = Date.now() + 900;
+
       u.onend = () => {
         speakingRef.current = false;
-        if (listeningRef.current && !muted) {
+        if (listeningRef.current && !mutedRef.current) {
           setState('listening');
           setStatus('Listening');
         }
       };
       u.onerror = () => {
         speakingRef.current = false;
-        if (listeningRef.current && !muted) {
+        if (listeningRef.current && !mutedRef.current) {
           setState('listening');
           setStatus('Listening');
         }
       };
       window.speechSynthesis.speak(u);
     },
-    [persona, muted]
+    [persona]
   );
 
   const sendToAI = useCallback(
     async (text: string) => {
       if (!text.trim() || processingRef.current) return;
+      if (speakingRef.current) cancelSpeech();
+
       processingRef.current = true;
       setState('thinking');
       setStatus('Thinking');
       setHeard(text);
+      setInterim('');
       try {
         const { data: sessionData } = await getSupabase().auth.getSession();
         const token = sessionData.session?.access_token;
@@ -166,7 +218,7 @@ export function VoicePage() {
         processingRef.current = false;
       }
     },
-    [speak]
+    [speak, cancelSpeech]
   );
 
   const startRecognition = useCallback(() => {
@@ -181,40 +233,51 @@ export function VoicePage() {
     try {
       recognitionRef.current?.stop();
     } catch {}
+
     const recognition = new SR();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = navigator.language || 'en-US';
+
     recognition.onresult = (event: any) => {
       let final = '';
+      let interimText = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) final += event.results[i][0].transcript;
+        const piece = event.results[i][0]?.transcript || '';
+        if (event.results[i].isFinal) final += piece;
+        else interimText += piece;
       }
+      if (speakingRef.current && (interimText.trim() || final.trim())) bargeIn();
+      if (interimText) setInterim(interimText.trim());
       const t = final.trim();
       if (t && t !== lastFinalRef.current) {
         lastFinalRef.current = t;
         void sendToAI(t);
       }
     };
+
     recognition.onerror = () => {};
     recognition.onend = () => {
-      if (listeningRef.current && !muted && !processingRef.current && !speakingRef.current) {
+      if (listeningRef.current && !mutedRef.current) {
         try {
           recognition.start();
         } catch {}
       }
     };
+
     recognitionRef.current = recognition;
     try {
       recognition.start();
       listeningRef.current = true;
-      setState('listening');
-      setStatus('Listening');
+      if (!processingRef.current && !speakingRef.current) {
+        setState('listening');
+        setStatus('Listening');
+      }
     } catch {
       setState('error');
       setStatus('Could not start microphone');
     }
-  }, [muted, sendToAI]);
+  }, [sendToAI, bargeIn]);
 
   const stopRecognition = useCallback(() => {
     listeningRef.current = false;
@@ -230,6 +293,8 @@ export function VoicePage() {
       setError('');
       setHeard('');
       setReply('');
+      setInterim('');
+      lastFinalRef.current = '';
       await startMeter();
       startRecognition();
       return;
@@ -242,34 +307,35 @@ export function VoicePage() {
     } else {
       setMuted(true);
       stopRecognition();
+      cancelSpeech();
       setState('muted');
       setStatus('Microphone off');
+      setInterim('');
     }
   };
 
   const end = () => {
     stopRecognition();
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    speakingRef.current = false;
+    cancelSpeech();
     processingRef.current = false;
     setActive(false);
     setMuted(false);
     setState('idle');
     setStatus('Tap the mic to start');
+    setInterim('');
     stopAudio();
   };
 
   useEffect(() => {
     return () => {
       stopRecognition();
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      cancelSpeech();
       stopAudio();
     };
-  }, [stopAudio, stopRecognition]);
+  }, [stopAudio, stopRecognition, cancelSpeech]);
 
   return (
     <div className="relative flex min-h-screen w-full flex-col bg-[#050506] text-zinc-100">
-      {/* Top bar — website chrome */}
       <header className="flex items-center justify-between border-b border-white/[.06] px-4 py-3 sm:px-6">
         <button
           onClick={() => navigate('/assistant')}
@@ -279,8 +345,8 @@ export function VoicePage() {
           <span className="hidden sm:inline">Chat</span>
         </button>
         <div className="text-center">
-          <div className="text-sm font-medium text-white">Voice</div>
-          <div className="text-[10px] text-zinc-500">{persona.name}</div>
+          <div className="text-sm font-medium text-white">Voice focus</div>
+          <div className="text-[10px] text-zinc-500">{persona.name} · barge-in on</div>
         </div>
         <button
           onClick={() => setSettings(true)}
@@ -291,15 +357,14 @@ export function VoicePage() {
         </button>
       </header>
 
-      {/* Transcript-first layout (ChatGPT / Gemini pattern) */}
       <main className="flex flex-1 flex-col min-h-0">
         <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
           <div className="mx-auto max-w-xl space-y-5">
             {!active && !heard && !reply && (
               <div className="rounded-2xl border border-white/[.06] bg-[#0b0b0e] px-5 py-8 text-center">
-                <p className="text-sm text-zinc-300">Talk with ZenixMind</p>
+                <p className="text-sm text-zinc-300">Full-focus voice</p>
                 <p className="mt-2 text-xs text-zinc-500 leading-relaxed">
-                  Start the mic, speak naturally, and read replies here while you listen.
+                  Hands-free conversation with spoken replies. Talk while ZenixMind is speaking to interrupt.
                 </p>
               </div>
             )}
@@ -328,12 +393,11 @@ export function VoicePage() {
           </div>
         </div>
 
-        {/* Compact voice dock */}
         <div className="border-t border-white/[.06] bg-[#050506]/95 backdrop-blur px-4 py-5 sm:px-6">
           <div className="mx-auto flex max-w-xl flex-col items-center gap-4">
-            <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <div className="flex max-w-full items-center gap-2 text-xs text-zinc-500">
               <span
-                className={`h-1.5 w-1.5 rounded-full ${
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                   state === 'error'
                     ? 'bg-red-400'
                     : state === 'speaking'
@@ -343,15 +407,10 @@ export function VoicePage() {
                         : 'bg-zinc-600'
                 }`}
               />
-              {status}
+              <span className="truncate">{interim || status}</span>
             </div>
 
-            <VoiceSunOrb
-              state={state}
-              audioLevel={level}
-              size={130}
-              onClick={() => void toggle()}
-            />
+            <VoiceSunOrb state={state} audioLevel={level} size={130} onClick={() => void toggle()} />
 
             <div className="flex items-center gap-3">
               <button

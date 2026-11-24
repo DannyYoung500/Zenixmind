@@ -1,18 +1,21 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { VoiceSunOrb, VoiceState } from './voice-sun-orb';
-import { Mic, MicOff, X } from 'lucide-react';
+import { Mic, MicOff, X, Maximize2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface VoiceTalkProps {
   open: boolean;
   busy?: boolean;
   onClose: () => void;
-  /** Sends the spoken transcript into the main chat thread (ChatGPT-style). */
+  /** Sends spoken text into the main chat; may resolve with the assistant reply for TTS. */
   onVoiceMessage?: (text: string) => void | Promise<string | undefined>;
 }
 
 /**
- * Inline voice session for the assistant page.
- * Transcripts go into the existing chat — not a separate voice-only conversation.
+ * Inline voice for the assistant chat.
+ * - Transcripts enter the main thread
+ * - Assistant reply is spoken (TTS)
+ * - Barge-in: speaking again cancels TTS and listens
  */
 export function VoiceTalk({
   open,
@@ -20,11 +23,13 @@ export function VoiceTalk({
   onClose,
   onVoiceMessage
 }: VoiceTalkProps) {
+  const navigate = useNavigate();
   const [state, setState] = useState<VoiceState>('idle');
   const [muted, setMuted] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [error, setError] = useState('');
   const [interim, setInterim] = useState('');
+  const [ttsEnabled, setTtsEnabled] = useState(true);
 
   const recognitionRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -34,21 +39,21 @@ export function VoiceTalk({
   const listeningRef = useRef(false);
   const mutedRef = useRef(false);
   const busyRef = useRef(false);
+  const speakingRef = useRef(false);
   const sendingRef = useRef(false);
   const restartRef = useRef<number | null>(null);
   const lastFinalRef = useRef('');
+  const bargeCooldownRef = useRef(0);
+  const levelSmoothRef = useRef(0);
 
   mutedRef.current = muted;
   busyRef.current = busy;
 
-  // Reflect parent chat busy (streaming reply) in the indicator
   useEffect(() => {
     if (!open) return;
-    if (busy) {
+    if (busy && !speakingRef.current) {
       setState('thinking');
-      return;
-    }
-    if (!muted && listeningRef.current) {
+    } else if (!busy && !speakingRef.current && !muted && listeningRef.current) {
       setState('listening');
     }
   }, [busy, open, muted]);
@@ -57,6 +62,7 @@ export function VoiceTalk({
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
     setAudioLevel(0);
+    levelSmoothRef.current = 0;
   }, []);
 
   const stopAudio = useCallback(() => {
@@ -73,6 +79,26 @@ export function VoiceTalk({
     audioContextRef.current = null;
     analyserRef.current = null;
   }, [stopMeter]);
+
+  const cancelSpeech = useCallback(() => {
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        /* ignore */
+      }
+    }
+    speakingRef.current = false;
+  }, []);
+
+  const bargeIn = useCallback(() => {
+    if (!speakingRef.current) return;
+    const now = Date.now();
+    if (now < bargeCooldownRef.current) return;
+    bargeCooldownRef.current = now + 600;
+    cancelSpeech();
+    setState('listening');
+  }, [cancelSpeech]);
 
   const startMeter = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) return;
@@ -92,7 +118,7 @@ export function VoiceTalk({
       audioContextRef.current = ctx;
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.88;
+      analyser.smoothingTimeConstant = 0.85;
       ctx.createMediaStreamSource(stream).connect(analyser);
       analyserRef.current = analyser;
       const data = new Uint8Array(analyser.frequencyBinCount);
@@ -104,7 +130,16 @@ export function VoiceTalk({
           const v = (data[i] - 128) / 128;
           sum += v * v;
         }
-        setAudioLevel(Math.min(1, Math.sqrt(sum / data.length) * 4));
+        const rms = Math.min(1, Math.sqrt(sum / data.length) * 4);
+        levelSmoothRef.current += (rms - levelSmoothRef.current) * 0.2;
+        const level = levelSmoothRef.current;
+        setAudioLevel(level);
+
+        // Energy-based barge-in while TTS is playing
+        if (speakingRef.current && level > 0.28) {
+          bargeIn();
+        }
+
         frameRef.current = requestAnimationFrame(tick);
       };
       frameRef.current = requestAnimationFrame(tick);
@@ -112,7 +147,7 @@ export function VoiceTalk({
       setError('Microphone access is required');
       setState('error');
     }
-  }, []);
+  }, [bargeIn]);
 
   const stopRecognition = useCallback(() => {
     try {
@@ -122,31 +157,90 @@ export function VoiceTalk({
     }
   }, []);
 
+  const speakReply = useCallback(
+    (text: string) => {
+      if (!ttsEnabled || !('speechSynthesis' in window) || !text.trim()) {
+        speakingRef.current = false;
+        if (listeningRef.current && !mutedRef.current) setState('listening');
+        return;
+      }
+
+      // Strip markdown noise for cleaner speech
+      const cleaned = text
+        .replace(/```[\s\S]*?```/g, ' code block ')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/#{1,6}\s+/g, '')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (!cleaned) {
+        if (listeningRef.current && !mutedRef.current) setState('listening');
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(cleaned.slice(0, 1200));
+      u.rate = 1.02;
+      u.pitch = 1;
+      speakingRef.current = true;
+      setState('speaking');
+      bargeCooldownRef.current = Date.now() + 900; // avoid self-barge from speaker bleed
+
+      u.onend = () => {
+        speakingRef.current = false;
+        if (listeningRef.current && !mutedRef.current && !busyRef.current) {
+          setState('listening');
+        }
+      };
+      u.onerror = () => {
+        speakingRef.current = false;
+        if (listeningRef.current && !mutedRef.current) setState('listening');
+      };
+
+      window.speechSynthesis.speak(u);
+    },
+    [ttsEnabled]
+  );
+
   const submitTranscript = useCallback(
     async (transcript: string) => {
       const text = transcript.trim();
-      if (!text || sendingRef.current || busyRef.current) return;
+      if (!text || sendingRef.current) return;
       if (text === lastFinalRef.current) return;
+
+      // Barge-in path: user spoke a full phrase while TTS was on
+      if (speakingRef.current) {
+        cancelSpeech();
+      }
+
+      if (busyRef.current) return;
+
       lastFinalRef.current = text;
       sendingRef.current = true;
       setInterim('');
       setState('thinking');
+
       try {
+        let reply: string | undefined;
         if (onVoiceMessage) {
-          await onVoiceMessage(text);
+          reply = (await onVoiceMessage(text)) || undefined;
+        }
+        if (reply && ttsEnabled) {
+          speakReply(reply);
+        } else if (listeningRef.current && !mutedRef.current) {
+          setState(busyRef.current ? 'thinking' : 'listening');
         }
       } catch {
         setError('Could not send voice message');
         setState('error');
       } finally {
         sendingRef.current = false;
-        // Parent `busy` will keep us in thinking until stream ends
-        if (!busyRef.current && listeningRef.current && !mutedRef.current) {
-          setState('listening');
-        }
       }
     },
-    [onVoiceMessage]
+    [onVoiceMessage, speakReply, ttsEnabled, cancelSpeech]
   );
 
   const startRecognition = useCallback(() => {
@@ -176,6 +270,12 @@ export function VoiceTalk({
         if (event.results[i].isFinal) finalChunk += piece;
         else interimChunk += piece;
       }
+
+      // Interim speech while speaking → barge-in
+      if (speakingRef.current && (interimChunk.trim() || finalChunk.trim())) {
+        bargeIn();
+      }
+
       if (interimChunk) setInterim(interimChunk.trim());
       if (finalChunk.trim()) void submitTranscript(finalChunk.trim());
     };
@@ -186,7 +286,7 @@ export function VoiceTalk({
         setState('error');
         return;
       }
-      if (listeningRef.current && !mutedRef.current && !busyRef.current) {
+      if (listeningRef.current && !mutedRef.current) {
         restartRef.current = window.setTimeout(() => {
           if (listeningRef.current && !mutedRef.current) startRecognition();
         }, 400);
@@ -194,10 +294,10 @@ export function VoiceTalk({
     };
 
     recognition.onend = () => {
-      if (listeningRef.current && !mutedRef.current && !busyRef.current && !sendingRef.current) {
+      if (listeningRef.current && !mutedRef.current) {
         restartRef.current = window.setTimeout(() => {
           if (listeningRef.current && !mutedRef.current) startRecognition();
-        }, 250);
+        }, 220);
       }
     };
 
@@ -205,12 +305,14 @@ export function VoiceTalk({
     try {
       recognition.start();
       listeningRef.current = true;
-      if (!busyRef.current && !sendingRef.current) setState('listening');
+      if (!busyRef.current && !speakingRef.current && !sendingRef.current) {
+        setState('listening');
+      }
     } catch {
       setState('error');
       setError('Could not start speech recognition');
     }
-  }, [submitTranscript]);
+  }, [submitTranscript, bargeIn]);
 
   useEffect(() => {
     if (!open) return;
@@ -226,17 +328,19 @@ export function VoiceTalk({
       listeningRef.current = false;
       stopRecognition();
       if (restartRef.current) window.clearTimeout(restartRef.current);
+      cancelSpeech();
       stopAudio();
       setInterim('');
       setState('idle');
     };
-  }, [open, startMeter, startRecognition, stopAudio, stopRecognition]);
+  }, [open, startMeter, startRecognition, stopAudio, stopRecognition, cancelSpeech]);
 
   const toggleMute = () => {
     const next = !muted;
     setMuted(next);
     if (next) {
       stopRecognition();
+      cancelSpeech();
       setState('muted');
       setInterim('');
     } else {
@@ -249,9 +353,15 @@ export function VoiceTalk({
     listeningRef.current = false;
     stopRecognition();
     if (restartRef.current) window.clearTimeout(restartRef.current);
+    cancelSpeech();
     stopAudio();
     setInterim('');
     onClose();
+  };
+
+  const openFullFocus = () => {
+    endVoice();
+    navigate('/assistant/voice');
   };
 
   if (!open) return null;
@@ -262,7 +372,7 @@ export function VoiceTalk({
       : state === 'thinking'
         ? 0.18
         : state === 'speaking'
-          ? Math.max(audioLevel, 0.25)
+          ? Math.max(audioLevel, 0.3)
           : 0;
 
   const status =
@@ -270,14 +380,16 @@ export function VoiceTalk({
     (state === 'listening'
       ? interim
         ? interim
-        : 'Listening…'
+        : 'Listening — speak anytime'
       : state === 'thinking'
-        ? 'Sending to chat…'
-        : state === 'muted'
-          ? 'Microphone off'
-          : state === 'error'
-            ? 'Voice error'
-            : 'Ready');
+        ? 'Thinking…'
+        : state === 'speaking'
+          ? 'Speaking — talk to interrupt'
+          : state === 'muted'
+            ? 'Microphone off'
+            : state === 'error'
+              ? 'Voice error'
+              : 'Ready');
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[65] flex justify-center px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:pb-[calc(6.25rem+env(safe-area-inset-bottom))]">
@@ -290,13 +402,36 @@ export function VoiceTalk({
           />
 
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
-              Voice in chat
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
+                Voice in chat
+              </span>
+              <button
+                type="button"
+                onClick={() => setTtsEnabled((v) => !v)}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${
+                  ttsEnabled
+                    ? 'bg-white/[.08] text-zinc-200'
+                    : 'bg-transparent text-zinc-600 line-through'
+                }`}
+                title="Toggle spoken replies"
+              >
+                TTS
+              </button>
             </div>
             <p className="mt-0.5 truncate text-sm text-zinc-200">{status}</p>
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={openFullFocus}
+              className="grid h-9 w-9 place-items-center rounded-full border border-white/[.08] bg-white/[.04] text-zinc-300 transition hover:bg-white/[.08] hover:text-white"
+              aria-label="Open full voice mode"
+              title="Full voice mode"
+            >
+              <Maximize2 size={15} />
+            </button>
             <button
               type="button"
               onClick={toggleMute}
