@@ -1518,7 +1518,7 @@ function LibraryView() {
   );
 
   return (
-    <div className="h-full min-h-0 w-full flex-1 overflow-y-auto overscroll-contain bg-black px-4 pb-[calc(24px+env(safe-area-inset-bottom))] pt-4 sm:px-8 sm:pt-6">
+    <div className="h-full min-h-0 overflow-y-auto w-full flex-1 overscroll-contain bg-black px-4 pb-[calc(24px+env(safe-area-inset-bottom))] pt-4 sm:px-8 sm:pt-6">
       <div className="mx-auto w-full max-w-6xl">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div><h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Library</h1><p className="mt-1 text-sm text-zinc-500">Your documents, media and saved creations.</p></div>
