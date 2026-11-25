@@ -85,3 +85,20 @@ test('owner console header does not fall back to a hard-coded personal email', (
   const ownerPage = readFileSync(ownerPagePath, 'utf8');
   assert.doesNotMatch(ownerPage, /dannyyoungofficial1@gmail\.com/);
 });
+
+
+test('chat shows the signed-in email and account avatar when available', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  assert.match(assistantPage, /user\.email/);
+  assert.match(assistantPage, /user\.avatarUrl/);
+  assert.match(assistantPage, /referrerPolicy="no-referrer"/);
+  assert.match(assistantPage, /onError=\{\(event\) => \{ event\.currentTarget\.style\.display = 'none'; \}\}/);
+});
+
+test('chat message bubbles use readable mobile-first typography', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  assert.match(assistantPage, /text-\[14px\] font-normal text-zinc-100/);
+  assert.match(assistantPage, /sm:text-\[15px\]/);
+});
