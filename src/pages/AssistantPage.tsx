@@ -758,7 +758,7 @@ function ChatMessageItem({
   if (message.role === 'user') {
     return (
       <div className="flex justify-end animate-in fade-in duration-200">
-        <div className="max-w-[85%] rounded-[20px] rounded-br-sm bg-[#18181c] px-4 py-2.5 text-xs sm:text-[13.5px] font-light text-zinc-200 ring-1 ring-white/[.08] whitespace-pre-wrap leading-relaxed shadow-sm">
+        <div className="max-w-[92%] sm:max-w-[85%] rounded-[22px] rounded-br-md bg-[#19191e] px-4 py-3 text-[14px] font-normal text-zinc-100 ring-1 ring-white/[.08] whitespace-pre-wrap leading-7 shadow-[0_8px_24px_rgba(0,0,0,.16)]">
           {message.content}
         </div>
       </div>
@@ -770,9 +770,9 @@ function ChatMessageItem({
   }
 
   return (
-    <div className="flex gap-3 sm:gap-3.5 group animate-in fade-in duration-200">
-      <BrandMark size={28} className="mt-1 shrink-0 text-zinc-200" />
-      <div className="max-w-[92%] min-w-0 flex-1">
+    <div className="group flex gap-3 sm:gap-4 animate-in fade-in duration-200">
+      <BrandMark size={30} className="mt-1 shrink-0 text-zinc-200" />
+      <div className="max-w-[94%] min-w-0 flex-1 text-[14px] leading-7 text-zinc-200 sm:text-[15px]">
         {message.model_used && !message.isStreaming && (
           <div className="mb-1.5 text-[9px] uppercase tracking-[0.14em] text-zinc-600">
             {message.model_used}
@@ -2500,6 +2500,28 @@ export function AssistantPage() {
 
         {(!projectId || projectChatId) && view === 'chat' && (
           <div className="relative flex flex-1 flex-col h-full overflow-hidden">
+            {/* Signed-in account identity stays visible without taking space from the composer. */}
+            {user && (
+              <div className="flex shrink-0 items-center justify-end border-b border-white/[.035] px-4 py-2.5 sm:px-8">
+                <div className="flex min-w-0 max-w-full items-center gap-2.5 rounded-full border border-white/[.07] bg-[#0d0d10] py-1.5 pl-1.5 pr-3">
+                  <div className="relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-white/[.1] bg-[#242428] text-[11px] font-semibold text-zinc-200">
+                    <span aria-hidden="true">{(user.name || user.email || 'U').trim().charAt(0).toUpperCase()}</span>
+                    {user.avatarUrl && (
+                      <img
+                        src={user.avatarUrl}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                      />
+                    )}
+                  </div>
+                  <span className="min-w-0 truncate text-[11px] font-medium text-zinc-300" title={user.email}>
+                    {user.email}
+                  </span>
+                </div>
+              </div>
+            )}
             {/* Messages Scroll Area with auto-scroll tracking */}
             <div
               ref={chatScrollRef}
