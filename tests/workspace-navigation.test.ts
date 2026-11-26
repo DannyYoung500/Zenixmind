@@ -39,8 +39,8 @@ test('workspace shell does not expose project creation or project navigation', (
 test('assistant message reactions use restrained selected states', () => {
   const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
   const assistantPage = readFileSync(assistantPagePath, 'utf8');
-  assert.ok(assistantPage.includes("liked ? 'bg-white/[.08] text-white border border-white/[.12]'"));
-  assert.ok(assistantPage.includes("disliked ? 'bg-rose-500/[.08] text-rose-300 border-rose-400/20'"));
+  assert.ok(assistantPage.includes("liked ? 'bg-white/[.08] text-white'"));
+  assert.ok(assistantPage.includes("disliked ? 'bg-rose-500/[.1] text-rose-300'"));
   assert.match(assistantPage, /aria-pressed=\{liked\}/);
   assert.match(assistantPage, /aria-pressed=\{disliked\}/);
 });
