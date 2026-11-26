@@ -758,7 +758,7 @@ function ChatMessageItem({
   if (message.role === 'user') {
     return (
       <div className="flex justify-end animate-in fade-in duration-200">
-        <div className="max-w-[92%] sm:max-w-[85%] rounded-[22px] rounded-br-md bg-[#19191e] px-4 py-3 text-[14px] font-normal text-zinc-100 ring-1 ring-white/[.08] whitespace-pre-wrap leading-7 shadow-[0_8px_24px_rgba(0,0,0,.16)]">
+        <div className="max-w-[92%] sm:max-w-[78%] rounded-[22px] rounded-br-[7px] border border-white/[.075] bg-[#17171b] px-4 py-3.5 text-[14px] font-normal leading-7 text-zinc-100 shadow-[0_8px_28px_rgba(0,0,0,.18)] whitespace-pre-wrap sm:px-5">
           {message.content}
         </div>
       </div>
@@ -770,9 +770,9 @@ function ChatMessageItem({
   }
 
   return (
-    <div className="group flex gap-3 sm:gap-4 animate-in fade-in duration-200">
+    <div className="group flex gap-3.5 sm:gap-4.5 animate-in fade-in duration-200">
       <BrandMark size={30} className="mt-1 shrink-0 text-zinc-200" />
-      <div className="max-w-[94%] min-w-0 flex-1 text-[14px] leading-7 text-zinc-200 sm:text-[15px]">
+      <div className="max-w-[96%] min-w-0 flex-1 text-[15px] leading-[1.85] text-zinc-200 sm:text-[16px]">
         {message.model_used && !message.isStreaming && (
           <div className="mb-1.5 text-[9px] uppercase tracking-[0.14em] text-zinc-600">
             {message.model_used}
@@ -2500,28 +2500,6 @@ export function AssistantPage() {
 
         {(!projectId || projectChatId) && view === 'chat' && (
           <div className="relative flex flex-1 flex-col h-full overflow-hidden">
-            {/* Signed-in account identity stays visible without taking space from the composer. */}
-            {user && (
-              <div className="flex shrink-0 items-center justify-end border-b border-white/[.035] px-4 py-2.5 sm:px-8">
-                <div className="flex min-w-0 max-w-full items-center gap-2.5 rounded-full border border-white/[.07] bg-[#0d0d10] py-1.5 pl-1.5 pr-3">
-                  <div className="relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-white/[.1] bg-[#242428] text-[11px] font-semibold text-zinc-200">
-                    <span aria-hidden="true">{(user.name || user.email || 'U').trim().charAt(0).toUpperCase()}</span>
-                    {user.avatarUrl && (
-                      <img
-                        src={user.avatarUrl}
-                        alt=""
-                        referrerPolicy="no-referrer"
-                        className="absolute inset-0 h-full w-full object-cover"
-                        onError={(event) => { event.currentTarget.style.display = 'none'; }}
-                      />
-                    )}
-                  </div>
-                  <span className="min-w-0 truncate text-[11px] font-medium text-zinc-300" title={user.email}>
-                    {user.email}
-                  </span>
-                </div>
-              </div>
-            )}
             {/* Messages Scroll Area with auto-scroll tracking */}
             <div
               ref={chatScrollRef}
@@ -2529,13 +2507,38 @@ export function AssistantPage() {
               className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-6 sm:px-8 pb-44 sm:pb-32"
             >
               {!messages.length ? (
-                <div className="flex h-full flex-col items-center justify-center px-4 text-center max-w-2xl mx-auto py-8">
-                  <h1 className="max-w-xl text-2xl sm:text-3xl font-light tracking-[-.03em] text-zinc-100 min-h-[42px]">
-                    {emptyGreeting || " "}
-                  </h1>
+                <div className="flex h-full min-h-[420px] flex-col items-center justify-center px-4 py-10 text-center">
+                  <div className="mb-7 flex flex-col items-center">
+                    <div className="mb-5 rounded-[22px] border border-white/[.09] bg-[#111114] p-3 shadow-[0_12px_40px_rgba(0,0,0,.32)]">
+                      <BrandMark size={42} />
+                    </div>
+                    <p className="mb-3 text-[9px] font-semibold uppercase tracking-[.28em] text-zinc-600">Your AI workspace</p>
+                    <h1 className="max-w-2xl text-[30px] font-medium leading-tight tracking-[-.055em] text-zinc-100 sm:text-[42px]">
+                      {emptyGreeting || "What can we make happen?"}
+                    </h1>
+                    <p className="mt-4 max-w-md text-[13px] leading-6 text-zinc-500 sm:text-sm">
+                      Think it through, explore an idea, or build something useful. Start with a prompt below.
+                    </p>
+                  </div>
+                  <div className="grid w-full max-w-[620px] grid-cols-1 gap-2 sm:grid-cols-3">
+                    {[
+                      { title: 'Build something', prompt: 'Help me plan and build a modern web app.' },
+                      { title: 'Research a topic', prompt: 'Research the latest developments in artificial intelligence.' },
+                      { title: 'Create an image', prompt: 'Create an image of a cinematic futuristic city at sunrise.' }
+                    ].map((item) => (
+                      <button key={item.title} type="button" onClick={() => { setInput(item.prompt); inputRef.current?.focus(); }}
+                        className="group flex min-h-[72px] items-center justify-between gap-3 rounded-2xl border border-white/[.07] bg-[#0c0c0f] px-4 py-3 text-left transition-all hover:border-white/[.16] hover:bg-[#111115]">
+                        <span className="min-w-0">
+                          <span className="block text-[11px] font-medium text-zinc-200">{item.title}</span>
+                          <span className="mt-1 block text-[10px] leading-4 text-zinc-600">{item.prompt}</span>
+                        </span>
+                        <ArrowUp size={14} className="shrink-0 -rotate-45 text-zinc-700 transition group-hover:text-zinc-300" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <div ref={messagesContainerRef} className="mx-auto max-w-3xl space-y-6">
+                <div ref={messagesContainerRef} className="mx-auto max-w-[820px] space-y-8 sm:space-y-9">
                   {messages.map((m, idx) => (
                     <ChatMessageItem
                       key={idx}
