@@ -858,13 +858,20 @@ function ChatMessageItem({
         )}
         {feedbackOpen && (
           <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/65 backdrop-blur-[2px] sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setFeedbackOpen(false); }}>
-            <section ref={feedbackDialogRef} role="dialog" aria-modal="true" aria-labelledby="response-feedback-title" aria-describedby="response-feedback-description" tabIndex={-1} className="max-h-[90dvh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/[.1] bg-[#29292c] shadow-[0_-18px_70px_rgba(0,0,0,.5)] sm:rounded-[26px] animate-in slide-in-from-bottom-3 duration-200">
-              <div className="flex justify-center pt-3 sm:hidden"><span className="h-1.5 w-12 rounded-full bg-white/20" /></div>
+            <section ref={feedbackDialogRef} role="dialog" aria-modal="true" aria-labelledby="response-feedback-title" aria-describedby="response-feedback-description" tabIndex={-1} className="max-h-[82dvh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/[.1] bg-[#29292c] shadow-[0_-18px_70px_rgba(0,0,0,.5)] sm:rounded-[26px] animate-in slide-in-from-bottom-3 duration-200">
+              <div className="flex min-h-12 items-center justify-center pt-1"><span aria-hidden="true" className="h-1.5 w-12 rounded-full bg-white/20" /></div>
               <div className="flex items-center justify-between px-5 pb-4 pt-5 sm:px-7"><h3 id="response-feedback-title" className="text-lg font-semibold tracking-tight text-zinc-50">Share feedback</h3><button type="button" onClick={() => setFeedbackOpen(false)} aria-label="Close feedback" className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 hover:bg-white/[.08] hover:text-white"><X size={20} /></button></div>
               <form onSubmit={(event) => { event.preventDefault(); if (!feedbackType) return; setFeedbackSubmitted(true); setFeedbackOpen(false); }} className="px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-7">
-                <label htmlFor="response-feedback-type" className="sr-only">Feedback issue</label>
-                <select id="response-feedback-type" value={feedbackType} onChange={(event) => setFeedbackType(event.target.value)} required className="mb-4 h-14 w-full rounded-xl border border-white/[.14] bg-transparent px-4 text-[15px] text-zinc-100 outline-none focus:border-white/35">
-                  <option value="" disabled className="bg-[#29292c]">Issue</option><option value="Incorrect" className="bg-[#29292c]">Incorrect</option><option value="Incomplete" className="bg-[#29292c]">Incomplete</option><option value="Not relevant" className="bg-[#29292c]">Not relevant</option><option value="Poorly explained" className="bg-[#29292c]">Poorly explained</option><option value="Other" className="bg-[#29292c]">Other</option>
+                <label htmlFor="response-feedback-type" className="mb-1 block text-[11px] font-medium text-zinc-300">Issue</label>
+                <select id="response-feedback-type" value={feedbackType} onChange={(event) => setFeedbackType(event.target.value)} required className="mb-4 h-14 w-full rounded-xl border border-white/[.16] bg-transparent px-4 text-[15px] text-zinc-100 outline-none focus:border-white/45">
+                  <option value="" disabled className="bg-[#29292c]">Select an issue</option>
+                  <option value="Visual is unhelpful or broken" className="bg-[#29292c]">Visual is unhelpful or broken</option>
+                  <option value="Incorrect or incomplete" className="bg-[#29292c]">Incorrect or incomplete</option>
+                  <option value="Not what I asked for" className="bg-[#29292c]">Not what I asked for</option>
+                  <option value="Slow or buggy" className="bg-[#29292c]">Slow or buggy</option>
+                  <option value="Style or tone" className="bg-[#29292c]">Style or tone</option>
+                  <option value="Safety or legal concern" className="bg-[#29292c]">Safety or legal concern</option>
+                  <option value="Other" className="bg-[#29292c]">Other</option>
                 </select>
                 <label htmlFor="response-feedback-details" className="sr-only">Share details (optional)</label>
                 <textarea id="response-feedback-details" value={feedbackDetails} onChange={(event) => setFeedbackDetails(event.target.value)} placeholder="Share details (optional)" rows={5} className="mb-4 min-h-[150px] w-full resize-y rounded-xl border border-white/[.14] bg-transparent px-4 py-4 text-[15px] leading-6 text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-white/35" />
