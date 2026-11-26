@@ -99,8 +99,11 @@ test('workspace account area shows the signed-in email and profile image when av
 test('chat uses a premium empty state and readable mobile-first message typography', () => {
   const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
   const assistantPage = readFileSync(assistantPagePath, 'utf8');
-  assert.match(assistantPage, /What can we make happen\?/);
-  assert.match(assistantPage, /Build something/);
+  assert.match(assistantPage, /What would you like to work on\?/);
+  assert.match(assistantPage, /Build an app/);
+  assert.match(assistantPage, /A few ways to get started/);
+  assert.doesNotMatch(assistantPage, /Select Model/);
+  assert.doesNotMatch(assistantPage, /Zenix 4\.6 Fast/);
   assert.match(assistantPage, /text-\[14px\] font-normal leading-7 text-zinc-100/);
   assert.match(assistantPage, /sm:text-\[16px\]/);
 });
