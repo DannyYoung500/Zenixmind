@@ -47,7 +47,8 @@ import {
   Zap,
   Star,
   HardDrive,
-  Info
+  Info,
+  MoreVertical
 } from 'lucide-react';
 
 
@@ -641,6 +642,7 @@ function ChatMessageItem({
   const [sharing, setSharing] = useState(false);
   const [shareDone, setShareDone] = useState(false);
   const [shareFailed, setShareFailed] = useState(false);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [liked, setLiked] = useState(message.liked || false);
   const [disliked, setDisliked] = useState(message.disliked || false);
@@ -802,23 +804,7 @@ function ChatMessageItem({
             >
               {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
             </button>
-
-            <button
-              type="button"
-              onClick={handleSpeak}
-              className={`grid h-7 w-7 place-items-center rounded-lg transition-colors ${
-                speaking
-                  ? 'bg-amber-400/10 text-amber-300'
-                  : 'text-zinc-500 hover:bg-white/[.045] hover:text-zinc-200'
-              }`}
-              title={speaking ? 'Stop listening' : 'Listen'}
-            >
-              <Volume2 size={13} />
-            </button>
-
-            <button
-              type="button"
-              onClick={handleLike}
+            onClick={handleLike}
               className={`grid h-8 w-8 place-items-center rounded-lg border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 ${
                 liked ? 'bg-white/[.08] text-white border border-white/[.12]' : 'border-transparent text-zinc-500 hover:bg-white/[.06] hover:text-zinc-200'
               }`}
@@ -829,10 +815,7 @@ function ChatMessageItem({
               <ThumbsUp size={14} strokeWidth={1.9} className={liked ? 'fill-white/15' : ''} />
             </button>
 
-            <button
-              type="button"
-              ref={dislikeButtonRef}
-              onClick={handleDislike}
+            onClick={handleDislike}
               className={`grid h-8 w-8 place-items-center rounded-lg border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/30 ${
                 disliked ? 'bg-rose-500/[.08] text-rose-300 border-rose-400/20' : 'border-transparent text-zinc-500 hover:bg-white/[.06] hover:text-zinc-200'
               }`}
@@ -843,33 +826,47 @@ function ChatMessageItem({
               <ThumbsDown size={14} strokeWidth={1.9} className={disliked ? 'fill-rose-400/15' : ''} />
             </button>
 
+            onClick={handleSpeak}
+              className={`grid h-7 w-7 place-items-center rounded-lg transition-colors ${
+                speaking
+                  ? 'bg-amber-400/10 text-amber-300'
+                  : 'text-zinc-500 hover:bg-white/[.045] hover:text-zinc-200'
+              }`}
+              title={speaking ? 'Stop listening' : 'Listen'}
+            >
+              <Volume2 size={13} />
+            </button>
+
+            {onShare && (
+              <button type="button" onClick={() => void handleShare()} disabled={sharing} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[.06] hover:text-zinc-100 disabled:opacity-50" title={shareFailed ? 'Sharing failed' : shareDone ? 'Link copied' : 'Share'} aria-label="Share response">
+                {shareDone ? <Check size={17} /> : <Share2 size={17} />}
+              </button>
+            )}
+
+            <div className="relative">
+              <button type="button" onClick={() => setMoreActionsOpen((open) => !open)} aria-label="More response actions" aria-haspopup="menu" aria-expanded={moreActionsOpen} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[.06] hover:text-zinc-100"><MoreVertical size={17} /></button>
+              {moreActionsOpen && <><button type="button" aria-label="Close response actions" className="fixed inset-0 z-20 cursor-default" onClick={() => setMoreActionsOpen(false)} /><div role="menu" className="absolute bottom-10 right-0 z-30 min-w-44 rounded-xl border border-white/[.1] bg-[#202023] p-1.5 shadow-xl"><button type="button" role="menuitem" onClick={() => { setMoreActionsOpen(false); onRegenerate?.(); }} disabled={!onRegenerate} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-xs text-zinc-200 hover:bg-white/[.07] disabled:opacity-40"><RotateCcw size={14} />Regenerate response</button></div></>}
+            </div>
+
+            <button
+              type="button"
+              
+
+            <button
+              type="button"
+              
+
+            <button
+              type="button"
+              ref={dislikeButtonRef}
+              
+
             {feedbackSubmitted && <span role="status" className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/15 bg-emerald-400/[.07] px-3 py-1.5 text-[11px] text-emerald-200"><Check size={12} /> Thank you for your feedback</span>}
             <div className="mx-1 h-4 w-px bg-white/[.07]" />
 
-            {onShare && (
-              <button
-                type="button"
-                onClick={() => void handleShare()}
-                disabled={sharing}
-                className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/[.045] hover:text-zinc-100 disabled:opacity-50"
-                title="Share this chat"
-                aria-label="Share this chat"
-              >
-                <Share2 size={13} />
-                <span>{sharing ? 'Sharing…' : shareFailed ? 'Try again' : shareDone ? 'Copied' : 'Share'}</span>
-              </button>
-            )}
+            }
 
-            {onRegenerate && (
-              <button
-                type="button"
-                onClick={onRegenerate}
-                className="ml-0.5 grid h-7 w-7 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[.045] hover:text-zinc-200"
-                title="Regenerate"
-              >
-                <RotateCcw size={13} />
-              </button>
-            )}
+            }
           </div>
         )}
         {feedbackOpen && (
