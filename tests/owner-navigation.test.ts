@@ -96,16 +96,15 @@ test('workspace account area shows the signed-in email and profile image when av
   assert.match(workspaceShell, /onError=\{\(event\) => \{ event\.currentTarget\.style\.display = 'none'; \}\}/);
 });
 
-test('chat uses a premium empty state and readable mobile-first message typography', () => {
+test('new chat opens as a clean composer-first screen with lightweight quick actions', () => {
   const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
   const assistantPage = readFileSync(assistantPagePath, 'utf8');
-  assert.match(assistantPage, /What would you like to work on\?/);
-  assert.match(assistantPage, /Build an app/);
-  assert.match(assistantPage, /A few ways to get started/);
+  assert.match(assistantPage, /aria-label="New chat"/);
+  assert.match(assistantPage, /Create an image or sticker/);
+  assert.match(assistantPage, /Write or edit/);
+  assert.doesNotMatch(assistantPage, /A few ways to get started/);
   assert.doesNotMatch(assistantPage, /Select Model/);
   assert.doesNotMatch(assistantPage, /Zenix 4\.6 Fast/);
-  assert.match(assistantPage, /text-\[14px\] font-normal leading-7 text-zinc-100/);
-  assert.match(assistantPage, /sm:text-\[16px\]/);
 });
 
 test('workspace shell keeps a responsive navigation, recent chats and account footer', () => {
@@ -182,4 +181,24 @@ test('chat workspace exposes real conversation actions and labels unsupported ac
   assert.match(workspaceShell, /Coming soon/);
   assert.match(workspaceShell, /zenixmind_pinned_conversations/);
   assert.match(workspaceShell, /zenixmind_archived_conversations/);
+});
+
+test('dictation shows a live recording state and useful microphone permission errors', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  assert.match(assistantPage, /Listening — speak now/);
+  assert.match(assistantPage, /Microphone permission was blocked/);
+  assert.match(assistantPage, /navigator\.language \|\| 'en-US'/);
+  assert.match(assistantPage, /recognition\.continuous = true/);
+  assert.match(assistantPage, /dictationError=\{dictationError\}/);
+});
+
+test('new chat keeps first-message auto-title generation and updates active conversation from stream metadata', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const streamPath = fileURLToPath(new URL('../api/chat/stream.ts', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  const streamHandler = readFileSync(streamPath, 'utf8');
+  assert.match(assistantPage, /if \(event\.conversationId\)/);
+  assert.match(assistantPage, /setConversationId\(event\.conversationId\)/);
+  assert.match(streamHandler, /title: createConversationTitle\(firstPrompt\)/);
 });
