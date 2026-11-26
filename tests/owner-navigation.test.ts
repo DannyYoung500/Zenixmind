@@ -87,18 +87,30 @@ test('owner console header does not fall back to a hard-coded personal email', (
 });
 
 
-test('chat shows the signed-in email and account avatar when available', () => {
-  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
-  const assistantPage = readFileSync(assistantPagePath, 'utf8');
-  assert.match(assistantPage, /user\.email/);
-  assert.match(assistantPage, /user\.avatarUrl/);
-  assert.match(assistantPage, /referrerPolicy="no-referrer"/);
-  assert.match(assistantPage, /onError=\{\(event\) => \{ event\.currentTarget\.style\.display = 'none'; \}\}/);
+test('workspace account area shows the signed-in email and profile image when available', () => {
+  const workspaceShellPath = fileURLToPath(new URL('../src/components/workspace-shell.tsx', import.meta.url));
+  const workspaceShell = readFileSync(workspaceShellPath, 'utf8');
+  assert.match(workspaceShell, /user\.email/);
+  assert.match(workspaceShell, /user\.avatarUrl/);
+  assert.match(workspaceShell, /referrerPolicy="no-referrer"/);
+  assert.match(workspaceShell, /onError=\{\(event\) => \{ event\.currentTarget\.style\.display = 'none'; \}\}/);
 });
 
-test('chat message bubbles use readable mobile-first typography', () => {
+test('chat uses a premium empty state and readable mobile-first message typography', () => {
   const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
   const assistantPage = readFileSync(assistantPagePath, 'utf8');
-  assert.match(assistantPage, /text-\[14px\] font-normal text-zinc-100/);
-  assert.match(assistantPage, /sm:text-\[15px\]/);
+  assert.match(assistantPage, /What can we make happen\?/);
+  assert.match(assistantPage, /Build something/);
+  assert.match(assistantPage, /text-\[14px\] font-normal leading-7 text-zinc-100/);
+  assert.match(assistantPage, /sm:text-\[16px\]/);
+});
+
+test('workspace shell keeps a responsive navigation, recent chats and account footer', () => {
+  const workspaceShellPath = fileURLToPath(new URL('../src/components/workspace-shell.tsx', import.meta.url));
+  const workspaceShell = readFileSync(workspaceShellPath, 'utf8');
+  assert.match(workspaceShell, /h-\[100dvh\] overflow-hidden/);
+  assert.match(workspaceShell, /flex min-h-0 flex-1 flex-col overflow-hidden/);
+  assert.match(workspaceShell, /Recent conversations/);
+  assert.match(workspaceShell, /aria-label="Open navigation"/);
+  assert.match(workspaceShell, /Workspace navigation/);
 });
