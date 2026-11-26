@@ -626,6 +626,40 @@ export const CompactFloatingComposer = React.forwardRef<
   );
 });
 
+function SourceFavicon({ url, size = 32 }: { url: string; size?: number }) {
+  const [attempt, setAttempt] = useState(0);
+  const source = useMemo(() => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+      const origin = parsed.origin;
+      const host = parsed.hostname.replace(/^www\\./, '');
+      return { origin, host, candidates: [
+        `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(origin)}&sz=64`,
+        `${origin}/favicon.ico`
+      ] };
+    } catch { return null; }
+  }, [url]);
+  return (
+    <span className="grid shrink-0 place-items-center overflow-hidden rounded-xl border border-white/[.1] bg-[#242428]" style={{ width: size, height: size }}>
+      {source && attempt < source.candidates.length ? (
+        <img
+          src={source.candidates[attempt]}
+          alt={`${source.host} website logo`}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="h-full w-full object-contain p-1"
+          onError={() => setAttempt((value) => value + 1)}
+        />
+      ) : <Globe size={Math.max(14, Math.round(size * 0.48))} className="text-zinc-400" aria-hidden="true" />}
+    </span>
+  );
+}
+
+function getSourceDomain(url: string) {
+  try { return new URL(url).hostname.replace(/^www\\./, ''); } catch { return 'Website'; }
+}
+
 function ChatMessageItem({
   message,
   onRegenerate,
@@ -761,30 +795,46 @@ function ChatMessageItem({
     <div className="group flex min-w-0 animate-in fade-in duration-200">
       <div className="w-full min-w-0 text-[16px] leading-[1.75] text-zinc-100 sm:text-[16px]">
         {message.sources && message.sources.length > 0 && (
-          <div className="mb-3">
-            <button type="button" onClick={() => setSourcesOpen(true)} className="inline-flex items-center gap-2 rounded-full border border-white/[.12] bg-[#151518] px-3.5 py-2 text-xs font-medium text-zinc-200 transition-colors hover:bg-[#202024]" aria-label={`View ${message.sources.length} web sources`}>
-              <Globe size={14} /><span>Sources</span><span className="rounded-full bg-white/[.08] px-1.5 py-0.5 text-[10px] text-zinc-400">{message.sources.length}</span>
-            </button>
+          <section className="mb-4 space-y-2" aria-label="Web search sources">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[.12em] text-zinc-500">
+                <Globe size={13} /> Sources <span className="rounded-full bg-white/[.07] px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-400">{message.sources.length}</span>
+              </div>
+              <button type="button" onClick={() => setSourcesOpen(true)} className="text-[11px] font-medium text-zinc-400 underline-offset-4 hover:text-zinc-100 hover:underline" aria-label={`View all ${message.sources.length} sources`}>View details</button>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {message.sources.map((src, i) => {
+                const domain = getSourceDomain(src.url);
+                return <a key={`${src.url}-inline-${i}`} href={src.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-start gap-3 rounded-2xl border border-white/[.08] bg-[#111114] p-3 transition-colors hover:border-white/[.16] hover:bg-[#17171b]">
+                  <SourceFavicon url={src.url} size={34} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[10px] font-medium text-zinc-500">{domain}</span>
+                    <span className="mt-0.5 block text-xs font-semibold leading-5 text-zinc-200 line-clamp-2">{src.title || domain}</span>
+                    {src.snippet && <span className="mt-1 block text-[11px] leading-4 text-zinc-500 line-clamp-2">{src.snippet}</span>}
+                  </span>
+                  <ExternalLink size={13} className="mt-0.5 shrink-0 text-zinc-600" aria-hidden="true" />
+                </a>;
+              })}
+            </div>
             {sourcesOpen && (
               <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/65 backdrop-blur-[2px]" onClick={() => setSourcesOpen(false)}>
                 <section role="dialog" aria-modal="true" aria-label="Web sources" className="max-h-[82vh] w-full max-w-2xl overflow-hidden rounded-t-[28px] border border-white/[.09] bg-[#171719] shadow-2xl animate-in slide-in-from-bottom-4 duration-200" onClick={(event) => event.stopPropagation()}>
                   <div className="flex justify-center pb-3 pt-3"><span className="h-1.5 w-14 rounded-full bg-zinc-500/70" /></div>
-                  <div className="flex items-center justify-between px-5 pb-4"><h3 className="text-xl font-medium tracking-tight text-zinc-100">Sources</h3><button type="button" onClick={() => setSourcesOpen(false)} className="grid h-8 w-8 place-items-center rounded-full text-zinc-400 hover:bg-white/[.08]" aria-label="Close sources"><X size={18} /></button></div>
-                  <div className="max-h-[calc(82vh-76px)] space-y-5 overflow-y-auto px-5 pb-8">
+                  <div className="flex items-center justify-between px-5 pb-4"><div><h3 className="text-xl font-medium tracking-tight text-zinc-100">Sources</h3><p className="mt-1 text-xs text-zinc-500">{message.sources.length} websites referenced in this answer</p></div><button type="button" onClick={() => setSourcesOpen(false)} className="grid h-8 w-8 place-items-center rounded-full text-zinc-400 hover:bg-white/[.08]" aria-label="Close sources"><X size={18} /></button></div>
+                  <div className="max-h-[calc(82vh-76px)] space-y-2 overflow-y-auto px-5 pb-8">
                     {message.sources.map((src, i) => {
-                      let domain = '';
-                      try { domain = new URL(src.url).hostname.replace(/^www\./, ''); } catch {}
-                      return <a key={`${src.url}-${i}`} href={src.url} target="_blank" rel="noopener noreferrer" className="block rounded-xl py-1 text-left transition-colors hover:bg-white/[.035]">
-                        <div className="mb-2 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-full border border-white/[.08] bg-[#242428]"><Globe size={15} className="text-zinc-300" /></span><span className="min-w-0"><span className="block truncate text-xs font-semibold text-zinc-200">{domain || src.title}</span><span className="block text-[11px] text-zinc-500">{domain}</span></span><ExternalLink size={13} className="ml-auto shrink-0 text-zinc-500" /></div>
-                        <h4 className="text-[15px] font-medium leading-6 text-zinc-100">{src.title}</h4>
-                        {src.snippet && <p className="mt-1 line-clamp-3 text-sm leading-6 text-zinc-400">{src.snippet}</p>}
+                      const domain = getSourceDomain(src.url);
+                      return <a key={`${src.url}-detail-${i}`} href={src.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 rounded-2xl border border-white/[.07] p-3 text-left transition-colors hover:bg-white/[.035]">
+                        <SourceFavicon url={src.url} size={38} />
+                        <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-zinc-200">{domain}</span><span className="mt-1 block text-sm font-medium leading-6 text-zinc-100">{src.title}</span>{src.snippet && <span className="mt-1 block text-xs leading-5 text-zinc-400">{src.snippet}</span>}</span>
+                        <ExternalLink size={14} className="mt-1 shrink-0 text-zinc-500" />
                       </a>;
                     })}
                   </div>
                 </section>
               </div>
             )}
-          </div>
+          </section>
         )}
 
         <div className="relative">
