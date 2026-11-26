@@ -154,3 +154,32 @@ test('composer file inputs reset after selection so the same file can be attache
   const assistantPage = readFileSync(assistantPagePath, 'utf8');
   assert.match(assistantPage, /e\.currentTarget\.value = ''/);
 });
+
+test('feedback sheet matches the reference issue categories and optional detail field', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  for (const category of [
+    'Visual is unhelpful or broken',
+    'Incorrect or incomplete',
+    'Not what I asked for',
+    'Slow or buggy',
+    'Style or tone',
+    'Safety or legal concern',
+    'Other'
+  ]) assert.ok(assistantPage.includes(category), `missing feedback category: ${category}`);
+  assert.match(assistantPage, /Share details \(optional\)/);
+  assert.match(assistantPage, /Thank you for your feedback/);
+});
+
+test('chat workspace exposes real conversation actions and labels unsupported actions as coming soon', () => {
+  const workspaceShellPath = fileURLToPath(new URL('../src/components/workspace-shell.tsx', import.meta.url));
+  const workspaceShell = readFileSync(workspaceShellPath, 'utf8');
+  for (const label of ['Share', 'Pin chat', 'Uploaded files', 'Find in chat', 'Archive']) {
+    assert.ok(workspaceShell.includes(label), `missing conversation action: ${label}`);
+  }
+  assert.match(workspaceShell, /Add to project/);
+  assert.match(workspaceShell, /Plugins/);
+  assert.match(workspaceShell, /Coming soon/);
+  assert.match(workspaceShell, /zenixmind_pinned_conversations/);
+  assert.match(workspaceShell, /zenixmind_archived_conversations/);
+});
