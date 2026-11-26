@@ -213,9 +213,11 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
         <aside className="hidden w-52 shrink-0 border-r border-white/[.06] bg-[#0a0a0c] p-4 sm:block">
           <div className="flex items-center justify-between pb-4"><span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Settings</span></div>
           <div className="space-y-1 text-xs">
-            {['General', 'Personalization', 'Memory', 'Shortcuts', 'Data & Storage'].map((tab, idx) => (
-              <div key={tab} className={`rounded-xl px-3 py-2.5 font-medium transition-colors ${idx === 0 ? 'bg-[#1a1a1d] text-white' : 'text-zinc-500'}`}>{tab}</div>
-            ))}
+            {['General', 'Personalization', 'Memory', 'Shortcuts', 'Data & Storage'].map((tab, idx) => {
+              const targets = ['settings-general', 'settings-personalization', 'settings-memory', 'settings-shortcuts', 'settings-data'];
+              return <button key={tab} type="button" onClick={() => document.getElementById(targets[idx])?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="w-full rounded-xl px-3 py-2.5 text-left font-medium text-zinc-500 transition-colors hover:bg-white/[.05] hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25">{tab}</button>;
+            })}
           </div>
         </aside>
 
@@ -225,8 +227,8 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
             <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 hover:bg-[#1c1c1f] hover:text-zinc-200"><X size={16} /></button>
           </header>
 
-          <div className="space-y-7 px-5 py-6 text-xs sm:px-8 sm:py-7">
-            <div className="rounded-2xl border border-white/[.07] bg-[#111114] p-5">
+          <div id="settings-general" className="space-y-7 px-5 py-6 text-xs sm:px-8 sm:py-7">
+            <div id="settings-shortcuts" className="scroll-mt-5 rounded-2xl border border-white/[.07] bg-[#111114] p-5">
               <div className="flex items-center gap-2 text-xs font-medium text-zinc-200 mb-2.5"><Keyboard size={15} className="text-amber-400" /><span>Power User Keyboard Shortcuts</span></div>
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div className="flex items-center justify-between rounded-lg bg-[#141418] px-2.5 py-1.5 border border-white/[.04]"><span className="text-zinc-400">Focus chat input</span><kbd className="font-mono bg-white/[.08] px-1.5 py-0.5 rounded text-zinc-200 text-[10px]">⌘K / Ctrl+K</kbd></div>
@@ -236,7 +238,7 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
               </div>
             </div>
 
-            <div className="divide-y divide-white/[.06] rounded-2xl border border-white/[.07] bg-[#111114] px-5">
+            <div id="settings-personalization" className="scroll-mt-5 divide-y divide-white/[.06] rounded-2xl border border-white/[.07] bg-[#111114] px-5">
               <div className="flex items-center justify-between py-4">
                 <div><div className="text-xs font-medium text-zinc-200">Continuous Context Memory</div><div className="text-[11px] text-zinc-500">Allow ZenixMind to use saved memories across conversations.</div></div>
                 <label className="relative inline-flex cursor-pointer items-center">
@@ -245,7 +247,7 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
                 </label>
               </div>
 
-              <div className="py-4">
+              <div id="settings-memory" className="scroll-mt-5 py-4">
                 <div className="flex items-center justify-between gap-3">
                   <div><div className="text-xs font-medium text-zinc-200">Saved Memories</div><div className="text-[11px] text-zinc-500">Facts and preferences you explicitly want ZenixMind to remember.</div></div>
                   <span className="rounded-full bg-white/[.05] px-2 py-1 text-[10px] text-zinc-500">{memories.length}</span>
@@ -324,15 +326,6 @@ interface CompactFloatingComposerProps {
   attachmentName?: string;
   onClearAttachment: () => void;
 }
-
-const MODEL_SHORT_MAP: Record<string, { label: string; icon: string }> = {
-  'zenix-auto': { label: 'Zenix Auto', icon: 'zap' },
-  'zenix-lite': { label: 'Zenix Lite', icon: 'sparkles' },
-  'zenix-4.6-fast': { label: 'Zenix Fast', icon: 'zap' },
-  'zenix-4.6-pro': { label: 'Zenix Pro', icon: 'brain' },
-  'zenix-4.6-reason': { label: 'Zenix Reason', icon: 'brain' },
-  'zenix-4.6-build': { label: 'Zenix Build', icon: 'code' }
-};
 
 export const CompactFloatingComposer = React.forwardRef<
   HTMLTextAreaElement,
@@ -716,12 +709,6 @@ function ChatMessageItem({
     <div className="group flex gap-3.5 sm:gap-4.5 animate-in fade-in duration-200">
       <BrandMark size={30} className="mt-1 shrink-0 text-zinc-200" />
       <div className="max-w-[96%] min-w-0 flex-1 text-[15px] leading-[1.85] text-zinc-200 sm:text-[16px]">
-        {message.model_used && !message.isStreaming && (
-          <div className="mb-1.5 text-[9px] uppercase tracking-[0.14em] text-zinc-600">
-            {message.model_used}
-          </div>
-        )}
-
         {message.sources && message.sources.length > 0 && (
           <div className="mb-3">
             <button type="button" onClick={() => setSourcesOpen(true)} className="inline-flex items-center gap-2 rounded-full border border-white/[.12] bg-[#151518] px-3.5 py-2 text-xs font-medium text-zinc-200 transition-colors hover:bg-[#202024]" aria-label={`View ${message.sources.length} web sources`}>
