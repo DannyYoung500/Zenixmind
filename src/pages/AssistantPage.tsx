@@ -744,7 +744,7 @@ function ChatMessageItem({
   if (message.role === 'user') {
     return (
       <div className="flex justify-end animate-in fade-in duration-200">
-        <div className="max-w-[92%] sm:max-w-[78%] rounded-[22px] rounded-br-[7px] border border-white/[.075] bg-[#17171b] px-4 py-3.5 text-[14px] font-normal leading-7 text-zinc-100 shadow-[0_8px_28px_rgba(0,0,0,.18)] whitespace-pre-wrap sm:px-5">
+        <div className="max-w-[92%] sm:max-w-[78%] rounded-[22px] rounded-br-[7px] bg-[#080d70] px-4 py-3.5 text-[15px] font-normal leading-[1.65] text-white whitespace-pre-wrap sm:px-5">
           {message.content}
         </div>
       </div>
@@ -756,9 +756,8 @@ function ChatMessageItem({
   }
 
   return (
-    <div className="group flex gap-3.5 sm:gap-4.5 animate-in fade-in duration-200">
-      <BrandMark size={30} className="mt-1 shrink-0 text-zinc-200" />
-      <div className="max-w-[96%] min-w-0 flex-1 text-[15px] leading-[1.85] text-zinc-200 sm:text-[16px]">
+    <div className="group flex min-w-0 animate-in fade-in duration-200">
+      <div className="w-full min-w-0 text-[16px] leading-[1.75] text-zinc-100 sm:text-[16px]">
         {message.sources && message.sources.length > 0 && (
           <div className="mb-3">
             <button type="button" onClick={() => setSourcesOpen(true)} className="inline-flex items-center gap-2 rounded-full border border-white/[.12] bg-[#151518] px-3.5 py-2 text-xs font-medium text-zinc-200 transition-colors hover:bg-[#202024]" aria-label={`View ${message.sources.length} web sources`}>
@@ -794,7 +793,7 @@ function ChatMessageItem({
         </div>
 
         {!message.isStreaming && message.content.trim() && (
-          <div className="mt-2.5 flex items-center gap-0.5 border-t border-white/[.045] pt-2 opacity-75 transition-opacity group-hover:opacity-100">
+          <div className="mt-4 flex items-center gap-1 pt-1 opacity-100">
             <button
               type="button"
               onClick={handleCopy}
@@ -1784,6 +1783,7 @@ export function AssistantPage() {
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [dictationError, setDictationError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [voiceTalkOpen, setVoiceTalkOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState('');
