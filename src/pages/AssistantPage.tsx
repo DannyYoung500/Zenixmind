@@ -209,11 +209,11 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="flex h-full max-h-[760px] w-full max-w-[820px] overflow-hidden rounded-3xl border border-white/[.08] bg-[#0f0f12] shadow-2xl">
+      <div className="flex h-full max-h-[820px] w-full max-w-[960px] overflow-hidden rounded-[26px] border border-white/[.09] bg-[#0d0d10] shadow-[0_28px_90px_rgba(0,0,0,.65)]">
         <aside className="hidden w-52 shrink-0 border-r border-white/[.06] bg-[#0a0a0c] p-4 sm:block">
           <div className="flex items-center justify-between pb-4"><span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Settings</span></div>
           <div className="space-y-1 text-xs">
-            {['General & Models', 'Personalization', 'Memory', 'Shortcuts', 'Data & Storage'].map((tab, idx) => (
+            {['General', 'Personalization', 'Memory', 'Shortcuts', 'Data & Storage'].map((tab, idx) => (
               <div key={tab} className={`rounded-xl px-3 py-2.5 font-medium transition-colors ${idx === 0 ? 'bg-[#1a1a1d] text-white' : 'text-zinc-500'}`}>{tab}</div>
             ))}
           </div>
@@ -221,12 +221,12 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
 
         <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
           <header className="flex items-center justify-between border-b border-white/[.06] px-6 py-4">
-            <div><h2 className="text-sm font-semibold text-zinc-100">Preferences & Personalization</h2><p className="mt-0.5 text-[10px] text-zinc-600">Your settings and memories are tied to your account.</p></div>
+            <div><h2 className="text-[15px] font-semibold tracking-tight text-zinc-100">Settings</h2><p className="mt-1 text-[11px] text-zinc-500">Control how ZenixMind works and how your data is handled.</p></div>
             <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 hover:bg-[#1c1c1f] hover:text-zinc-200"><X size={16} /></button>
           </header>
 
-          <div className="space-y-6 px-6 py-6 text-xs">
-            <div className="rounded-2xl border border-white/[.06] bg-[#0a0a0c] p-4">
+          <div className="space-y-7 px-5 py-6 text-xs sm:px-8 sm:py-7">
+            <div className="rounded-2xl border border-white/[.07] bg-[#111114] p-5">
               <div className="flex items-center gap-2 text-xs font-medium text-zinc-200 mb-2.5"><Keyboard size={15} className="text-amber-400" /><span>Power User Keyboard Shortcuts</span></div>
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div className="flex items-center justify-between rounded-lg bg-[#141418] px-2.5 py-1.5 border border-white/[.04]"><span className="text-zinc-400">Focus chat input</span><kbd className="font-mono bg-white/[.08] px-1.5 py-0.5 rounded text-zinc-200 text-[10px]">⌘K / Ctrl+K</kbd></div>
@@ -236,7 +236,7 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
               </div>
             </div>
 
-            <div className="divide-y divide-white/[.06] border-y border-white/[.06]">
+            <div className="divide-y divide-white/[.06] rounded-2xl border border-white/[.07] bg-[#111114] px-5">
               <div className="flex items-center justify-between py-4">
                 <div><div className="text-xs font-medium text-zinc-200">Continuous Context Memory</div><div className="text-[11px] text-zinc-500">Allow ZenixMind to use saved memories across conversations.</div></div>
                 <label className="relative inline-flex cursor-pointer items-center">
@@ -362,19 +362,14 @@ export const CompactFloatingComposer = React.forwardRef<
   textareaRef
 ) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [activeCommandIndex, setActiveCommandIndex] = useState(-1);
   const commandSuggestions = getCommandSuggestions(value);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const plusRef = useRef<HTMLDivElement>(null);
 
   // Close menus on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setModelDropdownOpen(false);
-      }
       if (plusRef.current && !plusRef.current.contains(e.target as Node)) {
         setPlusMenuOpen(false);
       }
@@ -411,7 +406,6 @@ export const CompactFloatingComposer = React.forwardRef<
   };
 
   const hasText = Boolean(value.trim());
-  const currentModelMeta = MODEL_SHORT_MAP[selectedModel] || { label: 'Fast', icon: 'zap' };
 
   return (
     <div className="w-full max-w-3xl mx-auto px-3 sm:px-0">
@@ -465,7 +459,7 @@ export const CompactFloatingComposer = React.forwardRef<
 
         {/* Bottom Actions Row */}
         <div className="flex items-center justify-between pt-2.5">
-          {/* Left: Plus Button & Model Selector Pill */}
+          {/* Left: Attachments and optional tools */}
           <div className="flex items-center gap-2 relative">
             {/* Plus Button with Menu */}
             <div ref={plusRef} className="relative">
@@ -473,13 +467,15 @@ export const CompactFloatingComposer = React.forwardRef<
                 type="button"
                 onClick={() => setPlusMenuOpen((prev) => !prev)}
                 className="grid h-9 w-9 place-items-center rounded-full bg-[#27272a] hover:bg-[#323236] text-zinc-200 hover:text-white transition-colors shadow-sm"
-                title="Attach files & tools"
+                title="Add files, images, or tools"
+                aria-label="Add files, images, or tools"
+                aria-expanded={plusMenuOpen}
               >
                 <Plus size={18} strokeWidth={2.2} />
               </button>
 
               {plusMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-2 w-56 rounded-2xl border border-white/[.1] bg-[#18181b] p-1.5 shadow-2xl z-50 animate-in fade-in duration-150">
+                <div className="absolute bottom-full left-0 mb-3 w-[min(300px,calc(100vw-2rem))] rounded-2xl border border-white/[.1] bg-[#17171a] p-2 shadow-[0_18px_55px_rgba(0,0,0,.55)] z-50 animate-in fade-in slide-in-from-bottom-1 duration-150">
                   <button
                     type="button"
                     onClick={() => {
@@ -489,7 +485,7 @@ export const CompactFloatingComposer = React.forwardRef<
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-zinc-200 hover:bg-[#27272a]"
                   >
                     <Paperclip size={14} className="text-zinc-400" />
-                    <span>Upload document or image</span>
+                    <span>Upload a file or image</span>
                   </button>
 
                   <button
@@ -525,60 +521,6 @@ export const CompactFloatingComposer = React.forwardRef<
                       {deepThink ? 'ON' : 'OFF'}
                     </span>
                   </button>
-                </div>
-              )}
-            </div>
-
-            {/* Model Pill: ⚡ Fast ⌵ */}
-            <div ref={dropdownRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setModelDropdownOpen((prev) => !prev)}
-                className="flex h-9 items-center gap-1.5 rounded-full bg-[#27272a] hover:bg-[#323236] px-3.5 text-xs font-semibold text-white transition-colors shadow-sm"
-                title="Select AI Model"
-              >
-                <Zap size={14} className="text-white fill-white" />
-                <span>{currentModelMeta.label}</span>
-                <ChevronDown size={13} className="text-zinc-400 strokeWidth={2.5}" />
-              </button>
-
-              {/* Model Dropdown Popup */}
-              {modelDropdownOpen && (
-                <div className="absolute bottom-full left-0 mb-2 w-64 rounded-2xl border border-white/[.1] bg-[#18181b] p-1.5 shadow-2xl z-50 animate-in fade-in duration-150">
-                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 border-b border-white/[.05] mb-1">
-                    Select Model
-                  </div>
-                  {[
-                    { id: 'zenix-auto', name: 'Zenix Auto', desc: 'Adaptive everyday assistant', locked: false },
-                    { id: 'zenix-lite', name: 'Zenix Lite', desc: 'Lightweight everyday tasks', locked: false },
-                    { id: 'zenix-4.6-fast', name: 'Zenix 4.6 Fast', desc: 'Fast responses for work and building', locked: false },
-                    { id: 'zenix-4.6-pro', name: 'Zenix 4.6 Pro · Coming soon', desc: 'Premium model — billing setup pending', locked: true },
-                    { id: 'zenix-4.6-reason', name: 'Zenix 4.6 Reason · Coming soon', desc: 'Premium reasoning — not yet enabled', locked: true },
-                    { id: 'zenix-4.6-build', name: 'Zenix 4.6 Build · Coming soon', desc: 'Premium coding model — not yet enabled', locked: true }
-                  ].map((m) => {
-                    const isSelected = selectedModel === m.id;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        disabled={m.locked}
-                        onClick={() => {
-                          if (m.locked) return;
-                          onSelectModel(m.id);
-                          setModelDropdownOpen(false);
-                        }}
-                        className={`flex w-full items-start justify-between rounded-xl px-3 py-2 text-left transition-colors ${
-                          m.locked ? 'cursor-not-allowed opacity-40' : isSelected ? 'bg-white/[.1] text-white' : 'text-zinc-300 hover:bg-[#27272a]'
-                        }`}
-                      >
-                        <div>
-                          <div className="text-xs font-medium text-white">{m.name}</div>
-                          <div className="text-[10px] text-zinc-500">{m.desc}</div>
-                        </div>
-                        {isSelected && <Check size={14} className="text-amber-400 mt-0.5" />}
-                      </button>
-                    );
-                  })}
                 </div>
               )}
             </div>
@@ -693,6 +635,7 @@ function ChatMessageItem({
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [liked, setLiked] = useState(message.liked || false);
   const [disliked, setDisliked] = useState(message.disliked || false);
+  const [feedbackReason, setFeedbackReason] = useState('');
 
   useEffect(() => {
     setLiked(message.liked || false);
@@ -863,6 +806,18 @@ function ChatMessageItem({
               <ThumbsDown size={14} strokeWidth={1.9} className={disliked ? 'fill-rose-400/15' : ''} />
             </button>
 
+            {disliked && (
+              <div className="ml-1 flex flex-wrap items-center gap-2 rounded-xl border border-white/[.07] bg-white/[.025] px-3 py-2">
+                <span className="text-[10px] font-medium text-zinc-300">Thanks for the feedback.</span>
+                <span className="text-[10px] text-zinc-600">What went wrong?</span>
+                {['Incorrect', 'Incomplete', 'Not relevant', 'Poorly explained'].map((reason) => (
+                  <button key={reason} type="button" onClick={() => setFeedbackReason(reason)} aria-pressed={feedbackReason === reason}
+                    className={feedbackReason === reason ? 'rounded-full border border-white/25 bg-white/10 px-2 py-1 text-[10px] text-white' : 'rounded-full border border-white/[.07] px-2 py-1 text-[10px] text-zinc-500 hover:border-white/20 hover:text-zinc-200'}>
+                    {reason}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="mx-1 h-4 w-px bg-white/[.07]" />
 
             {onShare && (
@@ -2509,32 +2464,32 @@ export function AssistantPage() {
               {!messages.length ? (
                 <div className="flex h-full min-h-[420px] flex-col items-center justify-center px-4 py-10 text-center">
                   <div className="mb-7 flex flex-col items-center">
-                    <div className="mb-5 rounded-[22px] border border-white/[.09] bg-[#111114] p-3 shadow-[0_12px_40px_rgba(0,0,0,.32)]">
-                      <BrandMark size={42} />
+                    <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[.09] bg-[#111114] shadow-[0_8px_30px_rgba(0,0,0,.24)]">
+                      <BrandMark size={27} />
                     </div>
-                    <p className="mb-3 text-[9px] font-semibold uppercase tracking-[.28em] text-zinc-600">Your AI workspace</p>
-                    <h1 className="max-w-2xl text-[30px] font-medium leading-tight tracking-[-.055em] text-zinc-100 sm:text-[42px]">
-                      {emptyGreeting || "What can we make happen?"}
+                    <h1 className="max-w-2xl text-[30px] font-semibold leading-[1.08] tracking-[-.055em] text-zinc-100 sm:text-[42px]">
+                      {emptyGreeting || "What would you like to work on?"}
                     </h1>
-                    <p className="mt-4 max-w-md text-[13px] leading-6 text-zinc-500 sm:text-sm">
-                      Think it through, explore an idea, or build something useful. Start with a prompt below.
+                    <p className="mt-3 max-w-lg text-[13px] leading-6 text-zinc-500 sm:text-[14px]">
+                      Ask a question, share a file, or describe what you want to create.
                     </p>
                   </div>
-                  <div className="grid w-full max-w-[620px] grid-cols-1 gap-2 sm:grid-cols-3">
-                    {[
-                      { title: 'Build something', prompt: 'Help me plan and build a modern web app.' },
-                      { title: 'Research a topic', prompt: 'Research the latest developments in artificial intelligence.' },
-                      { title: 'Create an image', prompt: 'Create an image of a cinematic futuristic city at sunrise.' }
-                    ].map((item) => (
-                      <button key={item.title} type="button" onClick={() => { setInput(item.prompt); inputRef.current?.focus(); }}
-                        className="group flex min-h-[72px] items-center justify-between gap-3 rounded-2xl border border-white/[.07] bg-[#0c0c0f] px-4 py-3 text-left transition-all hover:border-white/[.16] hover:bg-[#111115]">
-                        <span className="min-w-0">
-                          <span className="block text-[11px] font-medium text-zinc-200">{item.title}</span>
-                          <span className="mt-1 block text-[10px] leading-4 text-zinc-600">{item.prompt}</span>
-                        </span>
-                        <ArrowUp size={14} className="shrink-0 -rotate-45 text-zinc-700 transition group-hover:text-zinc-300" />
-                      </button>
-                    ))}
+                  <div className="w-full max-w-[720px]">
+                    <p className="mb-3 text-left text-[10px] font-medium uppercase tracking-[.16em] text-zinc-600">A few ways to get started</p>
+                    <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3">
+                      {[
+                        { title: 'Build an app', detail: 'Plan a product and turn it into a working app', prompt: 'Help me plan and build a modern web app.', icon: <Wand2 size={16} /> },
+                        { title: 'Explore a question', detail: 'Research a topic and compare reliable sources', prompt: 'Research the latest developments in artificial intelligence.', icon: <Search size={16} /> },
+                        { title: 'Create an image', detail: 'Generate an original visual from a description', prompt: 'Create an image of a cinematic futuristic city at sunrise.', icon: <ImageIcon size={16} /> }
+                      ].map((item) => (
+                        <button key={item.title} type="button" onClick={() => { setInput(item.prompt); inputRef.current?.focus(); }}
+                          className="group flex min-h-[104px] flex-col items-start rounded-2xl border border-white/[.075] bg-[#0d0d10] p-4 text-left transition-all hover:border-white/[.16] hover:bg-[#121216] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25">
+                          <span className="mb-3 grid h-8 w-8 place-items-center rounded-xl border border-white/[.07] bg-white/[.035] text-zinc-300">{item.icon}</span>
+                          <span className="text-[12px] font-semibold text-zinc-200">{item.title}</span>
+                          <span className="mt-1 text-[10px] leading-4 text-zinc-500">{item.detail}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ) : (
