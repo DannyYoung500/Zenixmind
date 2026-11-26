@@ -633,7 +633,7 @@ function SourceFavicon({ url, size = 32 }: { url: string; size?: number }) {
       const parsed = new URL(url);
       if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
       const origin = parsed.origin;
-      const host = parsed.hostname.replace(/^www\\./, '');
+      const host = parsed.hostname.replace(/^www\./, '');
       return { origin, host, candidates: [
         `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(origin)}&sz=64`,
         `${origin}/favicon.ico`
@@ -657,7 +657,7 @@ function SourceFavicon({ url, size = 32 }: { url: string; size?: number }) {
 }
 
 function getSourceDomain(url: string) {
-  try { return new URL(url).hostname.replace(/^www\\./, ''); } catch { return 'Website'; }
+  try { return new URL(url).hostname.replace(/^www\./, '');
 }
 
 function ChatMessageItem({
