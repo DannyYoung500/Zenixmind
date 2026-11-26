@@ -107,6 +107,10 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
   const [savingMemory, setSavingMemory] = useState(false);
   const [notice, setNotice] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [settingsSearch, setSettingsSearch] = useState('');
+  const [theme, setTheme] = useState(() => localStorage.getItem('zenixmind-theme') || 'Dark');
+  const [accent, setAccent] = useState(() => localStorage.getItem('zenixmind-accent') || 'Pink');
+  const [notificationPrefs, setNotificationPrefs] = useState<Record<string, boolean>>(() => { try { return JSON.parse(localStorage.getItem('zenixmind-notifications') || '{}'); } catch { return {}; } });
 
   const loadMemories = useCallback(async () => {
     if (!user?.id) { setMemories([]); setMemoryLoading(false); return; }
@@ -212,20 +216,27 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="flex h-full max-h-[820px] w-full max-w-[960px] overflow-hidden rounded-[26px] border border-white/[.09] bg-[#0d0d10] shadow-[0_28px_90px_rgba(0,0,0,.65)]">
-        <aside className="hidden w-52 shrink-0 border-r border-white/[.06] bg-[#0a0a0c] p-4 sm:block">
-          <div className="flex items-center justify-between pb-4"><span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Settings</span></div>
-          <div className="space-y-1 text-xs">
-            {['General', 'Personalization', 'Memory', 'Shortcuts', 'Data & Storage'].map((tab, idx) => {
-              const targets = ['settings-general', 'settings-personalization', 'settings-memory', 'settings-shortcuts', 'settings-data'];
-              return <a key={tab} href={`#${targets[idx]}`}
-                className="block w-full rounded-xl px-3 py-2.5 text-left font-medium text-zinc-500 transition-colors hover:bg-white/[.05] hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25">{tab}</a>;
+    <div className="fixed inset-0 z-[100] flex h-dvh w-full items-stretch justify-center bg-[#09090b] animate-in fade-in duration-200">
+      <div className="flex h-dvh w-full overflow-hidden border-0 bg-[#0b0b0d]">
+        <aside className="hidden w-[276px] shrink-0 flex-col border-r border-white/[.07] bg-[#09090b] px-4 py-5 md:flex">
+          <div className="mb-5 flex items-center gap-3 px-2"><BrandMark size={30}/><div><div className="text-sm font-semibold text-zinc-100">Settings</div><div className="text-[10px] text-zinc-600">Manage your ZenixMind</div></div></div>
+          <label className="mb-5 flex h-10 items-center gap-2 rounded-xl border border-white/[.08] bg-[#121215] px-3 text-zinc-500"><Search size={14}/><input value={settingsSearch} onChange={(e)=>setSettingsSearch(e.target.value)} placeholder="Search settings" className="min-w-0 flex-1 bg-transparent text-xs text-zinc-200 outline-none placeholder:text-zinc-600"/></label>
+          <nav aria-label="Settings navigation" className="min-h-0 flex-1 space-y-5 overflow-y-auto text-xs">
+            {[
+              {group:'My ZenixMind',items:[['Personalization','settings-personalization'],['Memory','settings-memory'],['Plugins','settings-plugins']]},
+              {group:'Account',items:[['Workspace','settings-workspace'],['Upgrade plan','settings-upgrade'],['Usage and limits','settings-usage'],['Trusted contact','settings-trusted'],['Parental controls','settings-parental'],['Email','settings-email']]},
+              {group:'Appearance',items:[['Appearance','settings-appearance'],['Accent color','settings-accent']]},
+              {group:'Preferences',items:[['General','settings-general'],['Notifications','settings-notifications'],['Voice','settings-voice']]},
+              {group:'Security and privacy',items:[['Safety','settings-safety'],['Security and login','settings-security'],['Remote control','settings-remote'],['Storage','settings-storage'],['Privacy center','settings-privacy'],['Data controls','settings-data'],['Ads controls','settings-ads']]},
+              {group:'Support',items:[['Report bug','settings-report'],['About','settings-about']]}
+            ].map(({group,items}) => {
+              const shown=items.filter(([label])=>!settingsSearch||label.toLowerCase().includes(settingsSearch.toLowerCase())||group.toLowerCase().includes(settingsSearch.toLowerCase()));
+              return shown.length?<div key={group}><div className="mb-2 px-3 text-[9px] font-semibold uppercase tracking-[.17em] text-zinc-600">{group}</div>{shown.map(([label,id])=><a key={id} href={'#'+id} className="block rounded-lg px-3 py-2 text-[11px] text-zinc-400 transition hover:bg-white/[.06] hover:text-white">{label}</a>)}</div>:null;
             })}
-          </div>
+          </nav>
+          <div className="mt-4 border-t border-white/[.07] pt-3 text-[10px] text-zinc-600">ZenixMind · Settings</div>
         </aside>
-
-        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <header className="flex items-center justify-between border-b border-white/[.06] px-6 py-4">
             <div><h2 className="text-[15px] font-semibold tracking-tight text-zinc-100">Settings</h2><p className="mt-1 text-[11px] text-zinc-500">Control how ZenixMind works and how your data is handled.</p></div>
             <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 hover:bg-[#1c1c1f] hover:text-zinc-200"><X size={16} /></button>
@@ -296,6 +307,24 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
               </div>
             </div>
 
+            <section id="settings-appearance" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="mb-1 text-sm font-semibold text-zinc-100">Appearance</h3><p className="mb-3 text-[11px] text-zinc-500">Choose how ZenixMind looks on this device.</p><div className="flex items-center justify-between border-b border-white/[.06] py-3"><span className="text-zinc-300">Theme</span><select value={theme} onChange={e=>{setTheme(e.target.value);savePref('zenixmind-theme',e.target.value);}} className="rounded-xl border border-white/[.1] bg-[#1a1a1e] px-3 py-2 text-xs text-zinc-200"><option>System (Default)</option><option>Light</option><option>Dark</option></select></div><div className="flex items-center justify-between py-3"><span className="text-zinc-300">Accent color</span><select value={accent} onChange={e=>{setAccent(e.target.value);savePref('zenixmind-accent',e.target.value);}} className="rounded-xl border border-white/[.1] bg-[#1a1a1e] px-3 py-2 text-xs text-zinc-200">{['Blue','Cyan','Green','Lime','Yellow','Orange','Pink','Magenta','Purple','White'].map(v=><option key={v}>{v}</option>)}</select></div></section>
+            <section id="settings-notifications" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="mb-1 text-sm font-semibold text-zinc-100">Notifications</h3><p className="mb-3 text-[11px] text-zinc-500">In-app notification preferences saved on this device.</p>{['Codex','Group chats','Health','Library','Marketing','Personalized tips','Projects','Responses','Tasks','Usage'].map(name=><label key={name} className="flex items-center justify-between border-b border-white/[.05] py-3 last:border-0"><span className="text-xs text-zinc-300">{name}</span><input type="checkbox" checked={notificationPrefs[name]??true} onChange={e=>{const next={...notificationPrefs,[name]:e.target.checked};setNotificationPrefs(next);savePref('zenixmind-notifications',JSON.stringify(next));}} className="h-4 w-4 accent-white"/></label>)}</section>
+            <section id="settings-voice" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="mb-1 text-sm font-semibold text-zinc-100">Voice</h3><p className="mb-3 text-[11px] text-zinc-500">Voice conversations open in the dedicated Voice workspace.</p><a href="/assistant/voice" className="inline-flex items-center gap-2 rounded-xl border border-white/[.1] px-3 py-2 text-xs text-zinc-200">Open voice workspace <ExternalLink size={12}/></a></section>
+            <section id="settings-plugins" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Plugins</h3><p className="mt-1 text-[11px] text-zinc-500">Plugin management is not connected to account settings yet.</p></section>
+            <section id="settings-workspace" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Workspace</h3><p className="mt-1 text-[11px] text-zinc-500">Signed in as {user?.email || 'Account email unavailable'}</p></section>
+            <section id="settings-upgrade" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Upgrade plan</h3><a href="/pricing" className="mt-3 inline-flex rounded-xl bg-white px-3 py-2 text-xs font-semibold text-black">View plans</a></section>
+            <section id="settings-usage" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Usage and limits</h3><a href="/dashboard" className="mt-3 inline-flex rounded-xl border border-white/[.1] px-3 py-2 text-xs text-zinc-200">Open dashboard</a></section>
+            <section id="settings-trusted" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Trusted contact</h3><p className="mt-1 text-[11px] text-zinc-500">Not currently configured in ZenixMind.</p></section>
+            <section id="settings-parental" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Parental controls</h3><p className="mt-1 text-[11px] text-zinc-500">Not currently available in ZenixMind.</p></section>
+            <section id="settings-email" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Email</h3><p className="mt-1 text-xs text-zinc-200">{user?.email || 'Account email unavailable'}</p></section>
+            <section id="settings-safety" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Safety</h3><p className="mt-1 text-[11px] text-zinc-500">Service-level safety controls are applied automatically.</p></section>
+            <section id="settings-security" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Security and login</h3><p className="mt-1 text-[11px] text-zinc-500">Authentication is managed by your connected sign-in provider.</p></section>
+            <section id="settings-remote" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Remote control</h3><p className="mt-1 text-[11px] text-zinc-500">Not currently available in ZenixMind.</p></section>
+            <section id="settings-storage" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Storage</h3><a href="/assistant?view=library" className="mt-3 inline-flex rounded-xl border border-white/[.1] px-3 py-2 text-xs text-zinc-200">Open My stuff</a></section>
+            <section id="settings-privacy" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Privacy center</h3><p className="mt-1 text-[11px] text-zinc-500">Export and clear workspace data using the controls below.</p></section>
+            <section id="settings-ads" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Ads controls</h3><p className="mt-1 text-[11px] text-zinc-500">ZenixMind does not currently expose advertising preferences.</p></section>
+            <section id="settings-report" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Report bug</h3><p className="mt-1 text-[11px] text-zinc-500">Use in-chat response feedback to report an issue for now.</p></section>
+            <section id="settings-about" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">About ZenixMind</h3><p className="mt-1 text-[11px] text-zinc-500">ZenixMind · AI workspace</p></section>
             <div className="space-y-2 pt-2">
               <button type="button" onClick={handleExportData} disabled={exporting} className="flex w-full items-center justify-between rounded-xl border border-white/[.08] bg-[#121215] px-4 py-2.5 text-xs font-medium text-zinc-300 hover:bg-[#18181c] transition-colors"><span>Export workspace data & memories</span><Download size={14} className="text-zinc-400" /></button>
               <button type="button" onClick={handleDeleteAll} className="flex w-full items-center justify-between rounded-xl border border-red-500/20 bg-red-500/[.05] px-4 py-2.5 text-xs font-medium text-red-300 hover:bg-red-500/10 transition-colors"><span>Clear chat history</span><Trash2 size={14} /></button>
