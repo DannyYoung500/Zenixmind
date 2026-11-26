@@ -215,8 +215,8 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
           <div className="space-y-1 text-xs">
             {['General', 'Personalization', 'Memory', 'Shortcuts', 'Data & Storage'].map((tab, idx) => {
               const targets = ['settings-general', 'settings-personalization', 'settings-memory', 'settings-shortcuts', 'settings-data'];
-              return <button key={tab} type="button" onClick={() => document.getElementById(targets[idx])?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="w-full rounded-xl px-3 py-2.5 text-left font-medium text-zinc-500 transition-colors hover:bg-white/[.05] hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25">{tab}</button>;
+              return <a key={tab} href={`#${targets[idx]}`}
+                className="block w-full rounded-xl px-3 py-2.5 text-left font-medium text-zinc-500 transition-colors hover:bg-white/[.05] hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25">{tab}</a>;
             })}
           </div>
         </aside>
