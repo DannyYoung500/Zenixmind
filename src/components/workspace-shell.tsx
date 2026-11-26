@@ -160,7 +160,7 @@ export function WorkspaceShell({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {headerAction === 'new' && onNewChat && <button type="button" onClick={onNewChat} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[.08] bg-white/[.035] px-2.5 text-[10px] font-medium text-zinc-300 transition hover:bg-white/[.08] hover:text-white"><Plus size={13} /> <span className="hidden sm:inline">New chat</span></button>}
+            {headerAction === 'new' && onNewChat && <button type="button" onClick={onNewChat} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[.08] bg-white/[.035] px-2.5 text-[10px] font-medium text-zinc-300 transition hover:bg-white/[.08] hover:text-white sm:hidden"><Plus size={13} /> <span className="hidden sm:inline">New chat</span></button>}
             {active !== 'chat' && <Link to="/assistant" className="text-[10px] text-zinc-500 transition hover:text-zinc-200">Back to chat</Link>}
           </div>
         </header>
