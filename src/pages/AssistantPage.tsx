@@ -1785,7 +1785,6 @@ export function AssistantPage() {
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [emptyGreeting, setEmptyGreeting] = useState('');
   const [voiceTalkOpen, setVoiceTalkOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState('');
 
@@ -1850,6 +1849,9 @@ export function AssistantPage() {
 
   const handleStartNewChat = useCallback(() => {
     setVoiceTalkOpen(false);
+    recognitionRef.current?.stop();
+    setIsListening(false);
+    setDictationError('');
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setConversationId(null);
     setMessages([]);
@@ -1866,7 +1868,7 @@ export function AssistantPage() {
     }, 50);
   }, [setSearchParams]);
 
-  const loadEmptyGreeting = useCallback(async () => { setEmptyGreeting(''); try { const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; const response = await fetch('/api/greeting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: user?.name || user?.email?.split('@')[0] || '', timezone, localTime: new Date().toISOString() }) }); if (response.ok) { const data = await response.json(); if (data.greeting) setEmptyGreeting(data.greeting); } } catch {} }, [user?.name, user?.email]);
+
 
   // Global Keyboard Shortcuts (Cmd+K / Ctrl+K, Cmd+N / Ctrl+N, Cmd+Shift+S, Cmd+Shift+D, Escape)
   useEffect(() => {
@@ -1996,7 +1998,6 @@ export function AssistantPage() {
     } else {
       setConversationId(null);
       setMessages([]);
-      loadEmptyGreeting();
     }
     if (searchParams.get('settings') === '1') {
       setSettingsOpen(true);
@@ -2004,7 +2005,7 @@ export function AssistantPage() {
     if (urlQuery && !urlConvId) {
       setInput(urlQuery);
     }
-  }, [urlConvId, searchParams, loadEmptyGreeting]);
+  }, [urlConvId, searchParams]);
 
   useEffect(() => {
     if (isAtBottomRef.current) {
