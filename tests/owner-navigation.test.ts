@@ -202,3 +202,27 @@ test('new chat keeps first-message auto-title generation and updates active conv
   assert.match(assistantPage, /setConversationId\(event\.conversationId\)/);
   assert.match(streamHandler, /title: createConversationTitle\(firstPrompt\)/);
 });
+
+test('main chat declares dictation error state before passing it to the composer', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  const mainChatStart = assistantPage.indexOf('export default function AssistantPage');
+  assert.ok(mainChatStart >= 0);
+  const mainChat = assistantPage.slice(mainChatStart);
+  assert.match(mainChat, /const \[dictationError, setDictationError\] = useState\(''\)/);
+  assert.match(mainChat, /dictationError=\{dictationError\}/);
+  assert.match(mainChat, /setDictationError\('Microphone permission was blocked/);
+});
+
+test('chat transcript uses full-width assistant text and a restrained six-action toolbar', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  assert.match(assistantPage, /bg-\[#080d70\]/);
+  assert.match(assistantPage, /group flex min-w-0 animate-in fade-in duration-200/);
+  assert.match(assistantPage, /aria-label="Copy response"/);
+  assert.match(assistantPage, /aria-label="Like response"/);
+  assert.match(assistantPage, /aria-label="Dislike response"/);
+  assert.match(assistantPage, /aria-label=\{speaking \? 'Stop reading response aloud' : 'Read response aloud'\}/);
+  assert.match(assistantPage, /aria-label="Share response"/);
+  assert.match(assistantPage, /aria-label="More response actions"/);
+});
