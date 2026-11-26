@@ -206,7 +206,7 @@ test('new chat keeps first-message auto-title generation and updates active conv
 test('main chat declares dictation error state before passing it to the composer', () => {
   const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
   const assistantPage = readFileSync(assistantPagePath, 'utf8');
-  const mainChatStart = assistantPage.indexOf('export default function AssistantPage');
+  const mainChatStart = assistantPage.indexOf('function AssistantPage');
   assert.ok(mainChatStart >= 0);
   const mainChat = assistantPage.slice(mainChatStart);
   assert.match(mainChat, /const \[dictationError, setDictationError\] = useState\(''\)/);
