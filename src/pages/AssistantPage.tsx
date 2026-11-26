@@ -796,77 +796,26 @@ function ChatMessageItem({
 
         {!message.isStreaming && message.content.trim() && (
           <div className="mt-4 flex items-center gap-1 pt-1 opacity-100">
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[.045] hover:text-zinc-200"
-              title={copied ? 'Copied' : 'Copy'}
-            >
-              {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+            <button type="button" onClick={handleCopy} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[.06] hover:text-zinc-100" title={copied ? 'Copied' : 'Copy'} aria-label="Copy response">
+              {copied ? <Check size={17} className="text-emerald-400" /> : <Copy size={17} />}
             </button>
-            onClick={handleLike}
-              className={`grid h-8 w-8 place-items-center rounded-lg border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 ${
-                liked ? 'bg-white/[.08] text-white border border-white/[.12]' : 'border-transparent text-zinc-500 hover:bg-white/[.06] hover:text-zinc-200'
-              }`}
-              title="Like"
-              aria-label="Like response"
-              aria-pressed={liked}
-            >
-              <ThumbsUp size={14} strokeWidth={1.9} className={liked ? 'fill-white/15' : ''} />
+            <button type="button" onClick={handleLike} className={`grid h-8 w-8 place-items-center rounded-lg transition-colors ${liked ? 'bg-white/[.08] text-white' : 'text-zinc-500 hover:bg-white/[.06] hover:text-zinc-100'}`} title="Like" aria-label="Like response" aria-pressed={liked}>
+              <ThumbsUp size={19} strokeWidth={1.8} />
             </button>
-
-            onClick={handleDislike}
-              className={`grid h-8 w-8 place-items-center rounded-lg border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/30 ${
-                disliked ? 'bg-rose-500/[.08] text-rose-300 border-rose-400/20' : 'border-transparent text-zinc-500 hover:bg-white/[.06] hover:text-zinc-200'
-              }`}
-              title="Dislike"
-              aria-label="Dislike response"
-              aria-pressed={disliked}
-            >
-              <ThumbsDown size={14} strokeWidth={1.9} className={disliked ? 'fill-rose-400/15' : ''} />
+            <button type="button" ref={dislikeButtonRef} onClick={handleDislike} className={`grid h-8 w-8 place-items-center rounded-lg transition-colors ${disliked ? 'bg-rose-500/[.1] text-rose-300' : 'text-zinc-500 hover:bg-white/[.06] hover:text-zinc-100'}`} title="Dislike" aria-label="Dislike response" aria-pressed={disliked}>
+              <ThumbsDown size={19} strokeWidth={1.8} />
             </button>
-
-            onClick={handleSpeak}
-              className={`grid h-7 w-7 place-items-center rounded-lg transition-colors ${
-                speaking
-                  ? 'bg-amber-400/10 text-amber-300'
-                  : 'text-zinc-500 hover:bg-white/[.045] hover:text-zinc-200'
-              }`}
-              title={speaking ? 'Stop listening' : 'Listen'}
-            >
-              <Volume2 size={13} />
+            <button type="button" onClick={handleSpeak} className={`grid h-8 w-8 place-items-center rounded-lg transition-colors ${speaking ? 'bg-amber-400/[.1] text-amber-300' : 'text-zinc-500 hover:bg-white/[.06] hover:text-zinc-100'}`} title={speaking ? 'Stop listening' : 'Read aloud'} aria-label={speaking ? 'Stop reading response aloud' : 'Read response aloud'}>
+              <Volume2 size={19} strokeWidth={1.8} />
             </button>
-
-            {onShare && (
-              <button type="button" onClick={() => void handleShare()} disabled={sharing} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[.06] hover:text-zinc-100 disabled:opacity-50" title={shareFailed ? 'Sharing failed' : shareDone ? 'Link copied' : 'Share'} aria-label="Share response">
-                {shareDone ? <Check size={17} /> : <Share2 size={17} />}
-              </button>
-            )}
-
+            {onShare && <button type="button" onClick={() => void handleShare()} disabled={sharing} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[.06] hover:text-zinc-100 disabled:opacity-50" title={shareFailed ? 'Sharing failed' : shareDone ? 'Link copied' : 'Share'} aria-label="Share response">
+              {shareDone ? <Check size={18} /> : <Share2 size={18} />}
+            </button>}
             <div className="relative">
-              <button type="button" onClick={() => setMoreActionsOpen((open) => !open)} aria-label="More response actions" aria-haspopup="menu" aria-expanded={moreActionsOpen} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[.06] hover:text-zinc-100"><MoreVertical size={17} /></button>
+              <button type="button" onClick={() => setMoreActionsOpen((open) => !open)} aria-label="More response actions" aria-haspopup="menu" aria-expanded={moreActionsOpen} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[.06] hover:text-zinc-100"><MoreVertical size={19} /></button>
               {moreActionsOpen && <><button type="button" aria-label="Close response actions" className="fixed inset-0 z-20 cursor-default" onClick={() => setMoreActionsOpen(false)} /><div role="menu" className="absolute bottom-10 right-0 z-30 min-w-44 rounded-xl border border-white/[.1] bg-[#202023] p-1.5 shadow-xl"><button type="button" role="menuitem" onClick={() => { setMoreActionsOpen(false); onRegenerate?.(); }} disabled={!onRegenerate} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-xs text-zinc-200 hover:bg-white/[.07] disabled:opacity-40"><RotateCcw size={14} />Regenerate response</button></div></>}
             </div>
-
-            <button
-              type="button"
-              
-
-            <button
-              type="button"
-              
-
-            <button
-              type="button"
-              ref={dislikeButtonRef}
-              
-
-            {feedbackSubmitted && <span role="status" className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/15 bg-emerald-400/[.07] px-3 py-1.5 text-[11px] text-emerald-200"><Check size={12} /> Thank you for your feedback</span>}
-            <div className="mx-1 h-4 w-px bg-white/[.07]" />
-
-            }
-
-            }
+            {feedbackSubmitted && <span role="status" className="ml-2 text-[11px] text-emerald-300">Thank you for your feedback</span>}
           </div>
         )}
         {feedbackOpen && (
