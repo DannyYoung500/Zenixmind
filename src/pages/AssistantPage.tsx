@@ -419,6 +419,7 @@ export const CompactFloatingComposer = React.forwardRef<
         <input
           ref={fileInputRef}
           type="file"
+          accept="image/*,.pdf,.doc,.docx,.txt,.md,.csv,.xls,.xlsx,.ppt,.pptx,.json,.js,.ts,.tsx,.py,.zip"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -459,12 +460,13 @@ export const CompactFloatingComposer = React.forwardRef<
               <button
                 type="button"
                 onClick={() => setPlusMenuOpen((prev) => !prev)}
-                className="grid h-9 w-9 place-items-center rounded-full bg-[#27272a] hover:bg-[#323236] text-zinc-200 hover:text-white transition-colors shadow-sm"
+                className="inline-flex h-9 items-center gap-2 rounded-full border border-white/[.08] bg-[#242428] px-3 text-[11px] font-medium text-zinc-200 shadow-sm transition-colors hover:border-white/[.16] hover:bg-[#303035] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
                 title="Add files, images, or tools"
                 aria-label="Add files, images, or tools"
                 aria-expanded={plusMenuOpen}
               >
-                <Plus size={18} strokeWidth={2.2} />
+                <Plus size={16} strokeWidth={2.2} />
+                <span>Add files</span>
               </button>
 
               {plusMenuOpen && (
