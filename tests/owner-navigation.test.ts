@@ -117,3 +117,24 @@ test('workspace shell keeps a responsive navigation, recent chats and account fo
   assert.match(workspaceShell, /aria-label="Open navigation"/);
   assert.match(workspaceShell, /Workspace navigation/);
 });
+
+test('assistant feedback uses a focused issue-and-details sheet instead of inline chips', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  assert.match(assistantPage, /Share feedback/);
+  assert.match(assistantPage, /response-feedback-type/);
+  assert.match(assistantPage, /Share details \(optional\)/);
+  assert.match(assistantPage, /Thank you for your feedback/);
+  assert.doesNotMatch(assistantPage, /What went wrong\?/);
+});
+
+test('mobile composer offers separate camera, photos, files, plugins status, and think-harder controls', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  assert.match(assistantPage, /capture="environment"/);
+  assert.match(assistantPage, />Camera</);
+  assert.match(assistantPage, />Photos</);
+  assert.match(assistantPage, />Files</);
+  assert.match(assistantPage, /Plugins/);
+  assert.match(assistantPage, /Think harder/);
+});
