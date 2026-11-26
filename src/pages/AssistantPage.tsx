@@ -657,7 +657,8 @@ function SourceFavicon({ url, size = 32 }: { url: string; size?: number }) {
 }
 
 function getSourceDomain(url: string) {
-  try { return new URL(url).hostname.replace(/^www\./, '');
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return 'Website'; }
 }
 
 function ChatMessageItem({
