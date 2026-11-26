@@ -506,7 +506,7 @@ export const CompactFloatingComposer = React.forwardRef<
                   >
                     <div className="flex items-center gap-2.5">
                       <Brain size={14} className={deepThink ? 'text-purple-400' : 'text-zinc-400'} />
-                      <span>Reasoning mode</span>
+                      <span>Think harder</span>
                     </div>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded ${deepThink ? 'bg-purple-500/20 text-purple-300' : 'text-zinc-500'}`}>
                       {deepThink ? 'ON' : 'OFF'}
@@ -626,7 +626,6 @@ function ChatMessageItem({
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [liked, setLiked] = useState(message.liked || false);
   const [disliked, setDisliked] = useState(message.disliked || false);
-  const [feedbackReason, setFeedbackReason] = useState('');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState('');
   const [feedbackDetails, setFeedbackDetails] = useState('');
