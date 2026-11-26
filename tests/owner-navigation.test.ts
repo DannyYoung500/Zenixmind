@@ -138,3 +138,19 @@ test('mobile composer offers separate camera, photos, files, plugins status, and
   assert.match(assistantPage, /Plugins/);
   assert.match(assistantPage, /Think harder/);
 });
+
+test('feedback sheet supports keyboard dismissal, focus management, and mobile safe areas', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  assert.match(assistantPage, /event\.key === 'Escape'/);
+  assert.match(assistantPage, /feedbackDialogRef/);
+  assert.match(assistantPage, /dislikeButtonRef\.current\?\.focus\(\)/);
+  assert.match(assistantPage, /env\(safe-area-inset-bottom\)/);
+  assert.match(assistantPage, /aria-describedby="response-feedback-description"/);
+});
+
+test('composer file inputs reset after selection so the same file can be attached again', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  assert.match(assistantPage, /e\.currentTarget\.value = ''/);
+});
