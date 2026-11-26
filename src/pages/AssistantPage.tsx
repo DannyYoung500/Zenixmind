@@ -2481,6 +2481,7 @@ export function AssistantPage() {
       onOpenSettings={() => setSettingsOpen(true)}
       headerAction={view !== 'chat' ? 'none' : 'new'}
       onNewChat={handleStartNewChat}
+      onShareConversation={handleShareConversation}
     >
       <div className="relative flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 overflow-hidden bg-[#050506]">
         {projectId && !projectChatId && <ProjectView projectId={projectId} userId={user?.id} onDeleted={handleProjectDeleted} />}
