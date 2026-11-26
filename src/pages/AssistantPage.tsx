@@ -432,6 +432,7 @@ export const CompactFloatingComposer = React.forwardRef<
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) onAttachFile(file);
+            e.currentTarget.value = '';
           }}
         />
 
@@ -630,6 +631,33 @@ function ChatMessageItem({
   const [feedbackType, setFeedbackType] = useState('');
   const [feedbackDetails, setFeedbackDetails] = useState('');
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const feedbackDialogRef = useRef<HTMLElement>(null);
+  const dislikeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!feedbackOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusTarget = feedbackDialogRef.current?.querySelector<HTMLElement>('select, textarea, button');
+    focusTarget?.focus();
+    const handleFeedbackKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); setFeedbackOpen(false); }
+      if (event.key === 'Tab' && feedbackDialogRef.current) {
+        const focusable = Array.from(feedbackDialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), select:not([disabled]), textarea:not([disabled])'));
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', handleFeedbackKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleFeedbackKeyDown);
+      dislikeButtonRef.current?.focus();
+    };
+  }, [feedbackOpen]);
 
   useEffect(() => {
     setLiked(message.liked || false);
@@ -656,7 +684,7 @@ function ChatMessageItem({
 
   const handleDislike = () => {
     const nextDisliked = !disliked;
-    if (nextDisliked) { setFeedbackOpen(true); setFeedbackSubmitted(false); }
+    if (nextDisliked) { setFeedbackType(''); setFeedbackDetails(''); setFeedbackOpen(true); setFeedbackSubmitted(false); }
     else setFeedbackOpen(false);
     const nextLiked = nextDisliked ? false : liked;
     setDisliked(nextDisliked);
@@ -787,6 +815,7 @@ function ChatMessageItem({
 
             <button
               type="button"
+              ref={dislikeButtonRef}
               onClick={handleDislike}
               className={`grid h-8 w-8 place-items-center rounded-lg border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/30 ${
                 disliked ? 'bg-rose-500/[.08] text-rose-300 border-rose-400/20' : 'border-transparent text-zinc-500 hover:bg-white/[.06] hover:text-zinc-200'
@@ -829,17 +858,17 @@ function ChatMessageItem({
         )}
         {feedbackOpen && (
           <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/65 backdrop-blur-[2px] sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setFeedbackOpen(false); }}>
-            <section role="dialog" aria-modal="true" aria-labelledby="response-feedback-title" className="w-full max-w-xl overflow-hidden rounded-t-[28px] border border-white/[.1] bg-[#29292c] shadow-[0_-18px_70px_rgba(0,0,0,.5)] sm:rounded-[26px] animate-in slide-in-from-bottom-3 duration-200">
+            <section ref={feedbackDialogRef} role="dialog" aria-modal="true" aria-labelledby="response-feedback-title" aria-describedby="response-feedback-description" tabIndex={-1} className="max-h-[90dvh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/[.1] bg-[#29292c] shadow-[0_-18px_70px_rgba(0,0,0,.5)] sm:rounded-[26px] animate-in slide-in-from-bottom-3 duration-200">
               <div className="flex justify-center pt-3 sm:hidden"><span className="h-1.5 w-12 rounded-full bg-white/20" /></div>
               <div className="flex items-center justify-between px-5 pb-4 pt-5 sm:px-7"><h3 id="response-feedback-title" className="text-lg font-semibold tracking-tight text-zinc-50">Share feedback</h3><button type="button" onClick={() => setFeedbackOpen(false)} aria-label="Close feedback" className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 hover:bg-white/[.08] hover:text-white"><X size={20} /></button></div>
-              <form onSubmit={(event) => { event.preventDefault(); if (!feedbackType) return; setFeedbackSubmitted(true); setFeedbackOpen(false); }} className="px-5 pb-6 sm:px-7">
+              <form onSubmit={(event) => { event.preventDefault(); if (!feedbackType) return; setFeedbackSubmitted(true); setFeedbackOpen(false); }} className="px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-7">
                 <label htmlFor="response-feedback-type" className="sr-only">Feedback issue</label>
                 <select id="response-feedback-type" value={feedbackType} onChange={(event) => setFeedbackType(event.target.value)} required className="mb-4 h-14 w-full rounded-xl border border-white/[.14] bg-transparent px-4 text-[15px] text-zinc-100 outline-none focus:border-white/35">
                   <option value="" disabled className="bg-[#29292c]">Issue</option><option value="Incorrect" className="bg-[#29292c]">Incorrect</option><option value="Incomplete" className="bg-[#29292c]">Incomplete</option><option value="Not relevant" className="bg-[#29292c]">Not relevant</option><option value="Poorly explained" className="bg-[#29292c]">Poorly explained</option><option value="Other" className="bg-[#29292c]">Other</option>
                 </select>
                 <label htmlFor="response-feedback-details" className="sr-only">Share details (optional)</label>
                 <textarea id="response-feedback-details" value={feedbackDetails} onChange={(event) => setFeedbackDetails(event.target.value)} placeholder="Share details (optional)" rows={5} className="mb-4 min-h-[150px] w-full resize-y rounded-xl border border-white/[.14] bg-transparent px-4 py-4 text-[15px] leading-6 text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-white/35" />
-                <p className="mb-5 text-[12px] leading-5 text-zinc-400">Your feedback helps us improve ZenixMind. Avoid including passwords or other sensitive information.</p>
+                <p id="response-feedback-description" className="mb-5 text-[12px] leading-5 text-zinc-400">Tell us what went wrong so we can improve ZenixMind. Avoid including passwords or other sensitive information.</p>
                 <button type="submit" disabled={!feedbackType} className="h-14 w-full rounded-full bg-zinc-100 text-[14px] font-semibold text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:bg-white/[.12] disabled:text-zinc-500">Submit</button>
               </form>
             </section>
