@@ -14,6 +14,9 @@ import {
   Mic,
   MicOff,
   Image as ImageIcon,
+  Camera,
+  Images,
+  Blocks,
   Paperclip,
   X,
   Download,
@@ -355,6 +358,8 @@ export const CompactFloatingComposer = React.forwardRef<
   textareaRef
 ) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [activeCommandIndex, setActiveCommandIndex] = useState(-1);
   const commandSuggestions = getCommandSuggestions(value);
@@ -415,6 +420,9 @@ export const CompactFloatingComposer = React.forwardRef<
 
       {/* Main Composer Box */}
       <div className="relative rounded-[28px] border border-white/[.1] bg-[#18181b] p-3 sm:p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.7)] transition-colors focus-within:border-white/[.2]">
+        {/* Separate mobile inputs for camera capture, photo selection, and files. */}
+        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) onAttachFile(file); e.currentTarget.value = ''; }} />
+        <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) onAttachFile(file); e.currentTarget.value = ''; }} />
         {/* Hidden File Input */}
         <input
           ref={fileInputRef}
@@ -457,31 +465,19 @@ export const CompactFloatingComposer = React.forwardRef<
           <div className="flex items-center gap-2 relative">
             {/* Plus Button with Menu */}
             <div ref={plusRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setPlusMenuOpen((prev) => !prev)}
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-white/[.08] bg-[#242428] px-3 text-[11px] font-medium text-zinc-200 shadow-sm transition-colors hover:border-white/[.16] hover:bg-[#303035] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
-                title="Add files, images, or tools"
-                aria-label="Add files, images, or tools"
-                aria-expanded={plusMenuOpen}
-              >
-                <Plus size={16} strokeWidth={2.2} />
-                <span>Add files</span>
+              <button type="button" onClick={() => setPlusMenuOpen((prev) => !prev)}
+                className="grid h-10 w-10 place-items-center rounded-full border border-white/[.08] bg-[#29292d] text-zinc-100 shadow-sm transition-colors hover:border-white/[.16] hover:bg-[#35353a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+                title="Add to message" aria-label="Add to message" aria-expanded={plusMenuOpen}>
+                <Plus size={21} strokeWidth={2.1} />
               </button>
 
               {plusMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-3 w-[min(300px,calc(100vw-2rem))] rounded-2xl border border-white/[.1] bg-[#17171a] p-2 shadow-[0_18px_55px_rgba(0,0,0,.55)] z-50 animate-in fade-in slide-in-from-bottom-1 duration-150">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPlusMenuOpen(false);
-                      fileInputRef.current?.click();
-                    }}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-zinc-200 hover:bg-[#27272a]"
-                  >
-                    <Paperclip size={14} className="text-zinc-400" />
-                    <span>Upload a file or image</span>
-                  </button>
+                <div role="menu" aria-label="Add to message" className="absolute bottom-full left-0 mb-3 w-[min(292px,calc(100vw-2rem))] rounded-[22px] border border-white/[.09] bg-[#202023] p-2.5 shadow-[0_20px_60px_rgba(0,0,0,.62)] z-50 animate-in fade-in slide-in-from-bottom-1 duration-150">
+                  <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); cameraInputRef.current?.click(); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-zinc-100 hover:bg-white/[.07]"><span className="grid h-9 w-9 place-items-center rounded-full bg-white/[.07]"><Camera size={18} /></span>Camera</button>
+                  <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); photoInputRef.current?.click(); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-zinc-100 hover:bg-white/[.07]"><span className="grid h-9 w-9 place-items-center rounded-full bg-white/[.07]"><Images size={18} /></span>Photos</button>
+                  <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); fileInputRef.current?.click(); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-zinc-100 hover:bg-white/[.07]"><span className="grid h-9 w-9 place-items-center rounded-full bg-white/[.07]"><Paperclip size={18} /></span>Files</button>
+                  <button type="button" role="menuitem" disabled title="Plugin tools are not yet available in chat" className="flex min-h-12 w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-zinc-500 opacity-70"><span className="grid h-9 w-9 place-items-center rounded-full bg-white/[.05]"><Blocks size={18} /></span>Plugins <span className="text-[10px] font-normal text-zinc-600">Coming soon</span></button>
+                  <div className="my-2 h-px bg-white/[.07]" />
 
                   <button
                     type="button"
@@ -631,6 +627,10 @@ function ChatMessageItem({
   const [liked, setLiked] = useState(message.liked || false);
   const [disliked, setDisliked] = useState(message.disliked || false);
   const [feedbackReason, setFeedbackReason] = useState('');
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackType, setFeedbackType] = useState('');
+  const [feedbackDetails, setFeedbackDetails] = useState('');
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   useEffect(() => {
     setLiked(message.liked || false);
@@ -646,6 +646,8 @@ function ChatMessageItem({
   };
 
   const handleLike = () => {
+    setFeedbackOpen(false);
+    setFeedbackSubmitted(false);
     const nextLiked = !liked;
     const nextDisliked = nextLiked ? false : disliked;
     setLiked(nextLiked);
@@ -655,6 +657,8 @@ function ChatMessageItem({
 
   const handleDislike = () => {
     const nextDisliked = !disliked;
+    if (nextDisliked) { setFeedbackOpen(true); setFeedbackSubmitted(false); }
+    else setFeedbackOpen(false);
     const nextLiked = nextDisliked ? false : liked;
     setDisliked(nextDisliked);
     setLiked(nextLiked);
@@ -795,18 +799,7 @@ function ChatMessageItem({
               <ThumbsDown size={14} strokeWidth={1.9} className={disliked ? 'fill-rose-400/15' : ''} />
             </button>
 
-            {disliked && (
-              <div className="ml-1 flex flex-wrap items-center gap-2 rounded-xl border border-white/[.07] bg-white/[.025] px-3 py-2">
-                <span className="text-[10px] font-medium text-zinc-300">Thanks for the feedback.</span>
-                <span className="text-[10px] text-zinc-600">What went wrong?</span>
-                {['Incorrect', 'Incomplete', 'Not relevant', 'Poorly explained'].map((reason) => (
-                  <button key={reason} type="button" onClick={() => setFeedbackReason(reason)} aria-pressed={feedbackReason === reason}
-                    className={feedbackReason === reason ? 'rounded-full border border-white/25 bg-white/10 px-2 py-1 text-[10px] text-white' : 'rounded-full border border-white/[.07] px-2 py-1 text-[10px] text-zinc-500 hover:border-white/20 hover:text-zinc-200'}>
-                    {reason}
-                  </button>
-                ))}
-              </div>
-            )}
+            {feedbackSubmitted && <span role="status" className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/15 bg-emerald-400/[.07] px-3 py-1.5 text-[11px] text-emerald-200"><Check size={12} /> Thank you for your feedback</span>}
             <div className="mx-1 h-4 w-px bg-white/[.07]" />
 
             {onShare && (
@@ -833,6 +826,24 @@ function ChatMessageItem({
                 <RotateCcw size={13} />
               </button>
             )}
+          </div>
+        )}
+        {feedbackOpen && (
+          <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/65 backdrop-blur-[2px] sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setFeedbackOpen(false); }}>
+            <section role="dialog" aria-modal="true" aria-labelledby="response-feedback-title" className="w-full max-w-xl overflow-hidden rounded-t-[28px] border border-white/[.1] bg-[#29292c] shadow-[0_-18px_70px_rgba(0,0,0,.5)] sm:rounded-[26px] animate-in slide-in-from-bottom-3 duration-200">
+              <div className="flex justify-center pt-3 sm:hidden"><span className="h-1.5 w-12 rounded-full bg-white/20" /></div>
+              <div className="flex items-center justify-between px-5 pb-4 pt-5 sm:px-7"><h3 id="response-feedback-title" className="text-lg font-semibold tracking-tight text-zinc-50">Share feedback</h3><button type="button" onClick={() => setFeedbackOpen(false)} aria-label="Close feedback" className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 hover:bg-white/[.08] hover:text-white"><X size={20} /></button></div>
+              <form onSubmit={(event) => { event.preventDefault(); if (!feedbackType) return; setFeedbackSubmitted(true); setFeedbackOpen(false); }} className="px-5 pb-6 sm:px-7">
+                <label htmlFor="response-feedback-type" className="sr-only">Feedback issue</label>
+                <select id="response-feedback-type" value={feedbackType} onChange={(event) => setFeedbackType(event.target.value)} required className="mb-4 h-14 w-full rounded-xl border border-white/[.14] bg-transparent px-4 text-[15px] text-zinc-100 outline-none focus:border-white/35">
+                  <option value="" disabled className="bg-[#29292c]">Issue</option><option value="Incorrect" className="bg-[#29292c]">Incorrect</option><option value="Incomplete" className="bg-[#29292c]">Incomplete</option><option value="Not relevant" className="bg-[#29292c]">Not relevant</option><option value="Poorly explained" className="bg-[#29292c]">Poorly explained</option><option value="Other" className="bg-[#29292c]">Other</option>
+                </select>
+                <label htmlFor="response-feedback-details" className="sr-only">Share details (optional)</label>
+                <textarea id="response-feedback-details" value={feedbackDetails} onChange={(event) => setFeedbackDetails(event.target.value)} placeholder="Share details (optional)" rows={5} className="mb-4 min-h-[150px] w-full resize-y rounded-xl border border-white/[.14] bg-transparent px-4 py-4 text-[15px] leading-6 text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-white/35" />
+                <p className="mb-5 text-[12px] leading-5 text-zinc-400">Your feedback helps us improve ZenixMind. Avoid including passwords or other sensitive information.</p>
+                <button type="submit" disabled={!feedbackType} className="h-14 w-full rounded-full bg-zinc-100 text-[14px] font-semibold text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:bg-white/[.12] disabled:text-zinc-500">Submit</button>
+              </form>
+            </section>
           </div>
         )}
         {!message.isStreaming && message.content.trim() && (
