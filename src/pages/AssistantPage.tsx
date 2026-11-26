@@ -325,6 +325,7 @@ interface CompactFloatingComposerProps {
   setDeepThink: (fn: (v: boolean) => boolean) => void;
   onDictate: () => void;
   isListening: boolean;
+  dictationError?: string;
   onAttachFile: (file: File) => void;
   attachmentName?: string;
   onClearAttachment: () => void;
@@ -351,6 +352,7 @@ export const CompactFloatingComposer = React.forwardRef<
     setDeepThink,
     onDictate,
     isListening,
+    dictationError,
     onAttachFile,
     attachmentName,
     onClearAttachment
@@ -459,6 +461,21 @@ export const CompactFloatingComposer = React.forwardRef<
           placeholder="Ask anything"
           className="w-full resize-none bg-transparent px-2 sm:px-3 pt-1 text-base text-zinc-100 outline-none placeholder:text-zinc-400/90 max-h-36 font-normal tracking-[-0.01em]"
         />
+
+        {isListening && (
+          <div role="status" aria-live="polite" className="mb-2 flex items-center gap-2 rounded-xl border border-rose-400/15 bg-rose-500/[.07] px-3 py-2">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-60" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-400" />
+            </span>
+            <span className="text-[11px] font-medium text-rose-200">Listening — speak now</span>
+            <span className="ml-auto flex h-5 items-center gap-[3px]" aria-hidden="true">
+              {[0,1,2,3,4,5,6,7,8].map((bar) => <span key={bar} className="w-[2px] rounded-full bg-rose-300/80 animate-pulse" style={{ height: `${6 + ((bar * 7) % 12)}px`, animationDelay: `${bar * 75}ms` }} />)}
+            </span>
+            <button type="button" onClick={onDictate} className="ml-2 rounded-lg px-2 py-1 text-[10px] font-semibold text-rose-200 hover:bg-rose-400/10">Done</button>
+          </div>
+        )}
+        {dictationError && <p role="alert" className="mb-2 px-2 text-[11px] text-rose-300">{dictationError}</p>}
 
         {/* Bottom Actions Row */}
         <div className="flex items-center justify-between pt-2.5">
@@ -898,6 +915,8 @@ function ImagesView() {
   const [generating, setGenerating] = useState(false);
   const [generationNotice, setGenerationNotice] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [dictationError, setDictationError] = useState('');
+  const dictationBaseRef = useRef('');
   const [generatedImages, setGeneratedImages] = useState<Array<{ id: string; prompt: string; url: string; title: string; mimeType?: string }>>([]);
 
   const trendingStyles = [
@@ -2426,38 +2445,53 @@ export function AssistantPage() {
     if (typeof window === 'undefined') return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
-      alert('Speech recognition is not supported in this browser.');
-      return;
-    }
-
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
       return;
     }
 
+    if (!SpeechRecognition) {
+      setDictationError('Voice typing is not supported in this browser. Try Chrome on Android.');
+      return;
+    }
+
+    setDictationError('');
+    dictationBaseRef.current = input.trim();
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = navigator.language || 'en-US';
     recognitionRef.current = recognition;
 
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event: any) => {
       let transcript = '';
       for (let i = 0; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
+        transcript += event.results[i][0]?.transcript || '';
       }
-      setInput(transcript);
+      const base = dictationBaseRef.current;
+      setInput(base ? `${base}${transcript ? ' ' + transcript.trim() : ''}` : transcript.trim());
     };
-    recognition.onerror = () => setIsListening(false);
+    recognition.onerror = (event: any) => {
+      setIsListening(false);
+      if (event?.error === 'not-allowed' || event?.error === 'service-not-allowed') {
+        setDictationError('Microphone permission was blocked. Allow microphone access in your browser settings and try again.');
+      } else if (event?.error === 'no-speech') {
+        setDictationError('No speech detected. Tap the microphone and try speaking again.');
+      } else if (event?.error === 'audio-capture') {
+        setDictationError('No microphone was found. Check your device microphone and try again.');
+      } else if (event?.error !== 'aborted') {
+        setDictationError('Voice typing stopped unexpectedly. Please try again.');
+      }
+    };
     recognition.onend = () => setIsListening(false);
 
     try {
       recognition.start();
     } catch {
       setIsListening(false);
+      setDictationError('Could not start voice typing. Please try again.');
     }
   };
 
@@ -2498,36 +2532,7 @@ export function AssistantPage() {
               className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-6 sm:px-8 pb-44 sm:pb-32"
             >
               {!messages.length ? (
-                <div className="flex h-full min-h-[420px] flex-col items-center justify-center px-4 py-10 text-center">
-                  <div className="mb-7 flex flex-col items-center">
-                    <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[.09] bg-[#111114] shadow-[0_8px_30px_rgba(0,0,0,.24)]">
-                      <BrandMark size={27} />
-                    </div>
-                    <h1 className="max-w-2xl text-[30px] font-semibold leading-[1.08] tracking-[-.055em] text-zinc-100 sm:text-[42px]">
-                      {emptyGreeting || "What would you like to work on?"}
-                    </h1>
-                    <p className="mt-3 max-w-lg text-[13px] leading-6 text-zinc-500 sm:text-[14px]">
-                      Ask a question, share a file, or describe what you want to create.
-                    </p>
-                  </div>
-                  <div className="w-full max-w-[720px]">
-                    <p className="mb-3 text-left text-[10px] font-medium uppercase tracking-[.16em] text-zinc-600">A few ways to get started</p>
-                    <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3">
-                      {[
-                        { title: 'Build an app', detail: 'Plan a product and turn it into a working app', prompt: 'Help me plan and build a modern web app.', icon: <Wand2 size={16} /> },
-                        { title: 'Explore a question', detail: 'Research a topic and compare reliable sources', prompt: 'Research the latest developments in artificial intelligence.', icon: <Search size={16} /> },
-                        { title: 'Create an image', detail: 'Generate an original visual from a description', prompt: 'Create an image of a cinematic futuristic city at sunrise.', icon: <ImageIcon size={16} /> }
-                      ].map((item) => (
-                        <button key={item.title} type="button" onClick={() => { setInput(item.prompt); inputRef.current?.focus(); }}
-                          className="group flex min-h-[104px] flex-col items-start rounded-2xl border border-white/[.075] bg-[#0d0d10] p-4 text-left transition-all hover:border-white/[.16] hover:bg-[#121216] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25">
-                          <span className="mb-3 grid h-8 w-8 place-items-center rounded-xl border border-white/[.07] bg-white/[.035] text-zinc-300">{item.icon}</span>
-                          <span className="text-[12px] font-semibold text-zinc-200">{item.title}</span>
-                          <span className="mt-1 text-[10px] leading-4 text-zinc-500">{item.detail}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <div className="min-h-full" aria-label="New chat" />
               ) : (
                 <div ref={messagesContainerRef} className="mx-auto max-w-[820px] space-y-8 sm:space-y-9">
                   {messages.map((m, idx) => (
@@ -2603,6 +2608,16 @@ export function AssistantPage() {
             {/* Bottom Floating Glassmorphic Composer */}
             <div className="absolute inset-x-0 bottom-0 z-20 pointer-events-none pb-[max(1rem,env(safe-area-inset-bottom))] pt-8 bg-gradient-to-t from-[#050506] via-[#050506]/90 to-transparent">
               <div className="pointer-events-auto">
+                {!messages.length && (
+                  <div className="mx-auto mb-2 flex max-w-3xl items-center gap-4 px-3 sm:px-0">
+                    <button type="button" onClick={() => { setInput('Create an image or sticker: '); inputRef.current?.focus(); }} className="inline-flex min-h-8 items-center gap-2 rounded-full px-2 text-[11px] text-zinc-400 transition hover:bg-white/[.06] hover:text-zinc-100">
+                      <ImageIcon size={14} /> Create an image or sticker
+                    </button>
+                    <button type="button" onClick={() => { setInput('Help me write or edit: '); inputRef.current?.focus(); }} className="inline-flex min-h-8 items-center gap-2 rounded-full px-2 text-[11px] text-zinc-400 transition hover:bg-white/[.06] hover:text-zinc-100">
+                      <Wand2 size={14} /> Write or edit
+                    </button>
+                  </div>
+                )}
                 <CompactFloatingComposer
                   ref={inputRef}
                   value={input}
@@ -2621,6 +2636,7 @@ export function AssistantPage() {
                   setDeepThink={setDeepThink}
                   onDictate={handleDictation}
                   isListening={isListening}
+                  dictationError={dictationError}
                   onAttachFile={setAttachedFile}
                   attachmentName={attachedFile?.name}
                   onClearAttachment={() => setAttachedFile(null)}
