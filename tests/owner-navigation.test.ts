@@ -226,3 +226,17 @@ test('chat transcript uses full-width assistant text and a restrained six-action
   assert.match(assistantPage, /aria-label="Share response"/);
   assert.match(assistantPage, /aria-label="More response actions"/);
 });
+
+test('web search sources show each website favicon, title, domain and snippet inline without opening the sources sheet', () => {
+  const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
+  const assistantPage = readFileSync(assistantPagePath, 'utf8');
+  assert.match(assistantPage, /function SourceFavicon/);
+  assert.match(assistantPage, /s2\/favicons\?domain_url=/);
+  assert.match(assistantPage, /favicon\.ico/);
+  assert.match(assistantPage, /aria-label="Web search sources"/);
+  assert.match(assistantPage, /message\.sources\.map\(\(src, i\)/);
+  assert.match(assistantPage, /<SourceFavicon url=\{src\.url\} size=\{34\}/);
+  assert.match(assistantPage, /src\.title \|\| domain/);
+  assert.match(assistantPage, /View details/);
+  assert.match(assistantPage, /<span className="mt-1 block text-\[11px\] leading-4 text-zinc-500 line-clamp-2">\{src\.snippet\}<\/span>/);
+});
