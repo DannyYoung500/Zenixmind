@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   MessageSquare, Image as ImageIcon, FolderClosed, Workflow, Settings,
-  Plus, Menu, X, LogOut, ChevronRight, CreditCard
+  Plus, Menu, X, LogOut, ChevronRight, CreditCard, MoreVertical, Share2, Pin, Archive, FolderInput, Search, Paperclip, Puzzle
 } from 'lucide-react';
 import { BrandMark } from './brand-mark';
 import { useAuth } from '../lib/auth-context';
@@ -25,6 +25,7 @@ interface WorkspaceShellProps {
   onOpenSettings?: () => void;
   headerAction?: 'new' | 'none';
   onNewChat?: () => void;
+  onShareConversation?: () => Promise<void>;
   children: React.ReactNode;
 }
 
@@ -42,6 +43,7 @@ export function WorkspaceShell({
   onOpenSettings,
   headerAction = 'none',
   onNewChat,
+  onShareConversation,
   children
 }: WorkspaceShellProps) {
   const { user, signOut } = useAuth();
@@ -49,8 +51,37 @@ export function WorkspaceShell({
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [menuNotice, setMenuNotice] = useState('');
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('zenixmind_pinned_conversations') || '[]'); } catch { return []; } });
+  const [archivedIds, setArchivedIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('zenixmind_archived_conversations') || '[]'); } catch { return []; } });
   const activeConversation = new URLSearchParams(location.search).get('conversation');
   const closeMobile = () => setMobileOpen(false);
+  const visibleConversations = conversations.filter((item) => !archivedIds.includes(item.id)).slice().sort((a, b) => Number(pinnedIds.includes(b.id)) - Number(pinnedIds.includes(a.id)) || new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime());
+  const togglePin = () => {
+    if (!activeConversation) return;
+    const next = pinnedIds.includes(activeConversation) ? pinnedIds.filter((id) => id !== activeConversation) : [activeConversation, ...pinnedIds];
+    setPinnedIds(next); localStorage.setItem('zenixmind_pinned_conversations', JSON.stringify(next));
+    setMenuNotice(next.includes(activeConversation) ? 'Conversation pinned' : 'Conversation unpinned');
+  };
+  const archiveConversation = () => {
+    if (!activeConversation) return;
+    const next = [...new Set([...archivedIds, activeConversation])];
+    setArchivedIds(next); localStorage.setItem('zenixmind_archived_conversations', JSON.stringify(next));
+    setMoreOpen(false); setMenuNotice('Conversation archived');
+    navigate('/assistant');
+  };
+  const handleFindInChat = () => {
+    const term = window.prompt('Find in this conversation');
+    if (term?.trim()) (window as any).find?.(term.trim());
+    setMoreOpen(false);
+  };
+  const handleShare = async () => {
+    if (!onShareConversation) return;
+    try { await onShareConversation(); setMenuNotice('Share link copied'); }
+    catch { setMenuNotice('Could not share this conversation'); }
+    setMoreOpen(false);
+  };
 
   const handleSignOut = async () => {
     if (signingOut) return;
@@ -105,14 +136,14 @@ export function WorkspaceShell({
           <span className="text-[9px] tabular-nums text-zinc-700">{conversations.length}</span>
         </div>
         <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
-          {conversations.length ? conversations.slice(0, 40).map((conversation) => {
+          {visibleConversations.length ? visibleConversations.slice(0, 40).map((conversation) => {
             const selected = activeConversation === conversation.id;
             return (
               <Link key={conversation.id} to={`/assistant?conversation=${encodeURIComponent(conversation.id)}`} onClick={closeMobile}
                 className={`group flex min-h-9 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[11px] transition-colors ${selected ? 'bg-white/[.075] text-zinc-100' : 'text-zinc-500 hover:bg-white/[.04] hover:text-zinc-200'}`}>
                 <MessageSquare size={13} className="shrink-0 opacity-55" />
                 <span className="min-w-0 flex-1 truncate">{conversation.title || 'New conversation'}</span>
-                {selected && <ChevronRight size={12} className="shrink-0 text-zinc-500" />}
+                {pinnedIds.includes(conversation.id) ? <Pin size={11} className="shrink-0 text-zinc-400" /> : selected && <ChevronRight size={12} className="shrink-0 text-zinc-500" />}
               </Link>
             );
           }) : <div className="px-3 py-5 text-[11px] leading-5 text-zinc-700">Your conversations will appear here.</div>}
@@ -159,9 +190,20 @@ export function WorkspaceShell({
               <p className="hidden text-[9px] tracking-[.08em] text-zinc-600 sm:block">YOUR PRIVATE AI WORKSPACE</p>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="relative flex shrink-0 items-center gap-2">
             {headerAction === 'new' && onNewChat && <button type="button" onClick={onNewChat} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[.08] bg-white/[.035] px-2.5 text-[10px] font-medium text-zinc-300 transition hover:bg-white/[.08] hover:text-white sm:hidden"><Plus size={13} /> <span className="hidden sm:inline">New chat</span></button>}
+            {active === 'chat' && <button type="button" onClick={() => setMoreOpen((value) => !value)} aria-label="Conversation options" aria-haspopup="menu" aria-expanded={moreOpen} className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 transition hover:bg-white/[.07] hover:text-white"><MoreVertical size={19} /></button>}
             {active !== 'chat' && <Link to="/assistant" className="text-[10px] text-zinc-500 transition hover:text-zinc-200">Back to chat</Link>}
+            {moreOpen && <><button type="button" aria-label="Close conversation options" className="fixed inset-0 z-[95] cursor-default" onClick={() => setMoreOpen(false)} /><div role="menu" aria-label="Conversation options" className="absolute right-0 top-11 z-[96] w-[min(290px,calc(100vw-1.5rem))] rounded-2xl border border-white/[.1] bg-[#202023] p-2 shadow-[0_18px_55px_rgba(0,0,0,.6)]">
+              <button type="button" role="menuitem" onClick={() => void handleShare()} disabled={!activeConversation || !onShareConversation} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40"><Share2 size={16} />Share</button>
+              <button type="button" role="menuitem" onClick={togglePin} disabled={!activeConversation} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40"><Pin size={16} />{activeConversation && pinnedIds.includes(activeConversation) ? 'Unpin chat' : 'Pin chat'}</button>
+              <button type="button" role="menuitem" disabled className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-500 opacity-60"><FolderInput size={16} />Add to project <span className="ml-auto text-[10px]">Coming soon</span></button>
+              <button type="button" role="menuitem" disabled className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-500 opacity-60"><Puzzle size={16} />Plugins <span className="ml-auto text-[10px]">Coming soon</span></button>
+              <button type="button" role="menuitem" onClick={() => { navigate('/assistant?view=library'); setMoreOpen(false); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07]"><Paperclip size={16} />Uploaded files</button>
+              <button type="button" role="menuitem" onClick={handleFindInChat} disabled={!activeConversation} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40"><Search size={16} />Find in chat</button>
+              <div className="my-1 h-px bg-white/[.07]" />
+              <button type="button" role="menuitem" onClick={archiveConversation} disabled={!activeConversation} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-red-300 hover:bg-red-500/[.08] disabled:opacity-40"><Archive size={16} />Archive</button>
+            </div></>}
           </div>
         </header>
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</main>
