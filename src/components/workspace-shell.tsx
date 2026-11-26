@@ -52,7 +52,6 @@ export function WorkspaceShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [menuNotice, setMenuNotice] = useState('');
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('zenixmind_pinned_conversations') || '[]'); } catch { return []; } });
   const [archivedIds, setArchivedIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('zenixmind_archived_conversations') || '[]'); } catch { return []; } });
   const activeConversation = new URLSearchParams(location.search).get('conversation');
@@ -62,13 +61,12 @@ export function WorkspaceShell({
     if (!activeConversation) return;
     const next = pinnedIds.includes(activeConversation) ? pinnedIds.filter((id) => id !== activeConversation) : [activeConversation, ...pinnedIds];
     setPinnedIds(next); localStorage.setItem('zenixmind_pinned_conversations', JSON.stringify(next));
-    setMenuNotice(next.includes(activeConversation) ? 'Conversation pinned' : 'Conversation unpinned');
   };
   const archiveConversation = () => {
     if (!activeConversation) return;
     const next = [...new Set([...archivedIds, activeConversation])];
     setArchivedIds(next); localStorage.setItem('zenixmind_archived_conversations', JSON.stringify(next));
-    setMoreOpen(false); setMenuNotice('Conversation archived');
+    setMoreOpen(false);
     navigate('/assistant');
   };
   const handleFindInChat = () => {
@@ -78,8 +76,8 @@ export function WorkspaceShell({
   };
   const handleShare = async () => {
     if (!onShareConversation) return;
-    try { await onShareConversation(); setMenuNotice('Share link copied'); }
-    catch { setMenuNotice('Could not share this conversation'); }
+    try { await onShareConversation(); }
+    catch { /* The chat page surfaces the share error to the user. */ }
     setMoreOpen(false);
   };
 
