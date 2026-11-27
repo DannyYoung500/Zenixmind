@@ -29,7 +29,7 @@ export function OwnerRateLimitsPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const headers = useCallback(async () => {
+  const headers = useCallback(async (): Promise<Record<string, string>> => {
     const { data } = await getSupabase().auth.getSession();
     const token = data.session?.access_token;
     return token ? { Authorization: `Bearer ${token}` } : {};
