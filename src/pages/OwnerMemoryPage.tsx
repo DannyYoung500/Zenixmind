@@ -28,7 +28,7 @@ export function OwnerMemoryPage() {
   const [q, setQ] = useState('');
   const [confirmPurge, setConfirmPurge] = useState(false);
 
-  const tokenHeaders = useCallback(async () => {
+  const tokenHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const { data } = await getSupabase().auth.getSession();
     const token = data.session?.access_token;
     return token ? { Authorization: `Bearer ${token}` } : {};
