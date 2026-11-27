@@ -44,7 +44,7 @@ export function VoiceSunOrb({
 
   // Gentle internal clock for thinking / idle breath (not a shader loop)
   useEffect(() => {
-    if (visual !== 'thinking' && visual !== 'idle' && visual !== 'connecting') return;
+    if (visual !== 'thinking' && visual !== 'idle') return;
     const id = window.setInterval(() => setTick((t) => t + 1), 120);
     return () => window.clearInterval(id);
   }, [visual]);
