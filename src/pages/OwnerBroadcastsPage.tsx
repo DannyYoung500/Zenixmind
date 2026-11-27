@@ -29,7 +29,7 @@ export function OwnerBroadcastsPage() {
   const [body, setBody] = useState('');
   const [type, setType] = useState<'info' | 'warning' | 'critical' | 'success'>('info');
 
-  const tokenHeaders = useCallback(async () => {
+  const tokenHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const { data } = await getSupabase().auth.getSession();
     const token = data.session?.access_token;
     return token ? { Authorization: `Bearer ${token}` } : {};
