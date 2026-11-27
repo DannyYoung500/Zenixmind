@@ -207,7 +207,8 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
   const handleDeleteAll = async () => {
     if (!window.confirm('Are you sure you want to clear all conversations?')) return;
     try {
-      await chatApiFetch('/api/chat', { method: 'DELETE' });
+      const response = await chatApiFetch('/api/chat', { method: 'DELETE' });
+      if (!response.ok) throw new Error(`Conversation deletion failed (${response.status}).`);
       localStorage.removeItem('zenixmind_chats');
       localStorage.removeItem('zenixmind_messages');
       onClearChats();
@@ -245,7 +246,7 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
             <input value={settingsSearch} onChange={(e)=>setSettingsSearch(e.target.value)} placeholder="Search settings" className="mb-2 w-full rounded-xl border border-white/[.08] bg-[#141417] px-3 py-2.5 text-xs text-zinc-200 outline-none placeholder:text-zinc-600"/>
             <nav aria-label="Mobile settings navigation" className="flex gap-2 overflow-x-auto pb-1">{[['Personalization','settings-personalization'],['Memory','settings-memory'],['Appearance','settings-appearance'],['General','settings-general'],['Notifications','settings-notifications'],['Voice','settings-voice'],['Data controls','settings-data']].map(([label,id])=><a key={id} href={'#'+id} className="shrink-0 rounded-lg border border-white/[.08] px-3 py-2 text-[10px] text-zinc-400">{label}</a>)}</nav>
           </div>
-          <div id="settings-general" className="space-y-7 px-5 py-6 text-xs sm:px-8 sm:py-7">
+          <div id="settings-general" className="min-h-0 flex-1 space-y-7 overflow-y-auto px-4 py-6 text-xs sm:px-8 sm:py-8">
             <div id="settings-shortcuts" className="scroll-mt-5 rounded-2xl border border-white/[.07] bg-[#111114] p-5">
               <div className="flex items-center gap-2 text-xs font-medium text-zinc-200 mb-2.5"><Keyboard size={15} className="text-amber-400" /><span>Power User Keyboard Shortcuts</span></div>
               <div className="grid grid-cols-2 gap-2 text-[11px]">
