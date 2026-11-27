@@ -1694,6 +1694,7 @@ function AutomationsView() {
 }
 
 function ProjectView({ projectId, userId, onDeleted }: { projectId: string; userId?: string; onDeleted: () => void }) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [project, setProject] = useState<{ id: string; name: string; description: string; instructions: string; created_at: string; updated_at: string } | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
