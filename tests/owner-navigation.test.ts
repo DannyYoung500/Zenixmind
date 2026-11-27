@@ -240,3 +240,17 @@ test('web search sources show each website favicon, title, domain and snippet in
   assert.match(assistantPage, /View details/);
   assert.match(assistantPage, /<span className="mt-1 block text-\[11px\] leading-4 text-zinc-500 line-clamp-2">\{src\.snippet\}<\/span>/);
 });
+
+
+test('composer accepts and renders dictation errors instead of passing an undeclared prop', () => {
+  const composer = readFileSync(fileURLToPath(new URL('../src/components/compact-floating-composer.tsx', import.meta.url)), 'utf8');
+  assert.match(composer, /dictationError\?: string/);
+  assert.match(composer, /dictationError &&/);
+  assert.match(composer, /role="status"/);
+});
+
+test('settings content has its own scroll container on short mobile screens', () => {
+  const assistantPage = readFileSync(fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url)), 'utf8');
+  assert.match(assistantPage, /id="settings-general" className="[^"]*min-h-0[^"]*flex-1[^"]*overflow-y-auto/);
+  assert.match(assistantPage, /Search settings/);
+});
