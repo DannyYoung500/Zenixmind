@@ -30,6 +30,7 @@ export interface CompactFloatingComposerProps {
   setDeepThink: (fn: (v: boolean) => boolean) => void;
   onDictate: () => void;
   isListening: boolean;
+  dictationError?: string;
   onAttachFile: (file: File) => void;
   attachmentName?: string;
   onClearAttachment: () => void;
@@ -78,6 +79,7 @@ export const CompactFloatingComposer = React.forwardRef<
     setDeepThink,
     onDictate,
     isListening,
+    dictationError = '',
     onAttachFile,
     attachmentName,
     onClearAttachment
@@ -206,6 +208,11 @@ export const CompactFloatingComposer = React.forwardRef<
           </div>
         )}
 
+        {dictationError && (
+          <p role="status" aria-live="polite" className="mb-2 rounded-xl border border-rose-400/20 bg-rose-500/[.08] px-3 py-2 text-[11px] leading-4 text-rose-200">
+            {dictationError}
+          </p>
+        )}
         <textarea
           ref={textareaRef}
           value={value}
