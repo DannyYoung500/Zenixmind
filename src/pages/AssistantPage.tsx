@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { BrandMark } from '../components/brand-mark';
 import { WorkspaceShell, Conversation } from '../components/workspace-shell';
 import { ModelSelector } from '../components/model-selector';
