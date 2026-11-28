@@ -1931,23 +1931,25 @@ function ProjectView({ projectId, userId, onDeleted }: { projectId: string; user
   </div></div>;
 
   return <div className="flex-1 overflow-y-auto"><div className="mx-auto w-full max-w-3xl px-5 py-8 sm:px-8">
-    <div className="mb-8 flex items-start justify-between gap-4">
+    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[.16em] text-zinc-600"><FolderClosed size={12} /> Project workspace</div>
-        <h1 className="truncate text-2xl font-light tracking-[-.03em] text-zinc-100">{project.name}</h1>
+        <h1 className="break-words text-2xl font-light tracking-[-.03em] text-zinc-100">{project.name}</h1>
         <p className="mt-2 text-xs text-zinc-500">Created {new Date(project.created_at).toLocaleDateString()}</p>
       </div>
-      <button type="button" onClick={() => {
-        setSearchParams((prev) => {
-          const next = new URLSearchParams(prev);
-          next.delete('project');
-          next.delete('conversation');
-          next.delete('view');
-          next.set('projectChat', project.id);
-          return next;
-        });
-      }} className="shrink-0 rounded-xl border border-white/[.08] px-3 py-2 text-xs text-zinc-300 hover:bg-white/[.05]">Open project chat</button>
-      <button type="button" onClick={remove} className="shrink-0 rounded-xl border border-red-500/20 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10">Delete</button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => {
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete('project');
+            next.delete('conversation');
+            next.delete('view');
+            next.set('projectChat', project.id);
+            return next;
+          });
+        }} className="rounded-xl border border-white/[.08] px-3 py-2 text-xs text-zinc-300 hover:bg-white/[.05]">Open project chat</button>
+        <button type="button" onClick={remove} className="rounded-xl border border-red-500/20 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10">Delete</button>
+      </div>
     </div>
     <div className="space-y-5">
       <label className="block"><span className="mb-2 block text-xs font-medium text-zinc-400">Project name</span>
