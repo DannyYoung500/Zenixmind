@@ -1722,6 +1722,126 @@ function AutomationsView() {
   );
 }
 
+
+function ProjectsView({ userId }: { userId?: string }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const chatToAssign = new URLSearchParams(location.search).get('conversation') || '';
+  const [projects, setProjects] = useState<Array<{ id: string; name: string; description: string; instructions: string; created_at: string; updated_at: string }>>([]);
+  const [conversations, setConversations] = useState<Array<{ id: string; title: string; project_id: string | null; updated_at: string; created_at: string }>>([]);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  const load = useCallback(async () => {
+    if (!userId) { setProjects([]); setConversations([]); setLoading(false); return; }
+    setLoading(true);
+    const [projectResult, conversationResult] = await Promise.all([
+      getSupabase().from('projects').select('id,name,description,instructions,created_at,updated_at').eq('user_id', userId).order('updated_at', { ascending: false }),
+      getSupabase().from('conversations').select('id,title,project_id,created_at,updated_at').eq('user_id', userId).order('updated_at', { ascending: false }).limit(200)
+    ]);
+    if (projectResult.error || conversationResult.error) {
+      setNotice('Projects could not be loaded. Please refresh and try again.');
+    } else {
+      const nextProjects = projectResult.data || [];
+      setProjects(nextProjects);
+      setConversations(conversationResult.data || []);
+      setSelectedProjectId((current) => current || nextProjects[0]?.id || '');
+    }
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const assignChat = async (projectId = selectedProjectId) => {
+    if (!userId || !chatToAssign || !projectId || saving) return;
+    setSaving(true); setNotice('');
+    const { error } = await getSupabase().from('conversations')
+      .update({ project_id: projectId, updated_at: new Date().toISOString() })
+      .eq('id', chatToAssign).eq('user_id', userId);
+    if (error) setNotice('This chat could not be added to the project.');
+    else navigate(`/assistant?conversation=${encodeURIComponent(chatToAssign)}&projectChat=${encodeURIComponent(projectId)}`);
+    setSaving(false);
+  };
+
+  const createProject = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!userId || !name.trim() || saving) return;
+    setSaving(true); setNotice('');
+    const { data, error } = await getSupabase().from('projects')
+      .insert({ user_id: userId, name: name.trim().slice(0, 80), description: description.trim().slice(0, 500), instructions: instructions.trim().slice(0, 4000) })
+      .select('id,name,description,instructions,created_at,updated_at').single();
+    if (error || !data) {
+      setNotice(error?.message || 'Project could not be created.');
+      setSaving(false);
+      return;
+    }
+    if (chatToAssign) {
+      const { error: attachError } = await getSupabase().from('conversations')
+        .update({ project_id: data.id, updated_at: new Date().toISOString() })
+        .eq('id', chatToAssign).eq('user_id', userId);
+      if (attachError) {
+        setNotice('Project created, but the selected chat could not be added.');
+        setSaving(false);
+        await load();
+        return;
+      }
+      navigate(`/assistant?conversation=${encodeURIComponent(chatToAssign)}&projectChat=${encodeURIComponent(data.id)}`);
+    } else {
+      navigate(`/assistant?project=${encodeURIComponent(data.id)}`);
+    }
+    setSaving(false);
+  };
+
+  const projectChatCount = (projectId: string) => conversations.filter((conversation) => conversation.project_id === projectId).length;
+
+  return (
+    <div className="h-full min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(28px+env(safe-area-inset-bottom))] pt-6 sm:px-8">
+      <div className="mx-auto w-full max-w-5xl">
+        <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div><p className="mb-2 text-[10px] font-semibold uppercase tracking-[.18em] text-zinc-600">Workspace</p><h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Projects</h1><p className="mt-1 text-sm text-zinc-500">Keep related chats and instructions together.</p></div>
+          <span className="text-xs text-zinc-600">{projects.length} {projects.length === 1 ? 'project' : 'projects'}</span>
+        </div>
+
+        {chatToAssign && (
+          <section className="mb-6 rounded-2xl border border-cyan-400/15 bg-cyan-400/[.04] p-4 sm:p-5">
+            <div className="flex items-start gap-3"><FolderClosed size={18} className="mt-0.5 shrink-0 text-cyan-200"/><div className="min-w-0 flex-1"><h2 className="text-sm font-semibold text-zinc-100">Add this chat to a project</h2><p className="mt-1 text-xs text-zinc-500">Choose a project to organize this conversation. Its existing messages will stay intact.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><select value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)} className="min-w-0 flex-1 rounded-xl border border-white/[.1] bg-[#101013] px-3 py-2.5 text-xs text-zinc-200"><option value="">Choose a project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><button type="button" disabled={saving || !selectedProjectId} onClick={() => void assignChat()} className="rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-black disabled:opacity-40">{saving ? 'Adding…' : 'Add to project'}</button></div></div></div>
+          </section>
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,.72fr)]">
+          <section>
+            <div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-semibold text-zinc-200">Your projects</h2></div>
+            {loading ? <div className="rounded-2xl border border-white/[.07] bg-[#0b0b0d] p-8 text-center text-xs text-zinc-500">Loading projects…</div> : projects.length ? (
+              <div className="space-y-3">{projects.map((project) => (
+                <article key={project.id} className="rounded-2xl border border-white/[.07] bg-[#0b0b0d] p-4 transition-colors hover:border-white/[.13] sm:p-5">
+                  <div className="flex items-start gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/[.07] bg-white/[.04] text-zinc-300"><FolderClosed size={18}/></div><div className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold text-zinc-100">{project.name}</h3><p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{project.description || 'No description yet.'}</p><div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-zinc-600"><span>{projectChatCount(project.id)} chats</span><span>Updated {new Date(project.updated_at || project.created_at).toLocaleDateString()}</span>{project.instructions?.trim() && <span>Instructions set</span>}</div></div></div>
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-white/[.06] pt-3"><button type="button" onClick={() => navigate(`/assistant?project=${encodeURIComponent(project.id)}`)} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[11px] font-semibold text-black hover:bg-zinc-200">Open project <ExternalLink size={12}/></button><button type="button" onClick={() => navigate(`/assistant?projectChat=${encodeURIComponent(project.id)}`)} className="inline-flex items-center gap-1.5 rounded-full border border-white/[.1] px-3.5 py-2 text-[11px] font-medium text-zinc-300 hover:bg-white/[.05]"><Plus size={12}/> New project chat</button></div>
+                </article>
+              ))}</div>
+            ) : <div className="rounded-2xl border border-dashed border-white/[.1] bg-[#0b0b0d] px-5 py-10 text-center"><FolderClosed size={24} className="mx-auto mb-3 text-zinc-600"/><h3 className="text-sm font-medium text-zinc-200">No projects yet</h3><p className="mx-auto mt-1 max-w-xs text-xs leading-5 text-zinc-500">Create a project to group conversations and give ZenixMind instructions that apply to its chats.</p></div>}
+          </section>
+
+          <section className="h-fit rounded-2xl border border-white/[.07] bg-[#0b0b0d] p-4 sm:p-5">
+            <div className="mb-4"><h2 className="text-sm font-semibold text-zinc-100">Create a project</h2><p className="mt-1 text-xs text-zinc-500">Project instructions are applied to new project chats.</p></div>
+            <form onSubmit={(event) => void createProject(event)} className="space-y-3">
+              <label className="block"><span className="mb-1.5 block text-[11px] font-medium text-zinc-400">Name</span><input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder="e.g. Website redesign" className="w-full rounded-xl border border-white/[.08] bg-[#101013] px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-700 focus:border-white/[.2]"/></label>
+              <label className="block"><span className="mb-1.5 block text-[11px] font-medium text-zinc-400">Description</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={2} maxLength={500} placeholder="What are you working on?" className="w-full resize-none rounded-xl border border-white/[.08] bg-[#101013] px-3 py-2.5 text-xs leading-5 text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-white/[.2]"/></label>
+              <label className="block"><span className="mb-1.5 block text-[11px] font-medium text-zinc-400">Project instructions</span><textarea value={instructions} onChange={(event) => setInstructions(event.target.value)} rows={4} maxLength={4000} placeholder="How should ZenixMind help with this project?" className="w-full resize-y rounded-xl border border-white/[.08] bg-[#101013] px-3 py-2.5 text-xs leading-5 text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-white/[.2]"/></label>
+              {notice && <p role="status" className="text-[11px] text-zinc-400">{notice}</p>}
+              <button type="submit" disabled={saving || !name.trim()} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-white text-xs font-semibold text-black hover:bg-zinc-200 disabled:opacity-40">{saving ? 'Creating…' : 'Create project'} <Plus size={14}/></button>
+            </form>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProjectView({ projectId, userId, onDeleted }: { projectId: string; userId?: string; onDeleted: () => void }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [project, setProject] = useState<{ id: string; name: string; description: string; instructions: string; created_at: string; updated_at: string } | null>(null);
@@ -1731,6 +1851,29 @@ function ProjectView({ projectId, userId, onDeleted }: { projectId: string; user
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [projectChats, setProjectChats] = useState<Array<{ id: string; title: string; created_at: string; updated_at: string }>>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadChats = async () => {
+      if (!userId) return;
+      const { data, error } = await getSupabase().from('conversations')
+        .select('id,title,created_at,updated_at')
+        .eq('project_id', projectId).eq('user_id', userId)
+        .order('updated_at', { ascending: false }).limit(100);
+      if (mounted && !error) setProjectChats(data || []);
+    };
+    void loadChats();
+    return () => { mounted = false; };
+  }, [projectId, userId]);
+
+  const removeChat = async (id: string) => {
+    if (!userId) return;
+    const { error } = await getSupabase().from('conversations')
+      .update({ project_id: null }).eq('id', id).eq('user_id', userId).eq('project_id', projectId);
+    if (error) setMessage('Could not remove this chat from the project.');
+    else setProjectChats((previous) => previous.filter((chat) => chat.id !== id));
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -1798,6 +1941,8 @@ function ProjectView({ projectId, userId, onDeleted }: { projectId: string; user
         setSearchParams((prev) => {
           const next = new URLSearchParams(prev);
           next.delete('project');
+          next.delete('conversation');
+          next.delete('view');
           next.set('projectChat', project.id);
           return next;
         });
@@ -1815,6 +1960,10 @@ function ProjectView({ projectId, userId, onDeleted }: { projectId: string; user
         <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} maxLength={4000} rows={7} placeholder="Tell ZenixMind how it should work inside this project." className="w-full resize-y rounded-xl border border-white/[.08] bg-[#0d0d10] px-3 py-2.5 text-sm leading-6 text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-white/[.2]" />
         <span className="mt-1 block text-[10px] text-zinc-600">Saved to this project for future project-aware chat.</span>
       </label>
+      <section className="rounded-2xl border border-white/[.07] bg-[#0b0b0d] p-4">
+        <div className="mb-3 flex items-center justify-between"><h2 className="text-xs font-semibold text-zinc-200">Project chats</h2><span className="text-[10px] text-zinc-600">{projectChats.length}</span></div>
+        {projectChats.length ? <div className="divide-y divide-white/[.06]">{projectChats.map((chat) => <div key={chat.id} className="flex items-center gap-2 py-2.5"><MessageSquare size={14} className="shrink-0 text-zinc-500"/><Link to={`/assistant?conversation=${encodeURIComponent(chat.id)}&projectChat=${encodeURIComponent(project.id)}`} className="min-w-0 flex-1 truncate text-xs text-zinc-300 hover:text-white">{chat.title || 'New conversation'}</Link><button type="button" onClick={() => void removeChat(chat.id)} className="shrink-0 rounded-lg px-2 py-1 text-[10px] text-zinc-600 hover:bg-white/[.06] hover:text-zinc-300">Remove</button></div>)}</div> : <p className="py-3 text-center text-[11px] text-zinc-600">Chats created in this project will appear here.</p>}
+      </section>
       <div className="flex items-center justify-between border-t border-white/[.06] pt-5">
         <span className="text-xs text-zinc-500">{message}</span>
         <button type="button" disabled={saving || !name.trim()} onClick={() => void save()} className="rounded-xl bg-white px-4 py-2 text-xs font-medium text-black hover:bg-zinc-200 disabled:opacity-40">{saving ? 'Saving…' : 'Save project'}</button>
@@ -1860,7 +2009,7 @@ export function AssistantPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
 
-  const view = (searchParams.get('view') as 'chat' | 'images' | 'library' | 'automations') || 'chat';
+  const view = (searchParams.get('view') as 'chat' | 'images' | 'library' | 'automations' | 'projects') || 'chat';
   const projectId = searchParams.get('project');
   const projectChatId = searchParams.get('projectChat');
   const activeProjectId = projectChatId || null;
@@ -2567,10 +2716,12 @@ export function AssistantPage() {
 
   return (
     <WorkspaceShell
-      active={view}
+      active={projectId || view === 'projects' ? 'projects' : view}
       title={
         projectId
           ? 'Project'
+          : view === 'projects'
+          ? 'Projects'
           : view === 'chat'
           ? 'ZenixMind'
           : view === 'images'
@@ -2592,6 +2743,7 @@ export function AssistantPage() {
         {!projectId && view === 'images' && <ImagesView />}
         {!projectId && view === 'library' && <LibraryView />}
         {!projectId && view === 'automations' && <AutomationsView />}
+        {!projectId && view === 'projects' && <ProjectsView userId={user?.id} />}
 
         {(!projectId || projectChatId) && view === 'chat' && (
           <div className="relative flex flex-1 flex-col h-full overflow-hidden">
