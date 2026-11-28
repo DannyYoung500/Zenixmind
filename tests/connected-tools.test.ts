@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8');
 process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY = 'test-only-integration-encryption-key-with-more-than-32-chars';
 const { encryptIntegrationToken, decryptIntegrationToken, parseConnectedToolCommand } = await import('../api/_lib/connected-tools.ts');
+const { parseChatCommand, getCommandSuggestions, isUnknownSlashCommand } = await import('../src/lib/chat-commands.ts');
 const migration = read('../supabase/migrations/20261129090000_connected_tools.sql');
 const api = read('../api/_lib/connected-tools.ts');
 const router = read('../api/chat.ts');
@@ -66,4 +67,10 @@ test('integration tokens are authenticated-encrypted and command parsing is expl
   assert.deepEqual(parseConnectedToolCommand('/github search zenixmind'), { command: 'search', argument: 'zenixmind' });
   assert.deepEqual(parseConnectedToolCommand('/github read owner/repo/README.md'), { command: 'read', argument: 'owner/repo/README.md' });
   assert.equal(parseConnectedToolCommand('Please search my GitHub repos'), null);
+});
+
+test('the chat composer recognizes GitHub tools instead of rejecting them as unknown slash commands', () => {
+  assert.deepEqual(parseChatCommand('/github repos'), { command: 'github', prompt: 'repos' });
+  assert.equal(isUnknownSlashCommand('/github search portfolio'), false);
+  assert.ok(getCommandSuggestions('/git').some(command => command.id === 'github'));
 });
