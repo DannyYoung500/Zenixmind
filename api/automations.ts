@@ -56,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const [tasksResult, runsResult] = await Promise.all([
       supabase.from('automations')
-        .select('id,title,prompt,frequency,cron_expression,run_at,timezone,schedule_name,schedule_id,enabled,web_search,last_run_at,created_at,updated_at')
+        .select('id,title,prompt,frequency,cron_expression,run_at,timezone,schedule_name,schedule_id,enabled,web_search,last_run_at,completed_at,created_at,updated_at')
         .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
       supabase.from('automation_runs')
         .select('id,automation_id,status,output,error,trigger_type,scheduled_at,started_at,completed_at,input_tokens,output_tokens,created_at')
@@ -134,7 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         enabled: true,
         web_search: body.webSearch === true
       })
-      .select('id,title,prompt,frequency,cron_expression,run_at,timezone,schedule_name,schedule_id,enabled,web_search,last_run_at,created_at,updated_at')
+      .select('id,title,prompt,frequency,cron_expression,run_at,timezone,schedule_name,schedule_id,enabled,web_search,last_run_at,completed_at,created_at,updated_at')
       .single();
     if (createError || !created) {
       console.error('[automations] task insert failed', createError?.message || 'Unknown database error');
@@ -188,7 +188,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data, error } = await supabase.from('automations')
       .update({ enabled: body.enabled, updated_at: new Date().toISOString() })
       .eq('id', id).eq('user_id', user.id)
-      .select('id,title,prompt,frequency,cron_expression,run_at,timezone,schedule_name,schedule_id,enabled,web_search,last_run_at,created_at,updated_at')
+      .select('id,title,prompt,frequency,cron_expression,run_at,timezone,schedule_name,schedule_id,enabled,web_search,last_run_at,completed_at,created_at,updated_at')
       .single();
     if (error || !data) return res.status(500).json({ error: 'The schedule changed but its status could not be saved.', code: 'AUTOMATION_UPDATE_FAILED' });
     return res.status(200).json({ automation: toClientAutomation(data) });
