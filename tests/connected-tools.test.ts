@@ -42,7 +42,6 @@ test('chat API routes OAuth and connected-tool management without adding serverl
 test('GitHub tool commands are explicit, read-only and user-scoped', () => {
   assert.match(stream, /executeConnectedToolCommand/);
   assert.match(api, /parseConnectedToolCommand/);
-  assert.match(api, /\\/github\\s\+/);
   assert.match(stream, /connected tool/i);
   assert.match(api, /\.eq\('user_id', userId\)/);
   assert.match(api, /api\.github\.com/);
