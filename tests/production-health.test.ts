@@ -152,3 +152,10 @@ test('source favicons appear inline with search results without opening source d
   const inlineSources = assistant.slice(inlineStart, inlineEnd);
   assert.match(inlineSources, /<SourceFavicon url=\{src\.url\}/);
 });
+
+
+test('temporary chat does not persist attached files into the private Library', () => {
+  const assistant = read('../src/pages/AssistantPage.tsx');
+  assert.match(assistant, /if \(!temporaryChat && user\?\.id\)/);
+  assert.match(assistant, /Persistent Library storage is intentionally disabled in Temporary Chat/);
+});
