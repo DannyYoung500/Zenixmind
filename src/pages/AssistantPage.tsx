@@ -112,6 +112,11 @@ function SettingsModal({ onClose, onClearChats, webSearch, onWebSearchChange, de
   const [theme, setTheme] = useState(() => localStorage.getItem('zenixmind-theme') || 'Dark');
   const [accent, setAccent] = useState(() => localStorage.getItem('zenixmind-accent') || 'Pink');
   const [notificationPrefs, setNotificationPrefs] = useState<Record<string, boolean>>(() => { try { return JSON.parse(localStorage.getItem('zenixmind-notifications') || '{}'); } catch { return {}; } });
+  const [connectedIntegrations, setConnectedIntegrations] = useState<Array<{ id: string; provider: string; provider_username: string; display_name: string; avatar_url?: string; connected_at: string }>>([]);
+  const [connectedToolsLoading, setConnectedToolsLoading] = useState(true);
+  const [connectedToolsBusy, setConnectedToolsBusy] = useState(false);
+  const [githubConnectionReady, setGithubConnectionReady] = useState(false);
+  const [connectedToolsNotice, setConnectedToolsNotice] = useState('');
 
   const loadMemories = useCallback(async () => {
     if (!user?.id) { setMemories([]); setMemoryLoading(false); return; }
@@ -128,6 +133,78 @@ function SettingsModal({ onClose, onClearChats, webSearch, onWebSearchChange, de
   }, [user?.id]);
 
   useEffect(() => { void loadMemories(); }, [loadMemories]);
+
+  const loadConnectedTools = useCallback(async () => {
+    if (!user?.id) { setConnectedIntegrations([]); setConnectedToolsLoading(false); return; }
+    setConnectedToolsLoading(true);
+    try {
+      const response = await chatApiFetch('/api/chat?action=connected-tools');
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Could not load connected tools.');
+      setConnectedIntegrations(Array.isArray(payload.integrations) ? payload.integrations : []);
+      setGithubConnectionReady(payload.available?.github === true);
+    } catch (error: any) {
+      setConnectedToolsNotice(error?.message || 'Could not load connected tools.');
+    } finally {
+      setConnectedToolsLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => { void loadConnectedTools(); }, [loadConnectedTools]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('connection');
+    if (!result?.startsWith('github-')) return;
+    setConnectedToolsNotice(result === 'github-success'
+      ? 'GitHub is connected. You can now use its public repository tools in chat.'
+      : 'GitHub could not be connected. Check the OAuth setup and try again.');
+    params.delete('connection');
+    params.delete('settings');
+    params.delete('reason');
+    const query = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
+    if (result === 'github-success') void loadConnectedTools();
+  }, [loadConnectedTools]);
+
+  const connectGitHub = async () => {
+    setConnectedToolsBusy(true);
+    setConnectedToolsNotice('');
+    try {
+      const response = await chatApiFetch('/api/chat?action=connected-tools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'connect', provider: 'github' })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.authorizationUrl) throw new Error(payload.error || 'Could not start GitHub authorization.');
+      window.location.assign(payload.authorizationUrl);
+    } catch (error: any) {
+      setConnectedToolsNotice(error?.message || 'Could not connect GitHub.');
+      setConnectedToolsBusy(false);
+    }
+  };
+
+  const disconnectGitHub = async () => {
+    if (!window.confirm('Disconnect GitHub from ZenixMind?')) return;
+    setConnectedToolsBusy(true);
+    setConnectedToolsNotice('');
+    try {
+      const response = await chatApiFetch('/api/chat?action=connected-tools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'disconnect', provider: 'github' })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Could not disconnect GitHub.');
+      setConnectedIntegrations(items => items.filter(item => item.provider !== 'github'));
+      setConnectedToolsNotice('GitHub has been disconnected.');
+    } catch (error: any) {
+      setConnectedToolsNotice(error?.message || 'Could not disconnect GitHub.');
+    } finally {
+      setConnectedToolsBusy(false);
+    }
+  };
 
   const savePref = (key: string, val: string) => localStorage.setItem(key, val);
 
@@ -340,7 +417,47 @@ function SettingsModal({ onClose, onClearChats, webSearch, onWebSearchChange, de
             <section id="settings-appearance" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="mb-1 text-sm font-semibold text-zinc-100">Appearance</h3><p className="mb-3 text-[11px] text-zinc-500">Choose how ZenixMind looks on this device.</p><div className="flex items-center justify-between border-b border-white/[.06] py-3"><span className="text-zinc-300">Theme</span><select value={theme} onChange={e=>{setTheme(e.target.value);savePref('zenixmind-theme',e.target.value);}} className="rounded-xl border border-white/[.1] bg-[#1a1a1e] px-3 py-2 text-xs text-zinc-200"><option>System (Default)</option><option>Light</option><option>Dark</option></select></div><div id="settings-accent" className="flex items-center justify-between py-3"><span className="text-zinc-300">Accent color</span><select value={accent} onChange={e=>{setAccent(e.target.value);savePref('zenixmind-accent',e.target.value);}} className="rounded-xl border border-white/[.1] bg-[#1a1a1e] px-3 py-2 text-xs text-zinc-200">{['Blue','Cyan','Green','Lime','Yellow','Orange','Pink','Magenta','Purple','White'].map(v=><option key={v}>{v}</option>)}</select></div></section>
             <section id="settings-notifications" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="mb-1 text-sm font-semibold text-zinc-100">Notifications</h3><p className="mb-3 text-[11px] text-zinc-500">In-app notification preferences saved on this device.</p>{['Group chats','Health','Library','Marketing','Personalized tips','Projects','Responses','Tasks','Usage'].map(name=><label key={name} className="flex items-center justify-between border-b border-white/[.05] py-3 last:border-0"><span className="text-xs text-zinc-300">{name}</span><input type="checkbox" checked={notificationPrefs[name]??true} onChange={e=>{const next={...notificationPrefs,[name]:e.target.checked};setNotificationPrefs(next);savePref('zenixmind-notifications',JSON.stringify(next));}} className="h-4 w-4 accent-white"/></label>)}</section>
             <section id="settings-voice" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="mb-1 text-sm font-semibold text-zinc-100">Voice</h3><p className="mb-3 text-[11px] text-zinc-500">Voice conversations open in the dedicated Voice workspace.</p><a href="/assistant/voice" className="inline-flex items-center gap-2 rounded-xl border border-white/[.1] px-3 py-2 text-xs text-zinc-200">Open voice workspace <ExternalLink size={12}/></a></section>
-            <section id="settings-plugins" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Plugins</h3><p className="mt-1 text-[11px] text-zinc-500">Plugin management is not connected to account settings yet.</p></section>
+            <section id="settings-plugins" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div><h3 className="text-sm font-semibold text-zinc-100">Connected tools</h3><p className="mt-1 max-w-xl text-[11px] leading-5 text-zinc-500">Authorize external services so ZenixMind can use them when you explicitly ask. Each connection can be disconnected at any time.</p></div>
+                <button type="button" onClick={() => void loadConnectedTools()} disabled={connectedToolsLoading || connectedToolsBusy} className="rounded-lg border border-white/[.1] px-3 py-2 text-[11px] text-zinc-300 disabled:opacity-50">Refresh</button>
+              </div>
+              <div className="mt-4 rounded-xl border border-white/[.07] bg-[#0b0b0d] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black text-lg font-bold">⌘</div>
+                    <div className="min-w-0"><div className="text-xs font-semibold text-zinc-100">GitHub</div><div className="text-[11px] text-zinc-500">Read-only access to your public repositories</div></div>
+                  </div>
+                  {#if connectedIntegrations.some(item => item.provider === 'github')}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] text-emerald-300">Connected</span>
+                      <button type="button" onClick={() => void disconnectGitHub()} disabled={connectedToolsBusy} className="rounded-lg border border-white/[.1] px-3 py-2 text-[11px] text-zinc-300 disabled:opacity-50">Disconnect</button>
+                    </div>
+                  {:else}
+                    <button type="button" onClick={() => void connectGitHub()} disabled={!githubConnectionReady || connectedToolsBusy || connectedToolsLoading} className="rounded-lg bg-white px-3.5 py-2 text-[11px] font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40">{connectedToolsBusy ? 'Opening…' : 'Connect GitHub'}</button>
+                  {/if}
+                </div>
+                {#if connectedIntegrations.some(item => item.provider === 'github')}
+                  <div className="mt-3 border-t border-white/[.06] pt-3 text-[11px] text-zinc-400">
+                    Connected account: <span className="text-zinc-200">{connectedIntegrations.find(item => item.provider === 'github')?.display_name || connectedIntegrations.find(item => item.provider === 'github')?.provider_username}</span>
+                  </div>
+                  <div className="mt-3 rounded-lg bg-white/[.035] p-3 text-[11px] leading-5 text-zinc-400">
+                    Try these commands in chat:
+                    <div className="mt-1 font-mono text-zinc-200">/github repos</div>
+                    <div className="font-mono text-zinc-200">/github search portfolio</div>
+                    <div className="font-mono text-zinc-200">/github read owner/repository</div>
+                  </div>
+                {:else}
+                  <p className="mt-3 border-t border-white/[.06] pt-3 text-[11px] leading-5 text-zinc-500">ZenixMind requests only the GitHub <span className="text-zinc-300">read:user</span> permission. The first version can list, search and read public repositories; it cannot edit code, create issues or access private repositories.</p>
+                  {#if !githubConnectionReady}
+                    <p className="mt-2 text-[11px] text-amber-300/80">GitHub OAuth is not configured on the server yet. Add the required GitHub OAuth settings in Vercel to enable connection.</p>
+                  {/if}
+                {/if}
+              </div>
+              {#if connectedToolsLoading}<p className="mt-3 text-[11px] text-zinc-500">Loading connected tools…</p>{/if}
+              {#if connectedToolsNotice}<p className="mt-3 rounded-lg bg-white/[.05] p-3 text-[11px] text-zinc-300">{connectedToolsNotice}</p>{/if}
+              <p className="mt-4 text-[10px] leading-5 text-zinc-600">Plugins and additional services will appear here only when their authorization and data-protection flows are implemented.</p>
+            </section>
             <section id="settings-workspace" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Workspace</h3><p className="mt-1 text-[11px] text-zinc-500">Signed in as {user?.email || 'Account email unavailable'}</p></section>
             <section id="settings-upgrade" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Upgrade plan</h3><a href="/pricing" className="mt-3 inline-flex rounded-xl bg-white px-3 py-2 text-xs font-semibold text-black">View plans</a></section>
             <section id="settings-usage" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Usage and limits</h3><a href="/dashboard" className="mt-3 inline-flex rounded-xl border border-white/[.1] px-3 py-2 text-xs text-zinc-200">Open dashboard</a></section>
