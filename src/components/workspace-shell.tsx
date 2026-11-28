@@ -158,8 +158,17 @@ export function WorkspaceShell({
       <button type="button" role="menuitem" onClick={() => { close(); const t = window.prompt('Rename chat', conversations.find(c => c.id === id)?.title || ''); if (t?.trim() && id && onRenameConversation) onRenameConversation(id, t.trim()); }} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40">
         <Edit2 size={16} className="text-zinc-400" /> Rename
       </button>
+      <button type="button" role="menuitem" onClick={() => { navigate('/assistant?view=library'); close(); }} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07]">
+        <Paperclip size={16} className="text-zinc-400" /> Uploaded files
+      </button>
+      <button type="button" role="menuitem" onClick={() => { handleFindInChat(); close(); }} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07]">
+        <Search size={16} className="text-zinc-400" /> Find in chat
+      </button>
       <button type="button" role="menuitem" disabled className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-500 opacity-60">
-        <FolderInput size={16} /> Add to Project <span className="ml-auto text-[10px]">Soon</span>
+        <Puzzle size={16} /> Plugins <span className="ml-auto text-[10px]">Coming soon</span>
+      </button>
+      <button type="button" role="menuitem" disabled className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-500 opacity-60">
+        <FolderInput size={16} /> Add to project <span className="ml-auto text-[10px]">Coming soon</span>
       </button>
       <button type="button" role="menuitem" onClick={close} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07]">
         <Bell size={16} className="text-zinc-400" /> Mark as Unread
