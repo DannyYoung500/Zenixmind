@@ -1637,86 +1637,205 @@ function LibraryView() {
   );
 }
 
-function AutomationsView() {
-  const [automations, setAutomations] = useState([
-    {
-      id: 'auto-1',
-      title: 'Morning AI Briefing',
-      description: 'Summarizes top technology, market news, and research papers daily at 8:00 AM.',
-      schedule: 'Daily at 8:00 AM',
-      enabled: true,
-      model: 'Gemini 2.5 Flash'
-    },
-    {
-      id: 'auto-2',
-      title: 'Repository Architecture Audit',
-      description: 'Runs weekly deep analysis on code changes, type safety, and bundle optimization.',
-      schedule: 'Every Monday',
-      enabled: true,
-      model: 'Claude 3.7 Sonnet'
-    },
-    {
-      id: 'auto-3',
-      title: 'Real-time News & Grounding Digest',
-      description: 'Scans live web sources and compiles structured bullet points on targeted keywords.',
-      schedule: 'On Demand / Scheduled',
-      enabled: false,
-      model: 'Grok 3'
-    }
-  ]);
+type AutomationItem = {
+  id: string;
+  title: string;
+  prompt: string;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'once';
+  timezone: string;
+  schedule_label: string;
+  enabled: boolean;
+  web_search: boolean;
+  last_run_at: string | null;
+  completed_at: string | null;
+};
 
-  const toggleAutomation = (id: string) => {
-    setAutomations((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, enabled: !a.enabled } : a))
-    );
+type AutomationRun = {
+  id: string;
+  automation_id: string;
+  status: 'running' | 'completed' | 'failed';
+  output: string | null;
+  error: string | null;
+  trigger_type: 'scheduled' | 'manual';
+  scheduled_at: string | null;
+  created_at: string;
+};
+
+function AutomationsView({ userId }: { userId?: string }) {
+  const [automations, setAutomations] = useState<AutomationItem[]>([]);
+  const [runs, setRuns] = useState<AutomationRun[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [busyId, setBusyId] = useState('');
+  const [notice, setNotice] = useState('');
+  const [title, setTitle] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'once'>('daily');
+  const [time, setTime] = useState('08:00');
+  const [weekday, setWeekday] = useState('1');
+  const [monthDay, setMonthDay] = useState('1');
+  const [runAt, setRunAt] = useState(() => {
+    const future = new Date(Date.now() + 60 * 60 * 1000);
+    return new Date(future.getTime() - future.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  });
+  const [timezone, setTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+  const [webSearch, setWebSearch] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!userId) { setAutomations([]); setRuns([]); setLoading(false); return; }
+    setLoading(true);
+    try {
+      const { data: { session } } = await getSupabase().auth.getSession();
+      if (!session?.access_token) throw new Error('Sign in again to load scheduled tasks.');
+      const response = await fetch('/api/automations', { headers: { Authorization: `Bearer ${session.access_token}` } });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Unable to load scheduled tasks.');
+      setAutomations(payload.automations || []);
+      setRuns(payload.runs || []);
+      setNotice('');
+    } catch (error: any) {
+      setNotice(error?.message || 'Unable to load scheduled tasks.');
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const request = async (method: string, id?: string, body?: Record<string, unknown>) => {
+    const { data: { session } } = await getSupabase().auth.getSession();
+    if (!session?.access_token) throw new Error('Your session expired. Sign in again.');
+    const url = id ? `/api/automations?id=${encodeURIComponent(id)}` : '/api/automations';
+    const response = await fetch(url, {
+      method,
+      headers: { Authorization: `Bearer ${session.access_token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'The scheduled task request failed.');
+    return payload;
+  };
+
+  const createTask = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!title.trim() || !prompt.trim() || busyId) return;
+    setBusyId('create'); setNotice('');
+    try {
+      await request('POST', undefined, {
+        title: title.trim(),
+        prompt: prompt.trim(),
+        frequency,
+        time,
+        weekday: Number(weekday),
+        monthDay: Number(monthDay),
+        runAt,
+        timezone: timezone.trim(),
+        webSearch
+      });
+      setTitle(''); setPrompt(''); setWebSearch(false); setFormOpen(false);
+      setNotice('Scheduled task created.');
+      await load();
+    } catch (error: any) {
+      setNotice(error?.message || 'The scheduled task could not be created.');
+    } finally {
+      setBusyId('');
+    }
+  };
+
+  const runTask = async (item: AutomationItem) => {
+    if (busyId) return;
+    setBusyId(item.id); setNotice('');
+    try {
+      await request('POST', item.id, { action: 'run' });
+      setNotice(`“${item.title}” was queued. Its result will appear in the run history.`);
+      await load();
+    } catch (error: any) {
+      setNotice(error?.message || 'The task could not be queued.');
+    } finally {
+      setBusyId('');
+    }
+  };
+
+  const toggleTask = async (item: AutomationItem) => {
+    if (busyId) return;
+    setBusyId(item.id); setNotice('');
+    try {
+      await request('PATCH', item.id, { enabled: !item.enabled });
+      setNotice(item.enabled ? 'Scheduled task paused.' : 'Scheduled task resumed.');
+      await load();
+    } catch (error: any) {
+      setNotice(error?.message || 'The schedule could not be updated.');
+    } finally {
+      setBusyId('');
+    }
+  };
+
+  const deleteTask = async (item: AutomationItem) => {
+    if (busyId || !window.confirm(`Delete “${item.title}” and its run history?`)) return;
+    setBusyId(item.id); setNotice('');
+    try {
+      await request('DELETE', item.id);
+      setNotice('Scheduled task deleted.');
+      await load();
+    } catch (error: any) {
+      setNotice(error?.message || 'The task could not be deleted.');
+    } finally {
+      setBusyId('');
+    }
   };
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-6 sm:px-8 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between pb-6 border-b border-white/[.06]">
-        <div>
-          <h1 className="text-lg font-semibold text-zinc-100">Automations</h1>
-          <p className="text-xs text-zinc-500">Autonomous scheduled tasks, briefings, and background AI agents.</p>
+    <div className="h-full min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(28px+env(safe-area-inset-bottom))] pt-6 sm:px-8">
+      <div className="mx-auto w-full max-w-5xl">
+        <div className="mb-6 flex flex-col gap-3 border-b border-white/[.06] pb-5 sm:flex-row sm:items-end sm:justify-between">
+          <div><p className="mb-2 text-[10px] font-semibold uppercase tracking-[.18em] text-zinc-600">Workspace</p><h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Automations</h1><p className="mt-1 text-sm text-zinc-500">Schedule AI tasks and review their results here.</p></div>
+          <button type="button" onClick={() => setFormOpen((open) => !open)} className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl bg-white px-4 text-xs font-semibold text-black hover:bg-zinc-200 sm:self-auto"><Plus size={14}/>{formOpen ? 'Close form' : 'New scheduled task'}</button>
         </div>
-        <button
-          onClick={() => alert('Custom trigger creation available in next workspace build.')}
-          className="flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3.5 py-2 text-xs font-semibold text-black hover:bg-white transition-all shadow-sm"
-        >
-          <Sparkles size={13} />
-          <span>New automation</span>
-        </button>
-      </div>
 
-      <div className="mt-6 space-y-3">
-        {automations.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-center justify-between p-4 rounded-2xl border border-white/[.07] bg-[#0c0c0e] hover:border-white/[.15] transition-all"
-          >
-            <div className="min-w-0 pr-4">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-zinc-200">{item.title}</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[.06] text-zinc-400">
-                  {item.model}
-                </span>
-              </div>
-              <p className="text-xs text-zinc-400 mt-1 font-light">{item.description}</p>
-              <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-500 font-mono">
-                <span>⏱️ {item.schedule}</span>
-              </div>
+        {notice && <p role="status" className="mb-4 rounded-xl border border-white/[.08] bg-white/[.03] px-3 py-2.5 text-xs text-zinc-300">{notice}</p>}
+
+        {formOpen && <section className="mb-6 rounded-2xl border border-white/[.08] bg-[#0b0b0d] p-4 sm:p-5">
+          <div className="mb-4"><h2 className="text-sm font-semibold text-zinc-100">Create a scheduled task</h2><p className="mt-1 text-xs text-zinc-500">Tell ZenixMind what to do and when to run it.</p></div>
+          <form onSubmit={(event) => void createTask(event)} className="space-y-4">
+            <label className="block"><span className="mb-1.5 block text-[11px] font-medium text-zinc-400">Task name</span><input value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={80} placeholder="e.g. Morning technology briefing" className="w-full rounded-xl border border-white/[.08] bg-[#101013] px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-700 focus:border-white/[.2]"/></label>
+            <label className="block"><span className="mb-1.5 block text-[11px] font-medium text-zinc-400">Instructions</span><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} required maxLength={4000} rows={4} placeholder="Describe exactly what ZenixMind should prepare or analyze each time this task runs." className="w-full resize-y rounded-xl border border-white/[.08] bg-[#101013] px-3 py-2.5 text-sm leading-6 text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-white/[.2]"/></label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block"><span className="mb-1.5 block text-[11px] font-medium text-zinc-400">Repeat</span><select value={frequency} onChange={(event) => setFrequency(event.target.value as typeof frequency)} className="w-full rounded-xl border border-white/[.08] bg-[#101013] px-3 py-2.5 text-xs text-zinc-200"><option value="daily">Every day</option><option value="weekly">Every week</option><option value="monthly">Every month</option><option value="once">One time</option></select></label>
+              {frequency === 'once' ? <label className="block"><span className="mb-1.5 block text-[11px] font-medium text-zinc-400">Run date and time</span><input type="datetime-local" value={runAt} onChange={(event) => setRunAt(event.target.value)} required className="w-full rounded-xl border border-white/[.08] bg-[#101013] px-3 py-2.5 text-xs text-zinc-200"/></label> : <label className="block"><span className="mb-1.5 block text-[11px] font-medium text-zinc-400">Run time</span><input type="time" value={time} onChange={(event) => setTime(event.target.value)} required className="w-full rounded-xl border border-white/[.08] bg-[#101013] px-3 py-2.5 text-xs text-zinc-200"/></label>}
+              {frequency === 'weekly' && <label className="block"><span className="mb-1.5 block text-[11px] font-medium text-zinc-400">Day of week</span><select value={weekday} onChange={(event) => setWeekday(event.target.value)} className="w-full rounded-xl border border-white/[.08] bg-[#101013] px-3 py-2.5 text-xs text-zinc-200"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select></label>}
+              {frequency === 'monthly' && <label className="block"><span className="mb-1.5 block text-[11px] font-medium text-zinc-400">Day of month</span><select value={monthDay} onChange={(event) => setMonthDay(event.target.value)} className="w-full rounded-xl border border-white/[.08] bg-[#101013] px-3 py-2.5 text-xs text-zinc-200">{Array.from({ length: 28 }, (_, index) => index + 1).map((day) => <option key={day} value={day}>{day}{day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th'}</option>)}</select></label>}
+              <label className="block"><span className="mb-1.5 block text-[11px] font-medium text-zinc-400">Timezone</span><input value={timezone} onChange={(event) => setTimezone(event.target.value)} required maxLength={100} placeholder="Africa/Lagos" className="w-full rounded-xl border border-white/[.08] bg-[#101013] px-3 py-2.5 text-xs text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-white/[.2]"/></label>
             </div>
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-white/[.07] bg-white/[.02] p-3"><input type="checkbox" checked={webSearch} onChange={(event) => setWebSearch(event.target.checked)} className="mt-0.5 h-4 w-4 accent-white"/><span><span className="block text-xs font-medium text-zinc-200">Use Online Search</span><span className="mt-0.5 block text-[10px] leading-4 text-zinc-500">Allow the task to gather current web sources when it runs.</span></span></label>
+            <p className="text-[10px] leading-4 text-zinc-600">Tasks run using the selected timezone. Vercel Hobby schedules may include up to 15 minutes of timing variation.</p>
+            <div className="flex flex-col-reverse gap-2 border-t border-white/[.06] pt-4 sm:flex-row sm:justify-end"><button type="button" onClick={() => setFormOpen(false)} className="rounded-xl border border-white/[.1] px-4 py-2.5 text-xs text-zinc-300 hover:bg-white/[.05]">Cancel</button><button type="submit" disabled={busyId === 'create' || !title.trim() || !prompt.trim()} className="rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-black hover:bg-zinc-200 disabled:opacity-40">{busyId === 'create' ? 'Creating…' : 'Create task'}</button></div>
+          </form>
+        </section>}
 
-            <label className="relative inline-flex cursor-pointer items-center shrink-0">
-              <input
-                type="checkbox"
-                checked={item.enabled}
-                onChange={() => toggleAutomation(item.id)}
-                className="peer sr-only"
-              />
-              <div className="peer h-6 w-11 rounded-full bg-[#202024] after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-zinc-400 after:transition-all after:content-[''] peer-checked:bg-amber-400 peer-checked:after:translate-x-full peer-checked:after:bg-black"></div>
-            </label>
-          </div>
-        ))}
+        {loading ? <div className="rounded-2xl border border-white/[.07] bg-[#0b0b0d] p-8 text-center text-xs text-zinc-500">Loading scheduled tasks…</div> : automations.length === 0 ? <div className="rounded-2xl border border-dashed border-white/[.1] bg-[#0b0b0d] px-5 py-12 text-center"><Sparkles size={25} className="mx-auto mb-3 text-zinc-600"/><h2 className="text-sm font-medium text-zinc-200">No scheduled tasks yet</h2><p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-zinc-500">Create a daily briefing, a weekly research report, or a one-time task. Results will be saved here.</p></div> : <div className="space-y-3">
+          {automations.map((item) => {
+            const itemRuns = runs.filter((run) => run.automation_id === item.id).slice(0, 5);
+            const completed = Boolean(item.completed_at);
+            return <article key={item.id} className="rounded-2xl border border-white/[.07] bg-[#0b0b0d] p-4 transition-colors hover:border-white/[.12] sm:p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2"><h2 className="text-sm font-semibold text-zinc-100">{item.title}</h2><span className={`rounded-full px-2 py-0.5 text-[10px] ${completed ? 'bg-white/[.06] text-zinc-500' : item.enabled ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/[.06] text-zinc-500'}`}>{completed ? 'Completed' : item.enabled ? 'Active' : 'Paused'}</span>{item.web_search && <span className="rounded-full bg-white/[.05] px-2 py-0.5 text-[10px] text-zinc-400">Online Search</span>}</div>
+                  <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-zinc-400">{item.prompt}</p>
+                  <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-zinc-600"><span>{item.schedule_label}</span><span>{item.timezone}</span>{item.last_run_at && <span>Last run {new Date(item.last_run_at).toLocaleString()}</span>}</div>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                  <button type="button" disabled={busyId === item.id || completed} onClick={() => void runTask(item)} className="rounded-xl bg-white px-3 py-2 text-[11px] font-semibold text-black hover:bg-zinc-200 disabled:opacity-40">{busyId === item.id ? 'Working…' : 'Run now'}</button>
+                  {!completed && <button type="button" disabled={busyId === item.id} onClick={() => void toggleTask(item)} className="rounded-xl border border-white/[.1] px-3 py-2 text-[11px] text-zinc-300 hover:bg-white/[.05] disabled:opacity-40">{item.enabled ? 'Pause' : 'Resume'}</button>}
+                  <button type="button" disabled={busyId === item.id} onClick={() => void deleteTask(item)} className="rounded-xl border border-red-500/20 px-3 py-2 text-[11px] text-red-300 hover:bg-red-500/10 disabled:opacity-40">Delete</button>
+                </div>
+              </div>
+              <details className="mt-4 border-t border-white/[.06] pt-3">
+                <summary className="cursor-pointer list-none text-[11px] font-medium text-zinc-400">Run history <span className="ml-1 text-zinc-600">({itemRuns.length})</span></summary>
+                {itemRuns.length ? <div className="mt-3 space-y-3">{itemRuns.map((run) => <div key={run.id} className="rounded-xl bg-white/[.025] p-3"><div className="flex flex-wrap items-center justify-between gap-2"><span className={`text-[10px] font-medium ${run.status === 'completed' ? 'text-emerald-300' : run.status === 'failed' ? 'text-red-300' : 'text-amber-300'}`}>{run.status === 'completed' ? 'Completed' : run.status === 'failed' ? 'Failed' : 'Running'} · {run.trigger_type === 'manual' ? 'Manual run' : 'Scheduled run'}</span><span className="text-[10px] text-zinc-600">{new Date(run.created_at).toLocaleString()}</span></div>{run.error && <p className="mt-2 text-[11px] text-red-300">{run.error}</p>}{run.output && <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-zinc-300">{run.output.slice(0, 12000)}</pre>}</div>)}</div> : <p className="mt-3 text-[10px] text-zinc-600">No runs yet. Choose Run now to test this task.</p>}
+              </details>
+            </article>;
+          })}
+        </div>}
       </div>
     </div>
   );
@@ -2801,7 +2920,7 @@ export function AssistantPage() {
         {projectId && !projectChatId && <ProjectView projectId={projectId} userId={user?.id} onDeleted={handleProjectDeleted} />}
         {!projectId && view === 'images' && <ImagesView />}
         {!projectId && view === 'library' && <LibraryView />}
-        {!projectId && view === 'automations' && <AutomationsView />}
+        {!projectId && view === 'automations' && <AutomationsView userId={user?.id} />}
         {!projectId && view === 'projects' && <ProjectsView userId={user?.id} />}
 
         {(!projectId || projectChatId) && view === 'chat' && (
