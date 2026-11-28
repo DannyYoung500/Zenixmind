@@ -19,6 +19,7 @@ test('project management supports private creation, editing, and assigning exist
   assert.match(assistant, /\.from\('conversations'\)/);
   assert.match(assistant, /project_id: projectId/);
   assert.match(assistant, /Project instructions/);
+  assert.match(read('../api/_lib/zenix-system-prompt.ts'), /Projects group related conversations/);
 });
 
 test('project conversations are linked in the database and remain owner-scoped', () => {
