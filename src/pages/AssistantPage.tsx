@@ -1692,7 +1692,6 @@ function AutomationsView({ userId }: { userId?: string }) {
       if (!response.ok) throw new Error(payload.error || 'Unable to load scheduled tasks.');
       setAutomations(payload.automations || []);
       setRuns(payload.runs || []);
-      setNotice('');
     } catch (error: any) {
       setNotice(error?.message || 'Unable to load scheduled tasks.');
     } finally {
