@@ -520,9 +520,9 @@ export const CompactFloatingComposer = React.forwardRef<
         {dictationError && <p role="alert" className="mb-2 px-2 text-[11px] text-rose-300">{dictationError}</p>}
 
         {/* Bottom Actions Row */}
-        <div className="flex items-center justify-between pt-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5">
           {/* Left: Attachments and optional tools */}
-          <div className="flex items-center gap-2 relative">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 relative">
             {/* Plus Button with Menu */}
             <div ref={plusRef} className="relative">
               <button type="button" onClick={() => setPlusMenuOpen((prev) => !prev)}
@@ -560,11 +560,6 @@ export const CompactFloatingComposer = React.forwardRef<
             </div>
 
             {/* Indicator tags if Web Search or Deep Reasoning is active */}
-            {webSearch && (
-              <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 text-[10px] text-cyan-300">
-                <Globe size={10} /> Search
-              </span>
-            )}
             {deepThink && (
               <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 text-[10px] text-purple-300">
                 <Brain size={10} /> Reasoning
