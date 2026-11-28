@@ -35,7 +35,7 @@ export function decryptIntegrationToken(value: string) {
 
 function callbackUrl() {
   const origin = (process.env.APP_URL || 'https://zenixmind.vercel.app').replace(/\/$/, '');
-  return new URL('/api/chat?action=connected-tools-callback', origin).toString();
+  return new URL('/api/connected-tools/callback', origin).toString();
 }
 
 function redirectCallback(res: any, status: 'success' | 'error', reason = '') {
