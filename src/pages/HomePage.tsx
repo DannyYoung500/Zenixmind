@@ -11,6 +11,7 @@ function LandingComposer() {
   const [selectedModel, setSelectedModel] = React.useState('zenix-auto');
   const [webSearch, setWebSearch] = React.useState(false);
   const [deepThink, setDeepThink] = React.useState(false);
+  const [deepResearch, setDeepResearch] = React.useState(false);
   const [isListening, setIsListening] = React.useState(false);
   const [attachmentName, setAttachmentName] = React.useState('');
 
@@ -24,8 +25,9 @@ function LandingComposer() {
     if (selectedModel) params.set('model', selectedModel);
     if (webSearch) params.set('webSearch', '1');
     if (deepThink) params.set('deepThink', '1');
+    if (deepResearch) params.set('deepResearch', '1');
     navigate(`/assistant?${params.toString()}`);
-  }, [value, selectedModel, webSearch, deepThink, navigate]);
+  }, [value, selectedModel, webSearch, deepThink, deepResearch, navigate]);
 
   return (
     <CompactFloatingComposer
@@ -41,6 +43,8 @@ function LandingComposer() {
       setWebSearch={setWebSearch}
       deepThink={deepThink}
       setDeepThink={setDeepThink}
+      deepResearch={deepResearch}
+      setDeepResearch={setDeepResearch}
       onDictate={() => {
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognition) {
