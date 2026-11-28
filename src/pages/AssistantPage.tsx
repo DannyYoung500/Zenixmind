@@ -2300,11 +2300,11 @@ export function AssistantPage() {
         let activeConversationId = conversationId;
         if (activeConversationId) {
           const { data: existingConversation, error: conversationError } = await supabase.from('conversations')
-            .select('id').eq('id', activeConversationId).eq('user_id', user.id).maybeSingle();
+            .select('id,project_id').eq('id', activeConversationId).eq('user_id', user.id).maybeSingle();
           if (conversationError || !existingConversation) throw new Error('This conversation could not be verified. Start a new chat and try again.');
         } else {
           const { data: createdConversation, error: createError } = await supabase.from('conversations')
-            .insert({ user_id: user.id, title: cleanImagePrompt.slice(0, 64), model: selectedModel }).select('id').single();
+            .insert({ user_id: user.id, title: cleanImagePrompt.slice(0, 64), model: selectedModel, project_id: activeProjectId }).select('id').single();
           if (createError || !createdConversation) throw new Error('Could not create a conversation for this image.');
           activeConversationId = createdConversation.id;
           setConversationId(activeConversationId);
