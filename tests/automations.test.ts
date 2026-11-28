@@ -44,13 +44,18 @@ test('Automations is backed by durable schedules, queue processing, and owner-sc
   assert.match(view, /function AutomationsView\(\{ userId \}/);
   assert.match(view, /\/api\/automations/);
   assert.match(view, /Run now/);
+  assert.match(view, /frequency === 'monthly'/);
+  assert.match(view, /Run history/);
+  assert.doesNotMatch(view, /Morning AI Briefing|Repository Architecture Audit|Grok 3/);
   assert.match(read('../api/_lib/zenix-system-prompt.ts'), /Automations let users create daily, weekly, monthly, or one-time AI tasks/);
   assert.match(api, /SchedulesClient/);
   assert.match(api, /getVercelOidcToken/);
+  assert.match(api, /\.eq\('user_id', user\.id\)/);
   assert.match(api, /send\(AUTOMATION_TOPIC/);
   assert.match(worker, /handleNodeCallback/);
   assert.match(worker, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(worker, /automation_runs/);
+  assert.match(worker, /\.eq\('user_id', userId\)/);
   assert.match(config, /queue\/v2beta/);
   assert.match(config, /zenixmind-automations/);
   assert.match(migration, /enable row level security/);
