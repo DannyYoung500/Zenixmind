@@ -22,7 +22,7 @@ test('project management supports private creation, editing, and assigning exist
 });
 
 test('project conversations are linked in the database and remain owner-scoped', () => {
-  const migration = read('../supabase/migrations/20261128100000_add_project_chat_link.sql');
+  const migration = read('../supabase/migrations/20261128061940_add_project_chat_link.sql');
   const stream = read('../api/chat/stream.ts');
   const store = read('../api/_lib/chat-store.ts');
   assert.match(migration, /foreign key \(project_id, user_id\)/);
