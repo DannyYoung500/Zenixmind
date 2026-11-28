@@ -179,6 +179,7 @@ test('chat workspace exposes real conversation actions and labels unsupported ac
   assert.match(workspaceShell, /Add to project/);
   assert.match(workspaceShell, /Plugins/);
   assert.match(workspaceShell, /Coming soon/);
+  assert.match(workspaceShell, /navigate\(`\/assistant\?view=projects&conversation=/);
   assert.match(workspaceShell, /zenixmind_pinned_conversations/);
   assert.match(workspaceShell, /zenixmind_archived_conversations/);
 });
