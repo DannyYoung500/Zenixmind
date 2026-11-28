@@ -220,8 +220,8 @@ export const CompactFloatingComposer = React.forwardRef<
           aria-label="Message"
         />
 
-        <div className="mt-3 flex min-h-10 items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <div className="mt-3 flex min-h-10 flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
             <div className="relative" ref={plusRef}>
               <button
                 type="button"
