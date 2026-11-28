@@ -201,11 +201,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try { task = await findAutomation(supabase, user.id, id); }
     catch { return res.status(500).json({ error: 'Unable to load this scheduled task.', code: 'AUTOMATION_LOOKUP_FAILED' }); }
     if (!task) return res.status(404).json({ error: 'Scheduled task not found.', code: 'AUTOMATION_NOT_FOUND' });
-    if (!task.completed_at) {
-      try {
-        const schedules = await getSchedulesClient();
-        await schedules.delete({ name: task.schedule_name, namespace: user.id });
-      } catch (error: any) {
+    try {
+      const schedules = await getSchedulesClient();
+      await schedules.delete({ name: task.schedule_name, namespace: user.id });
+    } catch (error: any) {
+      const scheduleCode = String(error?.code || error?.message || '');
+      const alreadyDispatchedOneTime = Boolean(task.completed_at) && (scheduleCode.includes('schedule_single_at_passed') || scheduleCode.includes('not_found'));
+      if (!alreadyDispatchedOneTime) {
         console.error('[automations] schedule delete failed', error?.message || 'Vercel Schedules unavailable');
         return res.status(503).json({ error: 'The schedule could not be cancelled. The task was kept so it will not become an orphaned schedule.', code: 'AUTOMATION_DELETE_FAILED' });
       }
