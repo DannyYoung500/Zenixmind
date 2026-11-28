@@ -40,7 +40,7 @@ test('offline service worker caches only the public fallback and never intercept
 
 test('Library uses the available workspace viewport instead of forcing a full-screen minimum height', () => {
   const libraryStart = assistant.indexOf('function LibraryView()');
-  const libraryEnd = assistant.indexOf('\nfunction AutomationsView()', libraryStart);
+  const libraryEnd = assistant.indexOf('\nfunction AutomationsView(', libraryStart);
   assert.ok(libraryStart >= 0 && libraryEnd > libraryStart, 'LibraryView should be a distinct component');
   const libraryView = assistant.slice(libraryStart, libraryEnd);
   assert.match(libraryView, /className="h-full min-h-0 overflow-y-auto/);
