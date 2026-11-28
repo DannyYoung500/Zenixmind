@@ -5,14 +5,6 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/automations-worker",
-      "destination": "/api/automations-worker"
-    },
-    {
-      "source": "/api/automations",
-      "destination": "/api/automations"
-    },
-    {
       "source": "/api/generate-image",
       "destination": "/api/generate-image"
     },
@@ -62,7 +54,7 @@
     }
   ],
   "functions": {
-    "api/automations-worker.ts": {
+    "api/status.ts": {
       "maxDuration": 60,
       "experimentalTriggers": [
         {
