@@ -39,6 +39,7 @@ test('Automations is backed by durable schedules, queue processing, and owner-sc
   const worker = read('../api/automations-worker.ts');
   const config = read('../vercel.json');
   const migration = read('../supabase/migrations/20261128063235_create_automations_and_runs.sql');
+  const completionMigration = read('../supabase/migrations/20261128063448_add_automation_completion_state.sql');
   const pkg = read('../package.json');
   assert.match(view, /function AutomationsView\(\{ userId \}/);
   assert.match(view, /\/api\/automations/);
@@ -54,6 +55,7 @@ test('Automations is backed by durable schedules, queue processing, and owner-sc
   assert.match(config, /zenixmind-automations/);
   assert.match(migration, /enable row level security/);
   assert.match(migration, /automation_runs_owner_fkey/);
+  assert.match(completionMigration, /add column completed_at timestamptz/);
   assert.match(pkg, /"@vercel\/schedules": "0.0.3"/);
   assert.match(pkg, /"@vercel\/queue": "0.11.0"/);
   assert.match(pkg, /"@vercel\/oidc": "5.0.0"/);
