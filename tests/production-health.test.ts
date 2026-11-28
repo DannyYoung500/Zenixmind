@@ -95,7 +95,7 @@ test('conversation menus and delete confirmation remain fully usable on short mo
   assert.match(shell, /max-h-\[calc\(100dvh-2rem\)\].*overflow-y-auto/);
   assert.match(shell, /overscroll-contain/);
   assert.match(shell, /safe-area-inset-bottom/);
-  assert.match(shell, /window\\.innerHeight - height - 16/);
+  assert.match(shell, /window\.innerHeight - height - 16/);
 });
 
 test('composer attachment and action controls stay aligned and can wrap on narrow screens', () => {
