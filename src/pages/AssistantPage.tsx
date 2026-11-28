@@ -1896,7 +1896,7 @@ function ProjectView({ projectId, userId, onDeleted }: { projectId: string; user
     const byId = new Map(files.map((file) => [file.id, file]));
     setProjectFiles(links.flatMap((link) => {
       const file = byId.get(link.library_item_id);
-      return file ? [{ ...link, ...file }] : [];
+      return file ? [{ ...file, ...link }] : [];
     }));
     const linkedIds = new Set(links.map((link) => link.library_item_id));
     setAvailableFiles(files.filter((file) => !linkedIds.has(file.id)));
