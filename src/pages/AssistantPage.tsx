@@ -273,7 +273,7 @@ function SettingsModal({ onClose, onClearChats, webSearch, onWebSearchChange, de
                 <select value={deepThink ? 'deep' : 'quick'} onChange={(e) => onDeepThinkChange(e.target.value === 'deep')} className="shrink-0 rounded-xl border border-white/[.08] bg-[#17171a] px-3 py-2 text-xs text-zinc-200"><option value="quick">Quick</option><option value="deep">Think harder</option></select>
               </div>
               <div className="mt-3 flex items-center justify-between gap-4">
-                <div className="min-w-0"><p className="text-xs font-medium text-zinc-200">Temporary Chat</p><p className="mt-1 text-[11px] text-zinc-500">Do not save new messages to chat history while this is enabled.</p></div>
+                <div className="min-w-0"><p className="text-xs font-medium text-zinc-200">Temporary Chat</p><p className="mt-1 text-[11px] text-zinc-500">Do not save new messages or chat attachments to history or My stuff while this is enabled.</p></div>
                 <button type="button" role="switch" aria-checked={temporaryChat} onClick={() => onTemporaryChatChange(!temporaryChat)} className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${temporaryChat ? 'bg-cyan-500' : 'bg-zinc-700'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${temporaryChat ? 'translate-x-[22px]' : 'translate-x-0.5'}`} /></button>
               </div>
             </section>
@@ -2229,8 +2229,8 @@ export function AssistantPage() {
       try {
         attachmentPayload = await prepareAttachment(attachedFile);
 
-        // Keep chat attachments available in the user's persistent Library.
-        if (user?.id) {
+        // Persistent Library storage is intentionally disabled in Temporary Chat.
+        if (!temporaryChat && user?.id) {
           try {
             const safeName = attachedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
             const storagePath = `${user.id}/${crypto.randomUUID()}-${safeName}`;
