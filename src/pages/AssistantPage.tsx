@@ -2302,6 +2302,11 @@ export function AssistantPage() {
           const { data: existingConversation, error: conversationError } = await supabase.from('conversations')
             .select('id,project_id').eq('id', activeConversationId).eq('user_id', user.id).maybeSingle();
           if (conversationError || !existingConversation) throw new Error('This conversation could not be verified. Start a new chat and try again.');
+          if (activeProjectId && existingConversation.project_id && existingConversation.project_id !== activeProjectId) throw new Error('This conversation belongs to a different project.');
+          if (activeProjectId && !existingConversation.project_id) {
+            const { error: projectAssignError } = await supabase.from('conversations').update({ project_id: activeProjectId }).eq('id', activeConversationId).eq('user_id', user.id);
+            if (projectAssignError) throw new Error('This conversation could not be added to the project.');
+          }
         } else {
           const { data: createdConversation, error: createError } = await supabase.from('conversations')
             .insert({ user_id: user.id, title: cleanImagePrompt.slice(0, 64), model: selectedModel, project_id: activeProjectId }).select('id').single();
@@ -2716,7 +2721,7 @@ export function AssistantPage() {
 
   return (
     <WorkspaceShell
-      active={projectId || view === 'projects' ? 'projects' : view}
+      active={projectId || projectChatId || view === 'projects' ? 'projects' : view}
       title={
         projectId
           ? 'Project'
