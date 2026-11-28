@@ -48,7 +48,8 @@ import {
   Star,
   HardDrive,
   Info,
-  MoreVertical
+  MoreVertical,
+  MessageSquare
 } from 'lucide-react';
 
 
