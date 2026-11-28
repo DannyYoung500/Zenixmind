@@ -39,6 +39,7 @@ test('Automations is backed by durable schedules, queue processing, and owner-sc
   const api = read('../api/_lib/automations-handler.ts');
   const worker = read('../api/_lib/automation-worker.ts');
   const queueConsumer = read('../api/status.ts');
+  const statusHandler = read('../api/_lib/status-handler.ts');
   const config = read('../vercel.json');
   const migration = read('../supabase/migrations/20261128063235_create_automations_and_runs.sql');
   const completionMigration = read('../supabase/migrations/20261128063448_add_automation_completion_state.sql');
@@ -46,6 +47,8 @@ test('Automations is backed by durable schedules, queue processing, and owner-sc
   assert.match(view, /function AutomationsView\(\{ userId \}/);
   assert.match(view, /\/api\/chat\?action=automations/);
   assert.match(chatRouter, /handleAutomationsRequest/);
+  assert.match(chatRouter, /handleStatusRequest/);
+  assert.match(statusHandler, /status endpoint/);
   assert.match(view, /Run now/);
   assert.match(view, /frequency === 'monthly'/);
   assert.match(view, /Run history/);
@@ -61,6 +64,7 @@ test('Automations is backed by durable schedules, queue processing, and owner-sc
   assert.match(worker, /\.eq\('user_id', userId\)/);
   assert.match(config, /queue\/v2beta/);
   assert.match(config, /zenixmind-automations/);
+  assert.match(config, /\/api\/chat\?action=status/);
   assert.match(migration, /enable row level security/);
   assert.match(migration, /automation_runs_owner_fkey/);
   assert.match(completionMigration, /add column completed_at timestamptz/);
