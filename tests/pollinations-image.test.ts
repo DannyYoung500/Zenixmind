@@ -163,7 +163,7 @@ test('stream API applies command instructions server-side and accepts a bounded 
   assert.match(source, /getChatCommandInstruction\(body\.command\)/);
   assert.match(source, /body\.searchQuery\.trim\(\)\.slice\(0, 4000\)/);
   assert.match(source, /body\.research === true/);
-  assert.match(source, /streamTavilyResearch\(searchQuery/);
+  assert.match(source, /streamTavilyResearch\(\[/);
   assert.match(source, /appendWebSourceReferences\(assistantText, sources\)/);
   assert.match(source, /validateChatMessages\(body\.messages\)/);
 });
@@ -175,7 +175,7 @@ test('deep research command is routed to Tavily rather than the Groq quick-answe
   assert.match(source, /research: requestDeepResearch/);
   const api = readFileSync(fileURLToPath(new URL('../api/chat/stream.ts', import.meta.url)), 'utf8');
   assert.match(api, /if \(researchRequested\)/);
-  assert.match(api, /streamTavilyResearch\(searchQuery/);
+  assert.match(api, /streamTavilyResearch\(\[/);
   assert.match(api, /onSources: \(researchSources\)/);
 });
 
