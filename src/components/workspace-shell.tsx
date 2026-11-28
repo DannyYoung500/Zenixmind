@@ -156,7 +156,7 @@ export function WorkspaceShell({
   };
 
   const chatMenuItems = (id: string | null, close: () => void) => (
-    <div role="menu" aria-label="Conversation options" className="w-[min(290px,calc(100vw-1.5rem))] rounded-2xl border border-white/[.1] bg-[#202023] p-1.5 shadow-[0_18px_55px_rgba(0,0,0,.6)]">
+    <div role="menu" aria-label="Conversation options" className="max-h-[calc(100dvh-2rem)] w-[min(290px,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-2xl border border-white/[.1] bg-[#202023] p-1.5 shadow-[0_18px_55px_rgba(0,0,0,.6)]">
       <button type="button" role="menuitem" onClick={() => void handleShare(id)} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40">
         <Share2 size={16} className="text-zinc-400" /> Share
       </button>
@@ -261,7 +261,7 @@ export function WorkspaceShell({
                     if (sidebarMenuId === conversation.id) { setSidebarMenuId(null); setSidebarMenuPosition(null); return; }
                     const rect = e.currentTarget.getBoundingClientRect();
                     const width = Math.min(290, window.innerWidth - 24);
-                    const height = Math.min(440, window.innerHeight * 0.7);
+                    const height = Math.min(440, window.innerHeight - 32);
                     setSidebarMenuPosition({
                       top: Math.max(16, Math.min(rect.bottom + 8, window.innerHeight - height - 16)),
                       left: Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12))
@@ -318,7 +318,7 @@ export function WorkspaceShell({
       )}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-[125] grid place-items-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm" onClick={() => setDeleteConfirmId(null)}>
-          <section role="alertdialog" aria-modal="true" aria-labelledby="delete-chat-title" aria-describedby="delete-chat-description" className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-white/[.1] bg-[#171719] p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+          <section role="alertdialog" aria-modal="true" aria-labelledby="delete-chat-title" aria-describedby="delete-chat-description" className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl border border-white/[.1] bg-[#171719] p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10 text-red-300"><Trash2 size={18}/></div>
             <h2 id="delete-chat-title" className="text-base font-semibold text-white">Delete this chat?</h2>
             <p id="delete-chat-description" className="mt-2 text-sm leading-6 text-zinc-400">This conversation will be permanently deleted. This action cannot be undone.</p>
