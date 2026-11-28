@@ -36,10 +36,10 @@ export default queue.handleNodeCallback(async (message: AutomationQueueMessage |
 
   const supabase = getServiceSupabase();
   const { data: task, error: taskError } = await supabase.from('automations')
-    .select('id,user_id,title,prompt,frequency,enabled,web_search')
+    .select('id,user_id,title,prompt,frequency,enabled,web_search,completed_at')
     .eq('id', automationId).eq('user_id', userId).maybeSingle();
   if (taskError) throw taskError;
-  if (!task || (!task.enabled && !manual)) return;
+  if (!task || task.completed_at || (!task.enabled && !manual)) return;
 
   const scheduledAt = normalizeScheduledAt(envelope?.scheduledAt || metadata?.createdAt);
   const triggerType = manual ? 'manual' : 'scheduled';
@@ -122,7 +122,7 @@ Produce the actual requested result. If the task asks for a report or briefing, 
     if (runUpdateError) throw runUpdateError;
 
     const update: Record<string, unknown> = { last_run_at: completedAt, updated_at: completedAt };
-    if (task.frequency === 'once') update.enabled = false;
+    if (task.frequency === 'once' && !manual) { update.enabled = false; update.completed_at = completedAt; }
     const { error: taskUpdateError } = await supabase.from('automations')
       .update(update).eq('id', automationId).eq('user_id', userId);
     if (taskUpdateError) throw taskUpdateError;
