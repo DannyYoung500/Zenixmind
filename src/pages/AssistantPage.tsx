@@ -603,6 +603,11 @@ export const CompactFloatingComposer = React.forwardRef<
                 <Brain size={10} /> Reasoning
               </span>
             )}
+            {deepResearch && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
+                <Globe size={10} /> Deep Research
+              </span>
+            )}
           </div>
 
           {/* Right: Dictation Mic & Adaptive Speak/Send Pill */}
