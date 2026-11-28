@@ -5,6 +5,14 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/automations-worker",
+      "destination": "/api/automations-worker"
+    },
+    {
+      "source": "/api/automations",
+      "destination": "/api/automations"
+    },
+    {
       "source": "/api/generate-image",
       "destination": "/api/generate-image"
     },
@@ -52,5 +60,16 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/automations-worker.ts": {
+      "maxDuration": 60,
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "zenixmind-automations"
+        }
+      ]
+    }
+  }
 }
