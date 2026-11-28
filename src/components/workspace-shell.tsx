@@ -153,7 +153,7 @@ export function WorkspaceShell({
         <Share2 size={16} className="text-zinc-400" /> Share
       </button>
       <button type="button" role="menuitem" onClick={() => { togglePin(id); close(); }} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40">
-        <Pin size={16} className="text-zinc-400" />{id && pinnedIds.includes(id) ? 'Unpin' : 'Pin'}
+        <Pin size={16} className="text-zinc-400" />{id && pinnedIds.includes(id) ? 'Unpin chat' : 'Pin chat'}
       </button>
       <button type="button" role="menuitem" onClick={() => { close(); const t = window.prompt('Rename chat', conversations.find(c => c.id === id)?.title || ''); if (t?.trim() && id && onRenameConversation) onRenameConversation(id, t.trim()); }} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40">
         <Edit2 size={16} className="text-zinc-400" /> Rename
