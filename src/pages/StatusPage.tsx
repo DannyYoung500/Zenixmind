@@ -23,7 +23,7 @@ export function StatusPage() {
     try {
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 8000);
-      const res = await fetch('/api/status', { cache: 'no-store', signal: controller.signal });
+      const res = await fetch('/api/chat?action=status', { cache: 'no-store', signal: controller.signal });
       window.clearTimeout(timeout);
       if (!res.ok) throw new Error(`Status endpoint returned ${res.status}`);
       const payload = await res.json();
