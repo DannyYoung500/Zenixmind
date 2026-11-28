@@ -41,6 +41,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const apiKey = process.env.GROQ_API_KEY;
   const webSearchRequested = body.webSearch === true;
   const researchRequested = body.research === true;
+  const deepThinkRequested = body.deepThink === true;
+  const preferences = body.preferences && typeof body.preferences === 'object' ? body.preferences : {};
   if (!researchRequested && !apiKey?.trim()) {
     return res.status(503).json({ error: 'Groq is not configured on the server. Add GROQ_API_KEY to the Production environment.', code: 'GROQ_NOT_CONFIGURED' });
   }
@@ -49,6 +51,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const searchQuery = requestedQuery || messages[messages.length - 1].content;
   let sources: Awaited<ReturnType<typeof searchWeb>> = [];
   let modelMessages = buildZenixMessages(messages);
+  if (deepThinkRequested) modelMessages = [...modelMessages, { role: 'system', content: 'For this response, use a deliberate problem-solving approach: identify the question, consider relevant alternatives and edge cases, verify calculations and assumptions, and produce a complete, well-structured answer with a concise conclusion. Do not reveal private chain-of-thought or claim to expose hidden reasoning; provide useful conclusions and a brief explanation of the approach.' }];
+  const customInstructions = typeof preferences.customInstructions === 'string' ? preferences.customInstructions.trim().slice(0, 4000) : '';
+  if (customInstructions) modelMessages = [...modelMessages, { role: 'system', content: `User response preferences (follow when compatible with safety and the request): ${customInstructions}` }];
+  const responseLength = typeof preferences.responseLength === 'string' ? preferences.responseLength : 'Adaptive';
+  if (['Concise', 'Detailed', 'Thorough'].includes(responseLength)) modelMessages = [...modelMessages, { role: 'system', content: `Preferred response detail: ${responseLength}.` }];
   const commandInstruction = getChatCommandInstruction(body.command);
   if (commandInstruction) modelMessages = [...modelMessages, { role: 'system', content: commandInstruction }];
   if ((webSearchRequested || researchRequested) && !searchKey?.trim()) {
@@ -116,7 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
-  sendEvent(res, { type: 'status', status: researchRequested ? 'researching' : 'thinking' });
+  sendEvent(res, { type: 'status', status: researchRequested ? 'researching' : webSearchRequested ? 'searching' : deepThinkRequested ? 'preparing' : 'thinking' });
   sendEvent(res, { type: 'meta', conversationId: conversation.id, modelUsed: researchRequested ? 'Tavily Research' : selected.id, provider: researchRequested ? 'tavily' : 'groq', research: researchRequested, sources });
 
   let assistantText = '';
@@ -134,6 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       });
     } else {
+      sendEvent(res, { type: 'status', status: 'generating' });
       for await (const text of streamGroqChatCompletion(modelMessages, selected.providerModel, apiKey!)) {
         assistantText += text;
         sendEvent(res, { type: 'delta', text });
