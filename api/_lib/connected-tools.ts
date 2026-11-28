@@ -34,10 +34,7 @@ export function decryptIntegrationToken(value: string) {
 }
 
 function callbackUrl(req: any) {
-  const forwardedHost = String(req.headers['x-forwarded-host'] || req.headers.host || '');
-  const host = forwardedHost.split(',')[0].trim();
-  const protocol = String(req.headers['x-forwarded-proto'] || (host.includes('localhost') ? 'http' : 'https')).split(',')[0].trim();
-  const origin = host ? `${protocol}://${host}` : process.env.APP_URL || 'https://zenixmind.vercel.app';
+  const origin = (process.env.APP_URL || 'https://zenixmind.vercel.app').replace(/\/$/, '');
   return new URL('/api/chat?action=connected-tools-callback', origin).toString();
 }
 
@@ -180,11 +177,16 @@ async function githubFetch(path: string) {
   return response.json() as Promise<any>;
 }
 
-export async function executeConnectedToolCommand(message: string, userId: string): Promise<{ command: string; result: string } | null> {
+export function parseConnectedToolCommand(message: string): { command: 'repos' | 'search' | 'read'; argument: string } | null {
   const match = message.trim().match(/^\/github\s+(repos|search|read)(?:\s+([\s\S]+))?$/i);
   if (!match) return null;
-  const command = match[1].toLowerCase();
-  const argument = String(match[2] || '').trim();
+  return { command: match[1].toLowerCase() as 'repos' | 'search' | 'read', argument: String(match[2] || '').trim() };
+}
+
+export async function executeConnectedToolCommand(message: string, userId: string): Promise<{ command: string; result: string } | null> {
+  const parsed = parseConnectedToolCommand(message);
+  if (!parsed) return null;
+  const { command, argument } = parsed;
   const service = getServiceSupabase();
   const { data: integration, error } = await service.from('user_integrations')
     .select('provider_username,display_name')
