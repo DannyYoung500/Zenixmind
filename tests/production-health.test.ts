@@ -98,9 +98,12 @@ test('conversation menus and delete confirmation remain fully usable on short mo
   assert.match(shell, /window\.innerHeight - height - 16/);
 });
 
-test('composer attachment and action controls stay aligned and can wrap on narrow screens', () => {
-  const composer = read('../src/components/compact-floating-composer.tsx');
-  assert.match(composer, /items-center justify-between gap-2/);
-  assert.match(composer, /flex-wrap/);
-  assert.match(composer, /shrink-0/);
+test('active chat composer keeps attachment and action controls aligned on narrow screens', () => {
+  const assistant = read('../src/pages/AssistantPage.tsx');
+  const start = assistant.indexOf('export const CompactFloatingComposer');
+  const end = assistant.indexOf('export function AssistantPage', start);
+  const composer = assistant.slice(start, end);
+  assert.match(composer, /flex flex-wrap items-center justify-between gap-2 pt-2\.5/);
+  assert.match(composer, /flex min-w-0 flex-wrap items-center gap-2 relative/);
+  assert.doesNotMatch(composer, /<span>Search<\/span>/);
 });
