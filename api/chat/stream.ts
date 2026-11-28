@@ -56,6 +56,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (customInstructions) modelMessages = [...modelMessages, { role: 'system', content: `User response preferences (follow when compatible with safety and the request): ${customInstructions}` }];
   const responseLength = typeof preferences.responseLength === 'string' ? preferences.responseLength : 'Adaptive';
   if (['Concise', 'Detailed', 'Thorough'].includes(responseLength)) modelMessages = [...modelMessages, { role: 'system', content: `Preferred response detail: ${responseLength}.` }];
+  const settingsContext = [
+    typeof preferences.personality === 'string' ? `Tone: ${preferences.personality}` : '',
+    typeof preferences.theme === 'string' ? `Appearance theme: ${preferences.theme}` : '',
+    typeof preferences.accent === 'string' ? `Accent color: ${preferences.accent}` : '',
+    typeof preferences.onlineSearch === 'boolean' ? `Online Search preference: ${preferences.onlineSearch ? 'enabled' : 'disabled'}` : '',
+    typeof preferences.memory === 'boolean' ? `Memory preference: ${preferences.memory ? 'enabled' : 'disabled'}` : '',
+    typeof body.model === 'string' ? `Selected model: ${body.model}` : ''
+  ].filter(Boolean).join('; ');
+  if (settingsContext) modelMessages = [...modelMessages, { role: 'system', content: `Current user-visible ZenixMind preferences for answering product-help questions: ${settingsContext}. These values are context only; do not change them or claim they were changed.` }];
   const commandInstruction = getChatCommandInstruction(body.command);
   if (commandInstruction) modelMessages = [...modelMessages, { role: 'system', content: commandInstruction }];
   if ((webSearchRequested || researchRequested) && !searchKey?.trim()) {
