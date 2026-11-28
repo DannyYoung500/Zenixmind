@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  MessageSquare, Image as ImageIcon, FolderClosed, Workflow, Settings,
+  MessageSquare, Image as ImageIcon, FolderClosed, FolderKanban, Workflow, Settings,
   Plus, Menu, X, LogOut, ChevronRight, CreditCard, MoreVertical, Share2, Pin, Archive, FolderInput, Search, Paperclip, Puzzle, Trash2, Edit2, Copy, ExternalLink, Bell
 } from 'lucide-react';
 import { BrandMark } from './brand-mark';
@@ -37,7 +37,7 @@ const navigation = [
   { id: 'images', label: 'Imagine', to: '/assistant?view=images', icon: ImageIcon },
   { id: 'library', label: 'My stuff', to: '/assistant?view=library', icon: FolderClosed },
   { id: 'automations', label: 'Automations', to: '/assistant?view=automations', icon: Workflow },
-  { id: 'projects', label: 'Projects', to: '/assistant?view=projects', icon: FolderClosed }
+  { id: 'projects', label: 'Projects', to: '/assistant?view=projects', icon: FolderKanban }
 ];
 
 export function WorkspaceShell({
