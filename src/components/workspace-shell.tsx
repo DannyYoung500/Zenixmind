@@ -298,7 +298,7 @@ export function WorkspaceShell({
       {mobileOpen && (
         <div className="fixed inset-0 z-[90] md:hidden">
           <button type="button" onClick={closeMobile} className="absolute inset-0 bg-black/70 backdrop-blur-sm" aria-label="Close navigation overlay" />
-          <aside className="relative h-full w-[min(84vw,300px)] border-r border-white/[.08] shadow-2xl">{sidebar}</aside>
+          <aside className="relative h-full w-full border-r border-white/[.08] shadow-2xl sm:w-[min(84vw,360px)]">{sidebar}</aside>
         </div>
       )}
       <div className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden">
