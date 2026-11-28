@@ -93,7 +93,7 @@ interface LibraryItem {
   deleted_at?: string | null;
 }
 
-function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClearChats: () => void }) {
+function SettingsModal({ onClose, onClearChats, webSearch, onWebSearchChange }: { onClose: () => void; onClearChats: () => void; webSearch: boolean; onWebSearchChange: (enabled: boolean) => void }) {
   const { user } = useAuth();
   const [memory, setMemory] = useState(() => localStorage.getItem('zenixmind-memory') !== 'off');
   const [length, setLength] = useState(() => localStorage.getItem('zenixmind-response-length') || 'Adaptive');
@@ -256,6 +256,14 @@ function SettingsModal({ onClose, onClearChats }: { onClose: () => void; onClear
                 <div className="flex items-center justify-between rounded-lg bg-[#141418] px-2.5 py-1.5 border border-white/[.04]"><span className="text-zinc-400">Toggle Deep Think</span><kbd className="font-mono bg-white/[.08] px-1.5 py-0.5 rounded text-zinc-200 text-[10px]">⌘⇧D / Ctrl+Shift+D</kbd></div>
               </div>
             </div>
+
+            <section id="settings-online-search" className="scroll-mt-5 rounded-2xl border border-white/[.07] bg-[#111114] p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0"><h3 className="text-sm font-semibold text-zinc-100">Online Search</h3><p className="mt-1 text-[11px] leading-5 text-zinc-500">Allow ZenixMind to look up current information and include source links. This requires the server search provider to be configured.</p></div>
+                <button type="button" role="switch" aria-checked={webSearch} onClick={() => onWebSearchChange(!webSearch)} className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${webSearch ? 'bg-cyan-500' : 'bg-zinc-700'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${webSearch ? 'translate-x-[22px]' : 'translate-x-0.5'}`} /></button>
+              </div>
+              <p className="mt-3 text-[10px] text-zinc-600">{webSearch ? 'Online Search is enabled for new messages.' : 'Online Search is off. You can still use explicit search commands.'}</p>
+            </section>
 
             <div id="settings-personalization" className="scroll-mt-5 divide-y divide-white/[.06] rounded-2xl border border-white/[.07] bg-[#111114] px-5">
               <div className="flex items-center justify-between py-4">
@@ -530,23 +538,6 @@ export const CompactFloatingComposer = React.forwardRef<
                   <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); fileInputRef.current?.click(); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-zinc-100 hover:bg-white/[.07]"><span className="grid h-9 w-9 place-items-center rounded-full bg-white/[.07]"><Paperclip size={18} /></span>Files</button>
                   <button type="button" role="menuitem" disabled title="Plugin tools are not yet available in chat" className="flex min-h-12 w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-zinc-500 opacity-70"><span className="grid h-9 w-9 place-items-center rounded-full bg-white/[.05]"><Blocks size={18} /></span>Plugins <span className="text-[10px] font-normal text-zinc-600">Coming soon</span></button>
                   <div className="my-2 h-px bg-white/[.07]" />
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWebSearch((v) => !v);
-                      setPlusMenuOpen(false);
-                    }}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs text-zinc-200 hover:bg-[#27272a]"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Globe size={14} className={webSearch ? 'text-cyan-400' : 'text-zinc-400'} />
-                      <span>Search web</span>
-                    </div>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${webSearch ? 'bg-cyan-500/20 text-cyan-300' : 'text-zinc-500'}`}>
-                      {webSearch ? 'ON' : 'OFF'}
-                    </span>
-                  </button>
 
                   <button
                     type="button"
@@ -1804,7 +1795,7 @@ export function AssistantPage() {
     const saved = localStorage.getItem('zenixmind_selected_model');
     return saved?.startsWith('zenix-') ? saved : 'zenix-auto';
   });
-  const [webSearch, setWebSearch] = useState(false);
+  const [webSearch, setWebSearch] = useState(() => localStorage.getItem('zenixmind-web-search') === 'on');
   const [deepThink, setDeepThink] = useState(false);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1925,7 +1916,7 @@ export function AssistantPage() {
       // Cmd+Shift+S / Ctrl+Shift+S: Toggle Web Search
       if (cmdOrCtrl && e.shiftKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        setWebSearch((prev) => !prev);
+        setWebSearch((prev) => { const next = !prev; localStorage.setItem('zenixmind-web-search', next ? 'on' : 'off'); return next; });
         return;
       }
 
@@ -2269,7 +2260,7 @@ export function AssistantPage() {
 
     setBusy(true);
     setIsStreaming(true);
-    setThinkingStatus(requestDeepResearch ? 'researching' : requestWebSearch ? 'searching' : deepThink ? 'analyzing' : 'thinking');
+    setThinkingStatus(requestDeepResearch ? 'researching' : requestWebSearch ? 'searching' : deepThink ? 'preparing' : 'thinking');
     setIsAtBottom(true);
     isAtBottomRef.current = true;
     setTimeout(() => scrollToBottom('smooth'), 20);
@@ -2598,8 +2589,10 @@ export function AssistantPage() {
                         <span>
                           {thinkingStatus === 'searching'
                             ? 'Searching'
-                            : thinkingStatus === 'analyzing'
-                            ? 'Analyzing'
+                            : thinkingStatus === 'preparing'
+                            ? 'Preparing a detailed answer'
+                            : thinkingStatus === 'generating'
+                            ? 'Writing your answer'
                             : thinkingStatus === 'writing'
                             ? 'Writing'
                             : thinkingStatus === 'researching'
@@ -2689,6 +2682,8 @@ export function AssistantPage() {
 
       {settingsOpen && (
         <SettingsModal
+          webSearch={webSearch}
+          onWebSearchChange={(enabled) => { setWebSearch(enabled); localStorage.setItem('zenixmind-web-search', enabled ? 'on' : 'off'); }}
           onClose={() => setSettingsOpen(false)}
           onClearChats={() => {
             setMessages([]);
