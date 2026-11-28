@@ -383,6 +383,8 @@ interface CompactFloatingComposerProps {
   setWebSearch: (fn: (v: boolean) => boolean) => void;
   deepThink: boolean;
   setDeepThink: (fn: (v: boolean) => boolean) => void;
+  deepResearch: boolean;
+  setDeepResearch: (fn: (v: boolean) => boolean) => void;
   onDictate: () => void;
   isListening: boolean;
   dictationError?: string;
@@ -410,6 +412,8 @@ export const CompactFloatingComposer = React.forwardRef<
     setWebSearch,
     deepThink,
     setDeepThink,
+    deepResearch,
+    setDeepResearch,
     onDictate,
     isListening,
     dictationError,
@@ -554,7 +558,6 @@ export const CompactFloatingComposer = React.forwardRef<
                   <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); cameraInputRef.current?.click(); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-zinc-100 hover:bg-white/[.07]"><span className="grid h-9 w-9 place-items-center rounded-full bg-white/[.07]"><Camera size={18} /></span>Camera</button>
                   <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); photoInputRef.current?.click(); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-zinc-100 hover:bg-white/[.07]"><span className="grid h-9 w-9 place-items-center rounded-full bg-white/[.07]"><Images size={18} /></span>Photos</button>
                   <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); fileInputRef.current?.click(); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-zinc-100 hover:bg-white/[.07]"><span className="grid h-9 w-9 place-items-center rounded-full bg-white/[.07]"><Paperclip size={18} /></span>Files</button>
-                  <button type="button" role="menuitem" disabled title="Plugin tools are not yet available in chat" className="flex min-h-12 w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-zinc-500 opacity-70"><span className="grid h-9 w-9 place-items-center rounded-full bg-white/[.05]"><Blocks size={18} /></span>Plugins <span className="text-[10px] font-normal text-zinc-600">Coming soon</span></button>
                   <div className="my-2 h-px bg-white/[.07]" />
 
                   <button
@@ -571,6 +574,23 @@ export const CompactFloatingComposer = React.forwardRef<
                     </div>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded ${deepThink ? 'bg-purple-500/20 text-purple-300' : 'text-zinc-500'}`}>
                       {deepThink ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeepResearch((v) => !v);
+                      setPlusMenuOpen(false);
+                    }}
+                    className="mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs text-zinc-200 hover:bg-[#27272a]"
+                    aria-pressed={deepResearch}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Globe size={14} className={deepResearch ? 'text-cyan-300' : 'text-zinc-400'} />
+                      <span>Deep Research</span>
+                    </div>
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] ${deepResearch ? 'bg-cyan-500/15 text-cyan-200' : 'text-zinc-500'}`}>
+                      {deepResearch ? 'ON' : 'OFF'}
                     </span>
                   </button>
                 </div>
@@ -1810,6 +1830,7 @@ export function AssistantPage() {
   });
   const [webSearch, setWebSearch] = useState(() => localStorage.getItem('zenixmind-web-search') === 'on');
   const [deepThink, setDeepThink] = useState(() => localStorage.getItem('zenixmind-default-thinking') === 'deep');
+  const [deepResearch, setDeepResearch] = useState(false);
   const [temporaryChat, setTemporaryChat] = useState(() => localStorage.getItem('zenixmind-temporary-chat') === 'on');
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -2195,7 +2216,7 @@ export function AssistantPage() {
 
     let fullPrompt = text;
     let requestWebSearch = webSearch;
-    let requestDeepResearch = false;
+    let requestDeepResearch = deepResearch;
     if (parsedCommand) {
       const command = getChatCommand(parsedCommand.command);
       if (command?.action === 'help') {
@@ -2688,6 +2709,8 @@ export function AssistantPage() {
                   setWebSearch={setWebSearch}
                   deepThink={deepThink}
                   setDeepThink={setDeepThink}
+                  deepResearch={deepResearch}
+                  setDeepResearch={setDeepResearch}
                   onDictate={handleDictation}
                   isListening={isListening}
                   dictationError={dictationError}
