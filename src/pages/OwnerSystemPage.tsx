@@ -48,7 +48,7 @@ export function OwnerSystemPage() {
       }
       setData(await res.json());
 
-      const statusRes = await fetch('/api/status', { cache: 'no-store' });
+      const statusRes = await fetch('/api/chat?action=status', { cache: 'no-store' });
       const statusBody = await statusRes.json().catch(() => ({}));
       const groqCheck = (statusBody.checks || []).find((check: any) => check.name === 'groq');
       if (groqCheck?.ok) setChatProbe('Groq key is configured · use Provider Health Check to verify authentication');
