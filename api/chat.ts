@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { resolveAvailableModel, validateChatMessages } from './_lib/model-catalog.ts';
 import { createGroqChatCompletion } from './_lib/groq-client.ts';
 import { buildZenixMessages } from './_lib/zenix-system-prompt.ts';
+import { handleAutomationsRequest } from './_lib/automations-handler.ts';
+import { handleStatusRequest } from './_lib/status-handler.ts';
 import {
   deleteConversations,
   exportConversations,
@@ -12,6 +14,10 @@ import {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
+
+  const action = String(req.query.action || '');
+  if (action === 'automations') return handleAutomationsRequest(req, res);
+  if (action === 'status') return handleStatusRequest(req, res);
 
   const context = await getChatContext(req.headers.authorization);
   if (!context) {
