@@ -159,3 +159,12 @@ test('temporary chat does not persist attached files into the private Library', 
   assert.match(assistant, /if \(!temporaryChat && user\?\.id\)/);
   assert.match(assistant, /Persistent Library storage is intentionally disabled in Temporary Chat/);
 });
+
+
+test('chat tools expose a selectable Deep Research mode separate from Think Harder', () => {
+  const assistant = read('../src/pages/AssistantPage.tsx');
+  assert.match(assistant, /Deep Research/);
+  assert.match(assistant, /setDeepResearch\(\(v\) => !v\)/);
+  assert.match(assistant, /let requestDeepResearch = deepResearch/);
+  assert.match(assistant, /research: requestDeepResearch/);
+});
