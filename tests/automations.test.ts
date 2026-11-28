@@ -35,14 +35,17 @@ test('schedule labels are clear for each recurrence type', () => {
 
 test('Automations is backed by durable schedules, queue processing, and owner-scoped data', () => {
   const view = read('../src/pages/AssistantPage.tsx');
-  const api = read('../api/automations.ts');
-  const worker = read('../api/automations-worker.ts');
+  const chatRouter = read('../api/chat.ts');
+  const api = read('../api/_lib/automations-handler.ts');
+  const worker = read('../api/_lib/automation-worker.ts');
+  const queueConsumer = read('../api/status.ts');
   const config = read('../vercel.json');
   const migration = read('../supabase/migrations/20261128063235_create_automations_and_runs.sql');
   const completionMigration = read('../supabase/migrations/20261128063448_add_automation_completion_state.sql');
   const pkg = read('../package.json');
   assert.match(view, /function AutomationsView\(\{ userId \}/);
-  assert.match(view, /\/api\/automations/);
+  assert.match(view, /\/api\/chat\?action=automations/);
+  assert.match(chatRouter, /handleAutomationsRequest/);
   assert.match(view, /Run now/);
   assert.match(view, /frequency === 'monthly'/);
   assert.match(view, /Run history/);
@@ -52,7 +55,7 @@ test('Automations is backed by durable schedules, queue processing, and owner-sc
   assert.match(api, /getVercelOidcToken/);
   assert.match(api, /\.eq\('user_id', user\.id\)/);
   assert.match(api, /send\(AUTOMATION_TOPIC/);
-  assert.match(worker, /handleNodeCallback/);
+  assert.match(queueConsumer, /handleNodeCallback/);
   assert.match(worker, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(worker, /automation_runs/);
   assert.match(worker, /\.eq\('user_id', userId\)/);
