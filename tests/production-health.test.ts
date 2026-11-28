@@ -41,3 +41,30 @@ test('chat dictation error is declared and passed through the microphone UI', ()
   assert.match(source, /const \[dictationError, setDictationError\] = useState\(''\)/);
   assert.match(source, /dictationError=\{dictationError\}/);
 });
+
+
+test('online search is controlled from Settings rather than the chat composer menu', () => {
+  const assistant = read('../src/pages/AssistantPage.tsx');
+  assert.match(assistant, /id="settings-online-search"/);
+  assert.match(assistant, /zenixmind-web-search/);
+  assert.match(assistant, /onWebSearchChange/);
+  assert.doesNotMatch(assistant, /<span>Search web<\/span>/);
+});
+
+test('Think Harder changes server instructions and uses useful progress states', () => {
+  const stream = read('../api/chat/stream.ts');
+  const assistant = read('../src/pages/AssistantPage.tsx');
+  assert.match(stream, /deepThinkRequested/);
+  assert.match(stream, /deliberate problem-solving approach/);
+  assert.match(stream, /status: 'generating'/);
+  assert.match(assistant, /Preparing a detailed answer/);
+  assert.match(assistant, /Writing your answer/);
+  assert.doesNotMatch(assistant, /thinkingStatus === 'analyzing'/);
+});
+
+test('ZenixMind system prompt documents real product settings and unavailable features', () => {
+  const prompt = read('../api/_lib/zenix-system-prompt.ts');
+  assert.match(prompt, /ZENIXMIND PRODUCT GUIDE/);
+  assert.match(prompt, /Online Search is controlled in Settings/);
+  assert.match(prompt, /do not claim a user can complete an action until the interface supports it/);
+});
