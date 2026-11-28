@@ -37,7 +37,7 @@ testCase('web results are added only to the latest user message as grounded cont
     url: 'https://example.com/report',
     snippet: 'A report summary.'
   }]);
-  assert.equal(result[0].content, 'System prompt');
-  assert.match(result[1].content, /LIVE WEB SEARCH RESULTS/);
-  assert.match(result[1].content, /https:\/\/example\.com\/report/);
+  assert.equal(String(result[0].content), 'System prompt');
+  assert.match(String(result[1].content), /LIVE WEB SEARCH RESULTS/);
+  assert.match(String(result[1].content), /https:\/\/example\.com\/report/);
 });
