@@ -45,7 +45,7 @@ export async function getChatContext(authorization?: string): Promise<ChatContex
 export async function listConversations(supabase: SupabaseClient, userId: string) {
   return supabase
     .from('conversations')
-    .select('id,title,model,created_at,updated_at')
+    .select('id,title,model,project_id,created_at,updated_at')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
     .limit(200);
