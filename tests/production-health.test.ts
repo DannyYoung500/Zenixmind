@@ -68,3 +68,13 @@ test('ZenixMind system prompt documents real product settings and unavailable fe
   assert.match(prompt, /Online Search is controlled in Settings/);
   assert.match(prompt, /do not claim a user can complete an action until the interface supports it/);
 });
+
+
+test('chat requests include current user-visible preferences so ZenixMind can explain its active settings', () => {
+  const assistant = read('../src/pages/AssistantPage.tsx');
+  const stream = read('../api/chat/stream.ts');
+  assert.match(assistant, /onlineSearch: webSearch/);
+  assert.match(assistant, /theme: localStorage.getItem\('zenixmind-theme'\)/);
+  assert.match(stream, /Current user-visible ZenixMind preferences/);
+  assert.match(stream, /Online Search preference/);
+});
