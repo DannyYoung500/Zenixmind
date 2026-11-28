@@ -3,7 +3,6 @@ import {
   ArrowUp,
   Brain,
   ChevronDown,
-  Globe,
   Mic,
   MicOff,
   Paperclip,
@@ -24,8 +23,6 @@ export interface CompactFloatingComposerProps {
   busy: boolean;
   selectedModel: string;
   onSelectModel: (modelId: string) => void;
-  webSearch: boolean;
-  setWebSearch: (fn: (v: boolean) => boolean) => void;
   deepThink: boolean;
   setDeepThink: (fn: (v: boolean) => boolean) => void;
   onDictate: () => void;
@@ -73,8 +70,6 @@ export const CompactFloatingComposer = React.forwardRef<
     busy,
     selectedModel,
     onSelectModel,
-    webSearch,
-    setWebSearch,
     deepThink,
     setDeepThink,
     onDictate,
@@ -225,14 +220,14 @@ export const CompactFloatingComposer = React.forwardRef<
           aria-label="Message"
         />
 
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1">
+        <div className="mt-3 flex min-h-10 items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
             <div className="relative" ref={plusRef}>
               <button
                 type="button"
                 onClick={() => setPlusOpen((v) => !v)}
-                className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 transition-colors hover:bg-white/[.06] hover:text-zinc-100"
-                aria-label="Add"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/[.09] bg-white/[.035] text-zinc-300 transition-colors hover:bg-white/[.08] hover:text-white"
+                aria-label="Attach file"
                 title="Add"
               >
                 <Plus size={18} />
@@ -289,21 +284,6 @@ export const CompactFloatingComposer = React.forwardRef<
 
             <button
               type="button"
-              onClick={() => setWebSearch((v) => !v)}
-              className={`inline-flex h-9 items-center gap-1 rounded-full px-2.5 text-xs transition-colors ${
-                webSearch
-                  ? 'bg-white/[.1] text-white'
-                  : 'text-zinc-500 hover:bg-white/[.06] hover:text-zinc-200'
-              }`}
-              title="Web search"
-              aria-pressed={webSearch}
-            >
-              <Globe size={14} />
-              <span className="hidden sm:inline">Search</span>
-            </button>
-
-            <button
-              type="button"
               onClick={() => setDeepThink((v) => !v)}
               className={`inline-flex h-9 items-center gap-1 rounded-full px-2.5 text-xs transition-colors ${
                 deepThink
@@ -318,7 +298,7 @@ export const CompactFloatingComposer = React.forwardRef<
             </button>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5 self-center">
             <button
               type="button"
               onClick={onDictate}
