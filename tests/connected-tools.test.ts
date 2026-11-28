@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8');
+process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY = 'test-only-integration-encryption-key-with-more-than-32-chars';
+const { encryptIntegrationToken, decryptIntegrationToken, parseConnectedToolCommand } = await import('../api/_lib/connected-tools.ts');
 const migration = read('../supabase/migrations/20261129090000_connected_tools.sql');
 const api = read('../api/_lib/connected-tools.ts');
 const router = read('../api/chat.ts');
@@ -22,7 +24,7 @@ test('connected tool tokens are isolated from browser-readable integration metad
 });
 
 test('GitHub OAuth uses least-privilege read-only identity scope and encrypted token storage', () => {
-  assert.match(api, /scope=read%3Auser/);
+  assert.match(api, /searchParams\.set\('scope', 'read:user'\)/);
   assert.match(api, /aes-256-gcm/);
   assert.match(api, /createHash\('sha256'\)/);
   assert.match(api, /INTEGRATION_TOKEN_ENCRYPTION_KEY/);
@@ -52,4 +54,16 @@ test('settings exposes a real Connected tools section with connect and disconnec
   assert.match(ui, /Disconnect/);
   assert.match(ui, /loadConnectedTools/);
   assert.match(ui, /connected-tools/);
+});
+
+test('integration tokens are authenticated-encrypted and command parsing is explicit', () => {
+  const token = 'gho_test_secret_token';
+  const encrypted = encryptIntegrationToken(token);
+  assert.notEqual(encrypted, token);
+  assert.equal(decryptIntegrationToken(encrypted), token);
+  assert.notEqual(encrypted, encryptIntegrationToken(token));
+  assert.deepEqual(parseConnectedToolCommand('/github repos'), { command: 'repos', argument: '' });
+  assert.deepEqual(parseConnectedToolCommand('/github search zenixmind'), { command: 'search', argument: 'zenixmind' });
+  assert.deepEqual(parseConnectedToolCommand('/github read owner/repo/README.md'), { command: 'read', argument: 'owner/repo/README.md' });
+  assert.equal(parseConnectedToolCommand('Please search my GitHub repos'), null);
 });
