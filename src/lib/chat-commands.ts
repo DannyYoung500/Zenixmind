@@ -5,7 +5,7 @@ export type ChatCommand = {
   label: string;
   description: string;
   category: 'Create' | 'Research' | 'Write' | 'Code' | 'Workspace';
-  action: 'image' | 'search' | 'research' | 'prompt' | 'help';
+  action: 'image' | 'search' | 'research' | 'prompt' | 'help' | 'github';
 };
 
 export const CHAT_COMMANDS: ChatCommand[] = [
@@ -17,6 +17,7 @@ export const CHAT_COMMANDS: ChatCommand[] = [
   { id: 'translate', trigger: '/translate', aliases: [], label: 'Translate', description: 'Translate text while preserving meaning and tone', category: 'Write', action: 'prompt' },
   { id: 'explain', trigger: '/explain', aliases: [], label: 'Explain a topic', description: 'Get a clear step-by-step explanation', category: 'Research', action: 'prompt' },
   { id: 'code', trigger: '/code', aliases: [], label: 'Code assistant', description: 'Write, review, or debug code', category: 'Code', action: 'prompt' },
+  { id: 'github', trigger: '/github', aliases: [], label: 'GitHub tools', description: 'List, search, and read public repositories from your connected GitHub account', category: 'Code', action: 'github' },
   { id: 'analyze', trigger: '/analyze', aliases: [], label: 'Analyze content', description: 'Analyze text or information supplied in chat', category: 'Research', action: 'prompt' },
   { id: 'build', trigger: '/build', aliases: [], label: 'Build a project', description: 'Plan an app, website, or software feature', category: 'Code', action: 'prompt' },
   { id: 'help', trigger: '/help', aliases: [], label: 'Show commands', description: 'See available ZenixMind chat commands', category: 'Workspace', action: 'help' }
