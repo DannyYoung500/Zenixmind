@@ -13,6 +13,10 @@
       "destination": "/api/chat?action=status"
     },
     {
+      "source": "/api/connected-tools/callback",
+      "destination": "/api/chat?action=connected-tools-callback"
+    },
+    {
       "source": "/api/chat",
       "destination": "/api/chat"
     },
