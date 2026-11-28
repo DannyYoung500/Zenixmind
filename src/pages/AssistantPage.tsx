@@ -425,37 +425,39 @@ function SettingsModal({ onClose, onClearChats, webSearch, onWebSearchChange, de
               <div className="mt-4 rounded-xl border border-white/[.07] bg-[#0b0b0d] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black text-lg font-bold">⌘</div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black text-lg font-bold">GH</div>
                     <div className="min-w-0"><div className="text-xs font-semibold text-zinc-100">GitHub</div><div className="text-[11px] text-zinc-500">Read-only access to your public repositories</div></div>
                   </div>
-                  {#if connectedIntegrations.some(item => item.provider === 'github')}
+                  {connectedIntegrations.some(item => item.provider === 'github') ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] text-emerald-300">Connected</span>
                       <button type="button" onClick={() => void disconnectGitHub()} disabled={connectedToolsBusy} className="rounded-lg border border-white/[.1] px-3 py-2 text-[11px] text-zinc-300 disabled:opacity-50">Disconnect</button>
                     </div>
-                  {:else}
+                  ) : (
                     <button type="button" onClick={() => void connectGitHub()} disabled={!githubConnectionReady || connectedToolsBusy || connectedToolsLoading} className="rounded-lg bg-white px-3.5 py-2 text-[11px] font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40">{connectedToolsBusy ? 'Opening…' : 'Connect GitHub'}</button>
-                  {/if}
+                  )}
                 </div>
-                {#if connectedIntegrations.some(item => item.provider === 'github')}
-                  <div className="mt-3 border-t border-white/[.06] pt-3 text-[11px] text-zinc-400">
-                    Connected account: <span className="text-zinc-200">{connectedIntegrations.find(item => item.provider === 'github')?.display_name || connectedIntegrations.find(item => item.provider === 'github')?.provider_username}</span>
-                  </div>
-                  <div className="mt-3 rounded-lg bg-white/[.035] p-3 text-[11px] leading-5 text-zinc-400">
-                    Try these commands in chat:
-                    <div className="mt-1 font-mono text-zinc-200">/github repos</div>
-                    <div className="font-mono text-zinc-200">/github search portfolio</div>
-                    <div className="font-mono text-zinc-200">/github read owner/repository</div>
-                  </div>
-                {:else}
-                  <p className="mt-3 border-t border-white/[.06] pt-3 text-[11px] leading-5 text-zinc-500">ZenixMind requests only the GitHub <span className="text-zinc-300">read:user</span> permission. The first version can list, search and read public repositories; it cannot edit code, create issues or access private repositories.</p>
-                  {#if !githubConnectionReady}
-                    <p className="mt-2 text-[11px] text-amber-300/80">GitHub OAuth is not configured on the server yet. Add the required GitHub OAuth settings in Vercel to enable connection.</p>
-                  {/if}
-                {/if}
+                {connectedIntegrations.some(item => item.provider === 'github') ? (
+                  <>
+                    <div className="mt-3 border-t border-white/[.06] pt-3 text-[11px] text-zinc-400">
+                      Connected account: <span className="text-zinc-200">{connectedIntegrations.find(item => item.provider === 'github')?.display_name || connectedIntegrations.find(item => item.provider === 'github')?.provider_username}</span>
+                    </div>
+                    <div className="mt-3 rounded-lg bg-white/[.035] p-3 text-[11px] leading-5 text-zinc-400">
+                      Try these commands in chat:
+                      <div className="mt-1 font-mono text-zinc-200">/github repos</div>
+                      <div className="font-mono text-zinc-200">/github search portfolio</div>
+                      <div className="font-mono text-zinc-200">/github read owner/repository</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-3 border-t border-white/[.06] pt-3 text-[11px] leading-5 text-zinc-500">ZenixMind requests only the GitHub <span className="text-zinc-300">read:user</span> permission. The first version can list, search and read public repositories; it cannot edit code, create issues or access private repositories.</p>
+                    {!githubConnectionReady && <p className="mt-2 text-[11px] text-amber-300/80">GitHub OAuth is not configured on the server yet. Add the required GitHub OAuth settings in Vercel to enable connection.</p>}
+                  </>
+                )}
               </div>
-              {#if connectedToolsLoading}<p className="mt-3 text-[11px] text-zinc-500">Loading connected tools…</p>{/if}
-              {#if connectedToolsNotice}<p className="mt-3 rounded-lg bg-white/[.05] p-3 text-[11px] text-zinc-300">{connectedToolsNotice}</p>{/if}
+              {connectedToolsLoading && <p className="mt-3 text-[11px] text-zinc-500">Loading connected tools…</p>}
+              {connectedToolsNotice && <p className="mt-3 rounded-lg bg-white/[.05] p-3 text-[11px] text-zinc-300">{connectedToolsNotice}</p>}
               <p className="mt-4 text-[10px] leading-5 text-zinc-600">Plugins and additional services will appear here only when their authorization and data-protection flows are implemented.</p>
             </section>
             <section id="settings-workspace" className="scroll-mt-6 rounded-2xl border border-white/[.08] bg-[#111114] p-5"><h3 className="text-sm font-semibold text-zinc-100">Workspace</h3><p className="mt-1 text-[11px] text-zinc-500">Signed in as {user?.email || 'Account email unavailable'}</p></section>
