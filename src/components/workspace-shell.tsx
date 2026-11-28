@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   MessageSquare, Image as ImageIcon, FolderClosed, Workflow, Settings,
-  Plus, Menu, X, LogOut, ChevronRight, CreditCard, MoreVertical, Share2, Pin, Archive, FolderInput, Search, Paperclip, Puzzle
+  Plus, Menu, X, LogOut, ChevronRight, CreditCard, MoreVertical, Share2, Pin, Archive, FolderInput, Search, Paperclip, Puzzle, Trash2, Edit2, Copy, ExternalLink, Bell
 } from 'lucide-react';
 import { BrandMark } from './brand-mark';
 import { useAuth } from '../lib/auth-context';
@@ -26,6 +26,8 @@ interface WorkspaceShellProps {
   headerAction?: 'new' | 'none';
   onNewChat?: () => void;
   onShareConversation?: () => Promise<void>;
+  onRenameConversation?: (id: string, title: string) => void;
+  onRefreshConversations?: () => void;
   children: React.ReactNode;
 }
 
@@ -44,6 +46,8 @@ export function WorkspaceShell({
   headerAction = 'none',
   onNewChat,
   onShareConversation,
+  onRenameConversation,
+  onRefreshConversations,
   children
 }: WorkspaceShellProps) {
   const { user, signOut } = useAuth();
@@ -52,32 +56,83 @@ export function WorkspaceShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [sidebarMenuId, setSidebarMenuId] = useState<string | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('zenixmind_pinned_conversations') || '[]'); } catch { return []; } });
   const [archivedIds, setArchivedIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('zenixmind_archived_conversations') || '[]'); } catch { return []; } });
   const activeConversation = new URLSearchParams(location.search).get('conversation');
   const closeMobile = () => setMobileOpen(false);
   const visibleConversations = conversations.filter((item) => !archivedIds.includes(item.id)).slice().sort((a, b) => Number(pinnedIds.includes(b.id)) - Number(pinnedIds.includes(a.id)) || new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime());
-  const togglePin = () => {
-    if (!activeConversation) return;
-    const next = pinnedIds.includes(activeConversation) ? pinnedIds.filter((id) => id !== activeConversation) : [activeConversation, ...pinnedIds];
+  const togglePin = (id?: string | null) => {
+    const target = id || activeConversation;
+    if (!target) return;
+    const next = pinnedIds.includes(target) ? pinnedIds.filter((x) => x !== target) : [target, ...pinnedIds];
     setPinnedIds(next); localStorage.setItem('zenixmind_pinned_conversations', JSON.stringify(next));
   };
-  const archiveConversation = () => {
-    if (!activeConversation) return;
-    const next = [...new Set([...archivedIds, activeConversation])];
+  const archiveConversation = (id?: string | null) => {
+    const target = id || activeConversation;
+    if (!target) return;
+    const next = [...new Set([...archivedIds, target])];
     setArchivedIds(next); localStorage.setItem('zenixmind_archived_conversations', JSON.stringify(next));
     setMoreOpen(false);
-    navigate('/assistant');
+    setSidebarMenuId(null);
+    if (activeConversation === target) navigate('/assistant');
+  };
+  const deleteConversation = async (id?: string | null) => {
+    const target = id || activeConversation;
+    if (!target) return;
+    const ok = window.confirm('Delete this chat? This cannot be undone.');
+    if (!ok) return;
+    try {
+      await fetch(`/api/chat?conversation_id=${encodeURIComponent(target)}`, { method: 'DELETE' });
+    } catch { /* best effort */ }
+    setPinnedIds((prev) => {
+      const next = prev.filter((x) => x !== target);
+      localStorage.setItem('zenixmind_pinned_conversations', JSON.stringify(next));
+      return next;
+    });
+    setMoreOpen(false);
+    setSidebarMenuId(null);
+    onRefreshConversations?.();
+    if (activeConversation === target) navigate('/assistant', { replace: true });
+    else {
+      navigate(location.pathname + location.search, { replace: true });
+    }
   };
   const handleFindInChat = () => {
     const term = window.prompt('Find in this conversation');
     if (term?.trim()) (window as any).find?.(term.trim());
     setMoreOpen(false);
   };
-  const handleShare = async () => {
-    if (!onShareConversation) return;
-    try { await onShareConversation(); }
-    catch { /* The chat page surfaces the share error to the user. */ }
+  const handleShare = async (id?: string | null) => {
+    const target = id || activeConversation;
+    if (onShareConversation && (!id || id === activeConversation)) {
+      try { await onShareConversation(); } catch { /* parent surfaces */ }
+      setMoreOpen(false);
+      setSidebarMenuId(null);
+      return;
+    }
+    if (!target) return;
+    try {
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: target })
+      });
+      const data = await res.json().catch(() => ({}));
+      const url = data?.url || data?.shareUrl || `${window.location.origin}/share/${data?.token || target}`;
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        window.alert('Share link copied');
+      }
+    } catch {
+      window.alert('Could not create share link');
+    }
+    setMoreOpen(false);
+    setSidebarMenuId(null);
+  };
+  const copyId = async (id: string) => {
+    try { await navigator.clipboard.writeText(id); } catch {}
+    setSidebarMenuId(null);
     setMoreOpen(false);
   };
 
@@ -91,6 +146,42 @@ export function WorkspaceShell({
       setSigningOut(false);
     }
   };
+
+  const chatMenuItems = (id: string | null, close: () => void) => (
+    <div role="menu" aria-label="Conversation options" className="w-[min(290px,calc(100vw-1.5rem))] rounded-2xl border border-white/[.1] bg-[#202023] p-1.5 shadow-[0_18px_55px_rgba(0,0,0,.6)]">
+      <button type="button" role="menuitem" onClick={() => void handleShare(id)} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40">
+        <Share2 size={16} className="text-zinc-400" /> Share
+      </button>
+      <button type="button" role="menuitem" onClick={() => { togglePin(id); close(); }} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40">
+        <Pin size={16} className="text-zinc-400" />{id && pinnedIds.includes(id) ? 'Unpin' : 'Pin'}
+      </button>
+      <button type="button" role="menuitem" onClick={() => { close(); const t = window.prompt('Rename chat', conversations.find(c => c.id === id)?.title || ''); if (t?.trim() && id && onRenameConversation) onRenameConversation(id, t.trim()); }} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40">
+        <Edit2 size={16} className="text-zinc-400" /> Rename
+      </button>
+      <button type="button" role="menuitem" disabled className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-500 opacity-60">
+        <FolderInput size={16} /> Add to Project <span className="ml-auto text-[10px]">Soon</span>
+      </button>
+      <button type="button" role="menuitem" onClick={close} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07]">
+        <Bell size={16} className="text-zinc-400" /> Mark as Unread
+      </button>
+      <div className="my-1 h-px bg-white/[.08]" />
+      <button type="button" role="menuitem" onClick={() => { if (id) void copyId(id); }} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40">
+        <Copy size={16} className="text-zinc-400" /> Copy Conversation ID
+      </button>
+      {id && (
+        <a href={`/assistant?conversation=${encodeURIComponent(id)}`} target="_blank" rel="noreferrer" role="menuitem" onClick={close} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07]">
+          <ExternalLink size={16} className="text-zinc-400" /> Open in new tab
+        </a>
+      )}
+      <button type="button" role="menuitem" onClick={() => archiveConversation(id)} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40">
+        <Archive size={16} className="text-zinc-400" /> Archive
+      </button>
+      <div className="my-1 h-px bg-white/[.08]" />
+      <button type="button" role="menuitem" onClick={() => void deleteConversation(id)} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-medium text-red-400 hover:bg-red-500/[.1] disabled:opacity-40">
+        <Trash2 size={16} /> Delete
+      </button>
+    </div>
+  );
 
   const sidebar = (
     <div className="flex h-full min-h-0 flex-col bg-[#09090b]">
@@ -137,12 +228,34 @@ export function WorkspaceShell({
           {visibleConversations.length ? visibleConversations.slice(0, 40).map((conversation) => {
             const selected = activeConversation === conversation.id;
             return (
-              <Link key={conversation.id} to={`/assistant?conversation=${encodeURIComponent(conversation.id)}`} onClick={closeMobile}
-                className={`group flex min-h-9 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[11px] transition-colors ${selected ? 'bg-white/[.075] text-zinc-100' : 'text-zinc-500 hover:bg-white/[.04] hover:text-zinc-200'}`}>
-                <MessageSquare size={13} className="shrink-0 opacity-55" />
-                <span className="min-w-0 flex-1 truncate">{conversation.title || 'New conversation'}</span>
-                {pinnedIds.includes(conversation.id) ? <Pin size={11} className="shrink-0 text-zinc-400" /> : selected && <ChevronRight size={12} className="shrink-0 text-zinc-500" />}
-              </Link>
+              <div key={conversation.id} className={`group relative flex min-h-9 items-center gap-1 rounded-lg pr-1 transition-colors ${selected ? 'bg-white/[.075] text-zinc-100' : 'text-zinc-500 hover:bg-white/[.04] hover:text-zinc-200'}`}>
+                <Link to={`/assistant?conversation=${encodeURIComponent(conversation.id)}`} onClick={closeMobile}
+                  className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2 text-left text-[11px]">
+                  <MessageSquare size={13} className="shrink-0 opacity-55" />
+                  <span className="min-w-0 flex-1 truncate">{conversation.title || 'New conversation'}</span>
+                  {pinnedIds.includes(conversation.id) && <Pin size={11} className="shrink-0 text-zinc-400" />}
+                </Link>
+                <button
+                  type="button"
+                  aria-label="Chat options"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSidebarMenuId(sidebarMenuId === conversation.id ? null : conversation.id);
+                  }}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-zinc-500 opacity-100 hover:bg-white/[.08] hover:text-zinc-100 sm:opacity-0 sm:group-hover:opacity-100"
+                >
+                  <MoreVertical size={14} />
+                </button>
+                {sidebarMenuId === conversation.id && (
+                  <>
+                    <button type="button" className="fixed inset-0 z-[95] cursor-default" aria-label="Close menu" onClick={() => setSidebarMenuId(null)} />
+                    <div className="absolute right-0 top-9 z-[96]">
+                      {chatMenuItems(conversation.id, () => setSidebarMenuId(null))}
+                    </div>
+                  </>
+                )}
+              </div>
             );
           }) : <div className="px-3 py-5 text-[11px] leading-5 text-zinc-700">Your conversations will appear here.</div>}
         </div>
@@ -192,16 +305,14 @@ export function WorkspaceShell({
             {headerAction === 'new' && onNewChat && <button type="button" onClick={onNewChat} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[.08] bg-white/[.035] px-2.5 text-[10px] font-medium text-zinc-300 transition hover:bg-white/[.08] hover:text-white sm:hidden"><Plus size={13} /> <span className="hidden sm:inline">New chat</span></button>}
             {active === 'chat' && <button type="button" onClick={() => setMoreOpen((value) => !value)} aria-label="Conversation options" aria-haspopup="menu" aria-expanded={moreOpen} className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 transition hover:bg-white/[.07] hover:text-white"><MoreVertical size={19} /></button>}
             {active !== 'chat' && <Link to="/assistant" className="text-[10px] text-zinc-500 transition hover:text-zinc-200">Back to chat</Link>}
-            {moreOpen && <><button type="button" aria-label="Close conversation options" className="fixed inset-0 z-[95] cursor-default" onClick={() => setMoreOpen(false)} /><div role="menu" aria-label="Conversation options" className="absolute right-0 top-11 z-[96] w-[min(290px,calc(100vw-1.5rem))] rounded-2xl border border-white/[.1] bg-[#202023] p-2 shadow-[0_18px_55px_rgba(0,0,0,.6)]">
-              <button type="button" role="menuitem" onClick={() => void handleShare()} disabled={!activeConversation || !onShareConversation} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40"><Share2 size={16} />Share</button>
-              <button type="button" role="menuitem" onClick={togglePin} disabled={!activeConversation} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40"><Pin size={16} />{activeConversation && pinnedIds.includes(activeConversation) ? 'Unpin chat' : 'Pin chat'}</button>
-              <button type="button" role="menuitem" disabled className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-500 opacity-60"><FolderInput size={16} />Add to project <span className="ml-auto text-[10px]">Coming soon</span></button>
-              <button type="button" role="menuitem" disabled className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-500 opacity-60"><Puzzle size={16} />Plugins <span className="ml-auto text-[10px]">Coming soon</span></button>
-              <button type="button" role="menuitem" onClick={() => { navigate('/assistant?view=library'); setMoreOpen(false); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07]"><Paperclip size={16} />Uploaded files</button>
-              <button type="button" role="menuitem" onClick={handleFindInChat} disabled={!activeConversation} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40"><Search size={16} />Find in chat</button>
-              <div className="my-1 h-px bg-white/[.07]" />
-              <button type="button" role="menuitem" onClick={archiveConversation} disabled={!activeConversation} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-red-300 hover:bg-red-500/[.08] disabled:opacity-40"><Archive size={16} />Archive</button>
-            </div></>}
+            {moreOpen && (
+              <>
+                <button type="button" aria-label="Close conversation options" className="fixed inset-0 z-[95] cursor-default" onClick={() => setMoreOpen(false)} />
+                <div className="absolute right-0 top-11 z-[96]">
+                  {chatMenuItems(activeConversation, () => setMoreOpen(false))}
+                </div>
+              </>
+            )}
           </div>
         </header>
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</main>
