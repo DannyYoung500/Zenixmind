@@ -46,7 +46,7 @@ test('Automations is backed by durable schedules, queue processing, and owner-sc
   assert.match(read('../api/_lib/zenix-system-prompt.ts'), /Automations let users create daily, weekly, monthly, or one-time AI tasks/);
   assert.match(api, /SchedulesClient/);
   assert.match(api, /getVercelOidcToken/);
-  assert.match(api, /send\('zenixmind-automations'/);
+  assert.match(api, /send\(AUTOMATION_TOPIC/);
   assert.match(worker, /handleNodeCallback/);
   assert.match(worker, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(worker, /automation_runs/);
