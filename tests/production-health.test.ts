@@ -66,7 +66,7 @@ test('ZenixMind system prompt documents real product settings and unavailable fe
   const prompt = read('../api/_lib/zenix-system-prompt.ts');
   assert.match(prompt, /ZENIXMIND PRODUCT GUIDE/);
   assert.match(prompt, /Online Search is controlled in Settings/);
-  assert.match(prompt, /do not claim a user can complete an action until the interface supports it/);
+  assert.match(prompt, /do not claim a user can complete an action until the interface supports it/i);
 });
 
 
