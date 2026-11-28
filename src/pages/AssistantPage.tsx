@@ -2666,6 +2666,12 @@ export function AssistantPage() {
                     </button>
                   </div>
                 )}
+                {temporaryChat && (
+                  <div role="status" className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 rounded-xl border border-amber-400/15 bg-amber-400/[.06] px-3 py-2 text-[11px] text-amber-100/80">
+                    <Info size={13} className="shrink-0" />
+                    <span><strong className="font-semibold text-amber-100">Temporary Chat is on.</strong> New messages won't be saved to chat history.</span>
+                  </div>
+                )}
                 <CompactFloatingComposer
                   ref={inputRef}
                   value={input}
@@ -2709,7 +2715,7 @@ export function AssistantPage() {
           deepThink={deepThink}
           onDeepThinkChange={(enabled) => { setDeepThink(enabled); localStorage.setItem('zenixmind-default-thinking', enabled ? 'deep' : 'quick'); }}
           temporaryChat={temporaryChat}
-          onTemporaryChatChange={(enabled) => { setTemporaryChat(enabled); localStorage.setItem('zenixmind-temporary-chat', enabled ? 'on' : 'off'); }}
+          onTemporaryChatChange={(enabled) => { setTemporaryChat(enabled); localStorage.setItem('zenixmind-temporary-chat', enabled ? 'on' : 'off'); if (enabled) { setConversationId(null); setMessages([]); navigate('/assistant', { replace: true }); } }}
           onClose={() => setSettingsOpen(false)}
           onClearChats={() => {
             setMessages([]);
