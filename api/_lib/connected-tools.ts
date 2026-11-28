@@ -40,7 +40,7 @@ function callbackUrl(req: any) {
 
 function redirectCallback(res: any, status: 'success' | 'error', reason = '') {
   const target = new URL('/assistant', process.env.APP_URL || 'https://zenixmind.vercel.app');
-  target.searchParams.set('settings', 'connected-tools');
+  target.searchParams.set('settings', '1');
   target.searchParams.set('connection', status === 'success' ? 'github-success' : 'github-error');
   if (reason) target.searchParams.set('reason', reason.slice(0, 80));
   res.setHeader('Location', target.toString());
