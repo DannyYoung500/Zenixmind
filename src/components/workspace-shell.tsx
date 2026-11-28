@@ -57,6 +57,9 @@ export function WorkspaceShell({
   const [signingOut, setSigningOut] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [sidebarMenuId, setSidebarMenuId] = useState<string | null>(null);
+  const [sidebarMenuPosition, setSidebarMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState('');
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('zenixmind_pinned_conversations') || '[]'); } catch { return []; } });
   const [archivedIds, setArchivedIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('zenixmind_archived_conversations') || '[]'); } catch { return []; } });
   const activeConversation = new URLSearchParams(location.search).get('conversation');
@@ -80,11 +83,16 @@ export function WorkspaceShell({
   const deleteConversation = async (id?: string | null) => {
     const target = id || activeConversation;
     if (!target) return;
-    const ok = window.confirm('Delete this chat? This cannot be undone.');
-    if (!ok) return;
     try {
-      await fetch(`/api/chat?conversation_id=${encodeURIComponent(target)}`, { method: 'DELETE' });
-    } catch { /* best effort */ }
+      const response = await fetch(`/api/chat?conversation_id=${encodeURIComponent(target)}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('The chat could not be deleted. Please try again.');
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'The chat could not be deleted. Please try again.');
+      setDeleteConfirmId(null);
+      return;
+    }
+    setDeleteConfirmId(null);
+    setDeleteError('');
     setPinnedIds((prev) => {
       const next = prev.filter((x) => x !== target);
       localStorage.setItem('zenixmind_pinned_conversations', JSON.stringify(next));
@@ -186,7 +194,7 @@ export function WorkspaceShell({
         <Archive size={16} className="text-zinc-400" /> Archive
       </button>
       <div className="my-1 h-px bg-white/[.08]" />
-      <button type="button" role="menuitem" onClick={() => void deleteConversation(id)} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-medium text-red-400 hover:bg-red-500/[.1] disabled:opacity-40">
+      <button type="button" role="menuitem" onClick={() => { setDeleteConfirmId(id); close(); }} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-medium text-red-400 hover:bg-red-500/[.1] disabled:opacity-40">
         <Trash2 size={16} /> Delete
       </button>
     </div>
@@ -250,7 +258,15 @@ export function WorkspaceShell({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    setSidebarMenuId(sidebarMenuId === conversation.id ? null : conversation.id);
+                    if (sidebarMenuId === conversation.id) { setSidebarMenuId(null); setSidebarMenuPosition(null); return; }
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const width = Math.min(290, window.innerWidth - 24);
+                    const height = Math.min(440, window.innerHeight * 0.7);
+                    setSidebarMenuPosition({
+                      top: Math.max(16, Math.min(rect.bottom + 8, window.innerHeight - height - 16)),
+                      left: Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12))
+                    });
+                    setSidebarMenuId(conversation.id);
                   }}
                   className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-zinc-500 opacity-100 hover:bg-white/[.08] hover:text-zinc-100 sm:opacity-0 sm:group-hover:opacity-100"
                 >
@@ -259,8 +275,8 @@ export function WorkspaceShell({
                 {sidebarMenuId === conversation.id && (
                   <>
                     <button type="button" className="fixed inset-0 z-[95] cursor-default" aria-label="Close menu" onClick={() => setSidebarMenuId(null)} />
-                    <div className="absolute right-0 top-9 z-[96]">
-                      {chatMenuItems(conversation.id, () => setSidebarMenuId(null))}
+                    <div className="fixed z-[110]" style={{ top: sidebarMenuPosition?.top ?? 16, left: sidebarMenuPosition?.left ?? 12 }}>
+                      {chatMenuItems(conversation.id, () => { setSidebarMenuId(null); setSidebarMenuPosition(null); })}
                     </div>
                   </>
                 )}
@@ -295,6 +311,24 @@ export function WorkspaceShell({
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-[#050506] text-zinc-100">
       <aside className="hidden w-[256px] shrink-0 border-r border-white/[.06] md:block">{sidebar}</aside>
+      {deleteError && (
+        <div className="fixed inset-x-3 bottom-4 z-[130] mx-auto max-w-sm rounded-xl border border-red-400/20 bg-[#241416] px-4 py-3 text-sm text-red-200 shadow-2xl" role="alert">
+          <div className="flex items-start justify-between gap-3"><span>{deleteError}</span><button type="button" onClick={() => setDeleteError('')} className="shrink-0 text-red-200/70" aria-label="Dismiss error"><X size={16}/></button></div>
+        </div>
+      )}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[125] grid place-items-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm" onClick={() => setDeleteConfirmId(null)}>
+          <section role="alertdialog" aria-modal="true" aria-labelledby="delete-chat-title" aria-describedby="delete-chat-description" className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-white/[.1] bg-[#171719] p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10 text-red-300"><Trash2 size={18}/></div>
+            <h2 id="delete-chat-title" className="text-base font-semibold text-white">Delete this chat?</h2>
+            <p id="delete-chat-description" className="mt-2 text-sm leading-6 text-zinc-400">This conversation will be permanently deleted. This action cannot be undone.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setDeleteConfirmId(null)} className="min-h-10 rounded-full border border-white/[.1] px-4 text-sm text-zinc-300 hover:bg-white/[.06]">Cancel</button>
+              <button type="button" onClick={() => void deleteConversation(deleteConfirmId)} className="min-h-10 rounded-full bg-red-500 px-4 text-sm font-semibold text-white hover:bg-red-400">Delete chat</button>
+            </div>
+          </section>
+        </div>
+      )}
       {mobileOpen && (
         <div className="fixed inset-0 z-[90] md:hidden">
           <button type="button" onClick={closeMobile} className="absolute inset-0 bg-black/70 backdrop-blur-sm" aria-label="Close navigation overlay" />
