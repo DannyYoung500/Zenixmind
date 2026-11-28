@@ -31,6 +31,9 @@ test('project conversations are linked in the database and remain owner-scoped',
   const store = read('../api/_lib/chat-store.ts');
   assert.match(migration, /foreign key \(project_id, user_id\)/);
   assert.match(migration, /on delete set null \(project_id\)/i);
+  assert.match(filesMigration, /create table public\.project_files/);
+  assert.match(filesMigration, /foreign key \(library_item_id, user_id\)/);
+  assert.match(filesMigration, /enable row level security/);
   assert.match(stream, /\.eq\('user_id', user\.id\)/);
   assert.match(stream, /projectInstructions/);
   assert.match(store, /project_id/);
