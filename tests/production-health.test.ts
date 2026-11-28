@@ -78,3 +78,13 @@ test('chat requests include current user-visible preferences so ZenixMind can ex
   assert.match(stream, /Current user-visible ZenixMind preferences/);
   assert.match(stream, /Online Search preference/);
 });
+
+ 
+test('mobile navigation fills the phone width and settings navigation exposes all major groups', () => {
+  const shell = read('../src/components/workspace-shell.tsx');
+  const assistant = read('../src/pages/AssistantPage.tsx');
+  assert.match(shell, /h-full w-full border-r/);
+  assert.match(assistant, /Mobile settings navigation/);
+  assert.match(assistant, /Online Search.*settings-online-search/);
+  assert.doesNotMatch(assistant, /\['Codex'/);
+});
