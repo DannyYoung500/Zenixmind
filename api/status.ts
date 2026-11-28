@@ -1,63 +1,12 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { QueueClient } from '@vercel/queue';
+import type { ScheduleQueueMessage } from '@vercel/schedules';
+import { processAutomationQueueMessage } from './_lib/automation-worker.ts';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+const queue = new QueueClient();
+export const config = { maxDuration: 60 };
 
-  const checks: Array<{ name: string; ok: boolean; detail?: string }> = [];
+type AutomationPayload = { automationId: string; userId: string; manual?: boolean };
 
-  checks.push({ name: 'api', ok: true, detail: 'status endpoint' });
-  checks.push({ name: 'service', ok: true, detail: 'ZenixMind' });
-
-  checks.push({
-    name: 'groq',
-    ok: Boolean(process.env.GROQ_API_KEY?.trim()),
-    detail: process.env.GROQ_API_KEY?.trim() ? 'configured' : 'GROQ_API_KEY missing'
-  });
-
-  checks.push({
-    name: 'image_generation',
-    ok: true,
-    detail: process.env.POLLINATIONS_API_KEY?.trim() ? 'Pollinations configured' : 'Optional: add POLLINATIONS_API_KEY to enable image generation'
-  });
-
-  checks.push({
-    name: 'supabase',
-    ok: Boolean(
-      process.env.VITE_SUPABASE_URL ||
-        process.env.NEXT_PUBLIC_SUPABASE_URL ||
-        process.env.SUPABASE_URL
-    ),
-    detail: 'url configured'
-  });
-
-  checks.push({
-    name: 'service_role',
-    ok: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-    detail: process.env.SUPABASE_SERVICE_ROLE_KEY
-      ? 'configured'
-      : 'SUPABASE_SERVICE_ROLE_KEY missing'
-  });
-
-  checks.push({
-    name: 'chat_route',
-    ok: true,
-    detail: 'standalone /api/chat'
-  });
-
-  const allOk = checks.every((c) => c.ok);
-
-  res.setHeader('Cache-Control', 'no-store');
-  return res.status(allOk ? 200 : 503).json({
-    ok: allOk,
-    service: 'ZenixMind',
-    time: new Date().toISOString(),
-    commit:
-      process.env.VERCEL_GIT_COMMIT_SHA ||
-      process.env.GIT_COMMIT ||
-      null,
-    region: process.env.VERCEL_REGION || null,
-    checks
-  });
-}
+export default queue.handleNodeCallback(async (message: ScheduleQueueMessage<AutomationPayload>, metadata) => {
+  await processAutomationQueueMessage(message, metadata);
+});
