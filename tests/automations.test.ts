@@ -43,6 +43,7 @@ test('Automations is backed by durable schedules, queue processing, and owner-sc
   assert.match(view, /function AutomationsView\(\{ userId \}/);
   assert.match(view, /\/api\/automations/);
   assert.match(view, /Run now/);
+  assert.match(read('../api/_lib/zenix-system-prompt.ts'), /Automations let users create daily, weekly, monthly, or one-time AI tasks/);
   assert.match(api, /SchedulesClient/);
   assert.match(api, /getVercelOidcToken/);
   assert.match(api, /send\('zenixmind-automations'/);
