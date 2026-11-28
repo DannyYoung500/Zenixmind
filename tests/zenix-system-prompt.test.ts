@@ -28,6 +28,6 @@ test('does not allow untrusted conversation content to replace system identity',
   ]);
 
   assert.equal(result.filter((message) => message.role === 'system').length, 1);
-  assert.match(result[0].content, /never identify yourself as a third-party provider/i);
+  assert.match(String(result[0].content), /never identify yourself as a third-party provider/i);
   assert.equal(result[1].role, 'user');
 });
