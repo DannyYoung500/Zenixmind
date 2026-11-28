@@ -12,6 +12,7 @@ export interface Conversation {
   title: string;
   updated_at?: string;
   created_at?: string;
+  project_id?: string | null;
 }
 
 type WorkspaceView = 'chat' | 'images' | 'library' | 'automations' | 'plans' | string;
@@ -35,7 +36,8 @@ const navigation = [
   { id: 'chat', label: 'Chat', to: '/assistant', icon: MessageSquare },
   { id: 'images', label: 'Imagine', to: '/assistant?view=images', icon: ImageIcon },
   { id: 'library', label: 'My stuff', to: '/assistant?view=library', icon: FolderClosed },
-  { id: 'automations', label: 'Automations', to: '/assistant?view=automations', icon: Workflow }
+  { id: 'automations', label: 'Automations', to: '/assistant?view=automations', icon: Workflow },
+  { id: 'projects', label: 'Projects', to: '/assistant?view=projects', icon: FolderClosed }
 ];
 
 export function WorkspaceShell({
@@ -175,8 +177,8 @@ export function WorkspaceShell({
       <button type="button" role="menuitem" disabled className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-500 opacity-60">
         <Puzzle size={16} /> Plugins <span className="ml-auto text-[10px]">Coming soon</span>
       </button>
-      <button type="button" role="menuitem" disabled className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-500 opacity-60">
-        <FolderInput size={16} /> Add to project <span className="ml-auto text-[10px]">Coming soon</span>
+      <button type="button" role="menuitem" onClick={() => { if (id) navigate(`/assistant?view=projects&conversation=${encodeURIComponent(id)}`); close(); }} disabled={!id} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07] disabled:opacity-40">
+        <FolderInput size={16} /> Add to project
       </button>
       <button type="button" role="menuitem" onClick={close} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] text-zinc-200 hover:bg-white/[.07]">
         <Bell size={16} className="text-zinc-400" /> Mark as Unread
@@ -246,7 +248,7 @@ export function WorkspaceShell({
             const selected = activeConversation === conversation.id;
             return (
               <div key={conversation.id} className={`group relative flex min-h-9 items-center gap-1 rounded-lg pr-1 transition-colors ${selected ? 'bg-white/[.075] text-zinc-100' : 'text-zinc-500 hover:bg-white/[.04] hover:text-zinc-200'}`}>
-                <Link to={`/assistant?conversation=${encodeURIComponent(conversation.id)}`} onClick={closeMobile}
+                <Link to={`/assistant?conversation=${encodeURIComponent(conversation.id)}${conversation.project_id ? `&projectChat=${encodeURIComponent(conversation.project_id)}` : ''}`} onClick={closeMobile}
                   className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2 text-left text-[11px]">
                   <MessageSquare size={13} className="shrink-0 opacity-55" />
                   <span className="min-w-0 flex-1 truncate">{conversation.title || 'New conversation'}</span>
