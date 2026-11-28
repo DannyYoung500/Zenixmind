@@ -130,7 +130,7 @@ test('chat API forwards text and image attachments to the model instead of dropp
 test('temporary chats are not persisted to conversation or message tables', () => {
   const stream = read('../api/chat/stream.ts');
   assert.match(stream, /temporaryChat/);
-  assert.match(stream, /if \(!temporaryChat\)/);
+  assert.match(stream, /if \(!temporaryChat && conversation\)/);
   assert.match(stream, /conversationId: conversation\?\.id/);
 });
 
