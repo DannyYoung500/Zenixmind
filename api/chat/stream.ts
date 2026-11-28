@@ -122,31 +122,78 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { user, supabase } = context;
   const requestedConversationId = String(body.conversationId || '').trim();
+  const requestedProjectId = typeof body.projectId === 'string' ? body.projectId.trim().slice(0, 100) : '';
   const temporaryChat = body.temporaryChat === true;
-  let conversation: { id: string; title: string; model: string | null } | null = null;
+  let projectId = requestedProjectId || null;
+  let projectName = '';
+  let projectDescription = '';
+  let projectInstructions = '';
+  let conversation: { id: string; title: string; model: string | null; project_id: string | null } | null = null;
+
+  const loadProjectContext = async (id: string) => {
+    const { data, error } = await supabase.from('projects')
+      .select('id,name,description,instructions')
+      .eq('id', id).eq('user_id', user.id).maybeSingle();
+    if (error) return { error: 'PROJECT_LOOKUP_FAILED' as const };
+    if (!data) return { error: 'PROJECT_NOT_FOUND' as const };
+    projectName = data.name || 'Project';
+    projectDescription = String(data.description || '').trim().slice(0, 500);
+    projectInstructions = String(data.instructions || '').trim().slice(0, 4000);
+    return { error: null };
+  };
+
+  if (projectId) {
+    const projectResult = await loadProjectContext(projectId);
+    if (projectResult.error === 'PROJECT_LOOKUP_FAILED') return res.status(500).json({ error: 'Unable to load this project.', code: projectResult.error });
+    if (projectResult.error === 'PROJECT_NOT_FOUND') return res.status(404).json({ error: 'Project not found.', code: projectResult.error });
+  }
 
   if (!temporaryChat && requestedConversationId) {
     const { data, error } = await supabase
       .from('conversations')
-      .select('id,title,model')
+      .select('id,title,model,project_id')
       .eq('id', requestedConversationId)
       .eq('user_id', user.id)
       .maybeSingle();
     if (error) return res.status(500).json({ error: 'Unable to open this conversation.', code: 'CONVERSATION_LOOKUP_FAILED' });
     if (!data) return res.status(404).json({ error: 'Conversation not found.', code: 'CONVERSATION_NOT_FOUND' });
-    conversation = data;
+    if (projectId && data.project_id && data.project_id !== projectId) {
+      return res.status(409).json({ error: 'This chat belongs to a different project.', code: 'PROJECT_CONVERSATION_MISMATCH' });
+    }
+    if (!projectId && data.project_id) projectId = data.project_id;
+    if (projectId && !data.project_id) {
+      const { error: attachError } = await supabase.from('conversations')
+        .update({ project_id: projectId })
+        .eq('id', data.id).eq('user_id', user.id);
+      if (attachError) return res.status(500).json({ error: 'Unable to add this chat to the project.', code: 'PROJECT_ASSIGN_FAILED' });
+    }
+    conversation = { ...data, project_id: projectId };
   } else if (!temporaryChat) {
     const firstPrompt = messages.find((message) => message.role === 'user')?.content || '';
     const { data, error } = await supabase
       .from('conversations')
-      .insert({ user_id: user.id, title: createConversationTitle(firstPrompt), model: selected.id })
-      .select('id,title,model')
+      .insert({ user_id: user.id, title: createConversationTitle(firstPrompt), model: selected.id, project_id: projectId })
+      .select('id,title,model,project_id')
       .single();
     if (error || !data) {
       console.error('[chat/stream] conversation create failed', error);
       return res.status(500).json({ error: 'Unable to create a conversation.', code: 'CONVERSATION_CREATE_FAILED' });
     }
     conversation = data;
+  }
+
+  if (projectId && !projectName) {
+    const projectResult = await loadProjectContext(projectId);
+    if (projectResult.error === 'PROJECT_LOOKUP_FAILED') return res.status(500).json({ error: 'Unable to load this project.', code: projectResult.error });
+    if (projectResult.error === 'PROJECT_NOT_FOUND') return res.status(404).json({ error: 'Project not found.', code: projectResult.error });
+  }
+  if (projectId) {
+    const projectContext = [
+      `Active project: ${projectName}.`,
+      projectDescription ? `Project description: ${projectDescription}` : '',
+      projectInstructions ? `Project-specific instructions (follow unless they conflict with higher-priority instructions or the user's current request): ${projectInstructions}` : ''
+    ].filter(Boolean).join('\n');
+    modelMessages = [...modelMessages, { role: 'system', content: projectContext }];
   }
 
   const latestUserMessage = messages[messages.length - 1].content;
@@ -168,7 +215,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
   sendEvent(res, { type: 'status', status: researchRequested ? 'researching' : webSearchRequested ? 'searching' : deepThinkRequested ? 'preparing' : 'thinking' });
-  sendEvent(res, { type: 'meta', conversationId: conversation?.id ?? null, modelUsed: researchRequested ? 'Tavily Research' : visionRequest ? 'Zenix Vision' : selected.id, provider: researchRequested ? 'tavily' : 'groq', research: researchRequested, vision: visionRequest, temporaryChat, sources });
+  sendEvent(res, { type: 'meta', conversationId: conversation?.id ?? null, projectId, modelUsed: researchRequested ? 'Tavily Research' : visionRequest ? 'Zenix Vision' : selected.id, provider: researchRequested ? 'tavily' : 'groq', research: researchRequested, vision: visionRequest, temporaryChat, sources });
 
   let assistantText = '';
   try {
