@@ -1687,7 +1687,7 @@ function AutomationsView({ userId }: { userId?: string }) {
     try {
       const { data: { session } } = await getSupabase().auth.getSession();
       if (!session?.access_token) throw new Error('Sign in again to load scheduled tasks.');
-      const response = await fetch('/api/automations', { headers: { Authorization: `Bearer ${session.access_token}` } });
+      const response = await fetch('/api/chat?action=automations', { headers: { Authorization: `Bearer ${session.access_token}` } });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || 'Unable to load scheduled tasks.');
       setAutomations(payload.automations || []);
@@ -1704,7 +1704,8 @@ function AutomationsView({ userId }: { userId?: string }) {
   const request = async (method: string, id?: string, body?: Record<string, unknown>) => {
     const { data: { session } } = await getSupabase().auth.getSession();
     if (!session?.access_token) throw new Error('Your session expired. Sign in again.');
-    const url = id ? `/api/automations?id=${encodeURIComponent(id)}` : '/api/automations';
+    const base = '/api/chat?action=automations';
+    const url = id ? `${base}&id=${encodeURIComponent(id)}` : base;
     const response = await fetch(url, {
       method,
       headers: { Authorization: `Bearer ${session.access_token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
