@@ -57,8 +57,8 @@ test('Think Harder changes server instructions and uses useful progress states',
   assert.match(stream, /deepThinkRequested/);
   assert.match(stream, /deliberate problem-solving approach/);
   assert.match(stream, /status: 'generating'/);
-  assert.match(assistant, /Preparing a detailed answer/);
-  assert.match(assistant, /Writing your answer/);
+  assert.match(assistant, /Planning a careful response/);
+  assert.match(assistant, /Drafting your answer/);
   assert.doesNotMatch(assistant, /thinkingStatus === 'analyzing'/);
 });
 
@@ -114,7 +114,7 @@ test('AI product guide covers the real workspace controls and clearly marks unav
   for (const feature of ['Imagine', 'My stuff', 'Automations', 'Online Search', 'Think Harder', 'Temporary Chat', 'file attachments', 'response detail', 'preferred language']) {
     assert.ok(prompt.toLowerCase().includes(feature.toLowerCase()), `product guide missing ${feature}`);
   }
-  assert.match(prompt, /do not claim.*placeholder.*functional/i);
+  assert.match(prompt, /placeholders or unavailable/i);
 });
 
 test('chat API forwards text and image attachments to the model instead of dropping them', () => {
@@ -123,7 +123,7 @@ test('chat API forwards text and image attachments to the model instead of dropp
   assert.match(stream, /body\.attachment/);
   assert.match(stream, /qwen\/qwen3\.8-27b/);
   assert.match(stream, /image_url/);
-  assert.match(stream, /attachment\.text/);
+  assert.match(stream, /attachmentText/);
   assert.match(groq, /image_url/);
 });
 
