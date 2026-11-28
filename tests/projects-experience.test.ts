@@ -19,11 +19,14 @@ test('project management supports private creation, editing, and assigning exist
   assert.match(assistant, /\.from\('conversations'\)/);
   assert.match(assistant, /project_id: projectId/);
   assert.match(assistant, /Project instructions/);
+  assert.match(assistant, /\.from\('project_files'\)/);
+  assert.match(assistant, /Link files from My stuff/);
   assert.match(read('../api/_lib/zenix-system-prompt.ts'), /Projects group related conversations/);
 });
 
 test('project conversations are linked in the database and remain owner-scoped', () => {
   const migration = read('../supabase/migrations/20261128061940_add_project_chat_link.sql');
+  const filesMigration = read('../supabase/migrations/20261128062740_add_project_files.sql');
   const stream = read('../api/chat/stream.ts');
   const store = read('../api/_lib/chat-store.ts');
   assert.match(migration, /foreign key \(project_id, user_id\)/);
