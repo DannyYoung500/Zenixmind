@@ -107,3 +107,48 @@ test('active chat composer keeps attachment and action controls aligned on narro
   assert.match(composer, /flex min-w-0 flex-wrap items-center gap-2 relative/);
   assert.doesNotMatch(composer, /<span>Search<\/span>/);
 });
+
+
+test('AI product guide covers the real workspace controls and clearly marks unavailable integrations', () => {
+  const prompt = read('../api/_lib/zenix-system-prompt.ts');
+  for (const feature of ['Imagine', 'My stuff', 'Automations', 'Online Search', 'Think Harder', 'Temporary Chat', 'file attachments', 'response detail', 'preferred language']) {
+    assert.ok(prompt.toLowerCase().includes(feature.toLowerCase()), `product guide missing ${feature}`);
+  }
+  assert.match(prompt, /do not claim.*placeholder.*functional/i);
+});
+
+test('chat API forwards text and image attachments to the model instead of dropping them', () => {
+  const stream = read('../api/chat/stream.ts');
+  const groq = read('../api/_lib/groq-client.ts');
+  assert.match(stream, /body\.attachment/);
+  assert.match(stream, /qwen\/qwen3\.8-27b/);
+  assert.match(stream, /image_url/);
+  assert.match(stream, /attachment\.text/);
+  assert.match(groq, /image_url/);
+});
+
+test('temporary chats are not persisted to conversation or message tables', () => {
+  const stream = read('../api/chat/stream.ts');
+  assert.match(stream, /temporaryChat/);
+  assert.match(stream, /if \(!temporaryChat\)/);
+  assert.match(stream, /conversationId: conversation\?\.id/);
+});
+
+test('settings expose default thinking and language preferences to the assistant', () => {
+  const assistant = read('../src/pages/AssistantPage.tsx');
+  assert.match(assistant, /Default thinking mode/);
+  assert.match(assistant, /Preferred language/);
+  assert.match(assistant, /zenixmind-default-thinking/);
+  assert.match(assistant, /zenixmind-language/);
+  assert.match(assistant, /temporaryChat/);
+  assert.match(assistant, /preferences: \{/);
+  assert.match(assistant, /language:/);
+});
+
+test('source favicons appear inline with search results without opening source details', () => {
+  const assistant = read('../src/pages/AssistantPage.tsx');
+  const inlineStart = assistant.indexOf('aria-label="Web search sources"');
+  const inlineEnd = assistant.indexOf('{sourcesOpen &&', inlineStart);
+  const inlineSources = assistant.slice(inlineStart, inlineEnd);
+  assert.match(inlineSources, /<SourceFavicon url=\{src\.url\}/);
+});
