@@ -220,7 +220,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let assistantText = '';
   try {
     if (researchRequested) {
-      await streamTavilyResearch(searchQuery, searchKey!, {
+      await streamTavilyResearch([searchQuery, projectDescription ? `Project context: ${projectDescription}` : '', projectInstructions ? `Project instructions: ${projectInstructions}` : ''].filter(Boolean).join('\n\n'), searchKey!, {
         onStatus: (status) => sendEvent(res, { type: 'status', status }),
         onContent: (text) => {
           assistantText += text;
