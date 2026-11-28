@@ -2298,7 +2298,10 @@ export function AssistantPage() {
             memory: localStorage.getItem('zenixmind-memory') !== 'off',
             personality: localStorage.getItem('zenixmind-personality') || 'Balanced',
             responseLength: localStorage.getItem('zenixmind-response-length') || 'Adaptive',
-            customInstructions: localStorage.getItem('zenixmind-custom-instructions') || ''
+            customInstructions: localStorage.getItem('zenixmind-custom-instructions') || '',
+            onlineSearch: webSearch,
+            theme: localStorage.getItem('zenixmind-theme') || 'Dark',
+            accent: localStorage.getItem('zenixmind-accent') || 'Pink'
           }
         })
       });
