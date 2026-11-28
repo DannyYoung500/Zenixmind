@@ -40,7 +40,7 @@ function toClientAutomation(task: any) {
 
 async function findAutomation(supabase: any, userId: string, id: string) {
   const { data, error } = await supabase.from('automations')
-    .select('id,user_id,title,prompt,frequency,cron_expression,run_at,timezone,schedule_name,schedule_id,enabled,web_search,last_run_at,created_at,updated_at')
+    .select('id,user_id,title,prompt,frequency,cron_expression,run_at,timezone,schedule_name,schedule_id,enabled,web_search,last_run_at,completed_at,created_at,updated_at')
     .eq('id', id).eq('user_id', userId).maybeSingle();
   if (error) throw error;
   return data;
@@ -79,6 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try { task = await findAutomation(supabase, user.id, id); }
       catch { return res.status(500).json({ error: 'Unable to load this scheduled task.', code: 'AUTOMATION_LOOKUP_FAILED' }); }
       if (!task) return res.status(404).json({ error: 'Scheduled task not found.', code: 'AUTOMATION_NOT_FOUND' });
+      if (task.completed_at) return res.status(409).json({ error: 'This one-time task has already completed.', code: 'AUTOMATION_ALREADY_COMPLETED' });
       try {
         const queued = await send(AUTOMATION_TOPIC, {
           automationId: task.id,
@@ -173,7 +174,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try { task = await findAutomation(supabase, user.id, id); }
     catch { return res.status(500).json({ error: 'Unable to load this scheduled task.', code: 'AUTOMATION_LOOKUP_FAILED' }); }
     if (!task) return res.status(404).json({ error: 'Scheduled task not found.', code: 'AUTOMATION_NOT_FOUND' });
-    if (task.frequency === 'once' && task.last_run_at && body.enabled) {
+    if (task.completed_at && body.enabled) {
       return res.status(409).json({ error: 'This one-time task has already run and cannot be re-enabled.', code: 'AUTOMATION_ALREADY_RAN' });
     }
     try {
@@ -200,7 +201,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try { task = await findAutomation(supabase, user.id, id); }
     catch { return res.status(500).json({ error: 'Unable to load this scheduled task.', code: 'AUTOMATION_LOOKUP_FAILED' }); }
     if (!task) return res.status(404).json({ error: 'Scheduled task not found.', code: 'AUTOMATION_NOT_FOUND' });
-    if (!(task.frequency === 'once' && task.last_run_at)) {
+    if (!task.completed_at) {
       try {
         const schedules = await getSchedulesClient();
         await schedules.delete({ name: task.schedule_name, namespace: user.id });
