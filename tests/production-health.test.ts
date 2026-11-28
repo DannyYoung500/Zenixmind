@@ -88,3 +88,19 @@ test('mobile navigation fills the phone width and settings navigation exposes al
   assert.match(assistant, /Online Search.*settings-online-search/);
   assert.doesNotMatch(assistant, /\['Codex'/);
 });
+
+
+test('conversation menus and delete confirmation remain fully usable on short mobile viewports', () => {
+  const shell = read('../src/components/workspace-shell.tsx');
+  assert.match(shell, /max-h-\[calc\(100dvh-2rem\)\].*overflow-y-auto/);
+  assert.match(shell, /overscroll-contain/);
+  assert.match(shell, /safe-area-inset-bottom/);
+  assert.match(shell, /window\.innerHeight - 16/);
+});
+
+test('composer attachment and action controls stay aligned and can wrap on narrow screens', () => {
+  const composer = read('../src/components/compact-floating-composer.tsx');
+  assert.match(composer, /items-center justify-between gap-2/);
+  assert.match(composer, /flex-wrap/);
+  assert.match(composer, /shrink-0/);
+});
