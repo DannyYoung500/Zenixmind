@@ -4,6 +4,7 @@ import { createGroqChatCompletion } from './_lib/groq-client.ts';
 import { buildZenixMessages } from './_lib/zenix-system-prompt.ts';
 import { handleAutomationsRequest } from './_lib/automations-handler.ts';
 import { handleStatusRequest } from './_lib/status-handler.ts';
+import { handleConnectedToolsRequest } from './_lib/connected-tools.ts';
 import {
   deleteConversations,
   exportConversations,
@@ -18,6 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = String(req.query.action || '');
   if (action === 'automations') return handleAutomationsRequest(req, res);
   if (action === 'status') return handleStatusRequest(req, res);
+  if (action === 'connected-tools' || action === 'connected-tools-callback') return handleConnectedToolsRequest(req, res);
 
   const context = await getChatContext(req.headers.authorization);
   if (!context) {
