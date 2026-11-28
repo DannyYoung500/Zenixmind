@@ -17,7 +17,7 @@ test('settings opens as a full-screen responsive experience with grouped navigat
 
 test('settings includes dedicated reference categories and preserves real account controls', () => {
   for (const category of [
-    'Personalization', 'Memory', 'Plugins', 'Workspace', 'Upgrade plan',
+    'Personalization', 'Memory', 'Plugins', 'Connected tools', 'Workspace', 'Upgrade plan',
     'Usage and limits', 'Trusted contact', 'Parental controls', 'Notifications',
     'Voice', 'Safety', 'Security and login', 'Storage', 'Privacy center',
     'Data controls', 'Ads controls', 'Report bug', 'About', 'Log out'
