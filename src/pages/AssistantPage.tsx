@@ -1788,7 +1788,10 @@ function AutomationsView({ userId }: { userId?: string }) {
       <div className="mx-auto w-full max-w-5xl">
         <div className="mb-6 flex flex-col gap-3 border-b border-white/[.06] pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div><p className="mb-2 text-[10px] font-semibold uppercase tracking-[.18em] text-zinc-600">Workspace</p><h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Automations</h1><p className="mt-1 text-sm text-zinc-500">Schedule AI tasks and review their results here.</p></div>
-          <button type="button" onClick={() => setFormOpen((open) => !open)} className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl bg-white px-4 text-xs font-semibold text-black hover:bg-zinc-200 sm:self-auto"><Plus size={14}/>{formOpen ? 'Close form' : 'New scheduled task'}</button>
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            <button type="button" onClick={() => void load()} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/[.1] px-3.5 text-xs text-zinc-300 hover:bg-white/[.05]"><RotateCcw size={13}/> Refresh</button>
+            <button type="button" onClick={() => setFormOpen((open) => !open)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-semibold text-black hover:bg-zinc-200"><Plus size={14}/>{formOpen ? 'Close form' : 'New scheduled task'}</button>
+          </div>
         </div>
 
         {notice && <p role="status" className="mb-4 rounded-xl border border-white/[.08] bg-white/[.03] px-3 py-2.5 text-xs text-zinc-300">{notice}</p>}
