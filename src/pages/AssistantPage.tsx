@@ -1852,6 +1852,10 @@ function ProjectView({ projectId, userId, onDeleted }: { projectId: string; user
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [projectChats, setProjectChats] = useState<Array<{ id: string; title: string; created_at: string; updated_at: string }>>([]);
+  const [projectFiles, setProjectFiles] = useState<Array<{ id: string; library_item_id: string; created_at: string; file_name: string; mime_type: string | null; size_bytes: number | null }>>([]);
+  const [availableFiles, setAvailableFiles] = useState<Array<{ id: string; file_name: string; mime_type: string | null; size_bytes: number | null }>>([]);
+  const [selectedLibraryItemId, setSelectedLibraryItemId] = useState('');
+  const [fileSaving, setFileSaving] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -1873,6 +1877,49 @@ function ProjectView({ projectId, userId, onDeleted }: { projectId: string; user
       .update({ project_id: null }).eq('id', id).eq('user_id', userId).eq('project_id', projectId);
     if (error) setMessage('Could not remove this chat from the project.');
     else setProjectChats((previous) => previous.filter((chat) => chat.id !== id));
+  };
+
+  const loadProjectFiles = useCallback(async () => {
+    if (!userId) { setProjectFiles([]); setAvailableFiles([]); return; }
+    const [linksResult, filesResult] = await Promise.all([
+      getSupabase().from('project_files').select('id,library_item_id,created_at')
+        .eq('project_id', projectId).eq('user_id', userId).order('created_at', { ascending: false }),
+      getSupabase().from('library_items').select('id,file_name,mime_type,size_bytes')
+        .eq('user_id', userId).is('deleted_at', null).order('created_at', { ascending: false }).limit(100)
+    ]);
+    if (linksResult.error || filesResult.error) {
+      setMessage('Project files could not be loaded.');
+      return;
+    }
+    const files = filesResult.data || [];
+    const links = linksResult.data || [];
+    const byId = new Map(files.map((file) => [file.id, file]));
+    setProjectFiles(links.flatMap((link) => {
+      const file = byId.get(link.library_item_id);
+      return file ? [{ ...link, ...file }] : [];
+    }));
+    const linkedIds = new Set(links.map((link) => link.library_item_id));
+    setAvailableFiles(files.filter((file) => !linkedIds.has(file.id)));
+  }, [projectId, userId]);
+
+  useEffect(() => { void loadProjectFiles(); }, [loadProjectFiles]);
+
+  const addProjectFile = async () => {
+    if (!userId || !selectedLibraryItemId || fileSaving) return;
+    setFileSaving(true); setMessage('');
+    const { error } = await getSupabase().from('project_files')
+      .insert({ user_id: userId, project_id: projectId, library_item_id: selectedLibraryItemId });
+    if (error) setMessage('This file could not be linked to the project.');
+    else { setSelectedLibraryItemId(''); await loadProjectFiles(); }
+    setFileSaving(false);
+  };
+
+  const removeProjectFile = async (id: string) => {
+    if (!userId) return;
+    const { error } = await getSupabase().from('project_files')
+      .delete().eq('id', id).eq('user_id', userId).eq('project_id', projectId);
+    if (error) setMessage('This file could not be removed from the project.');
+    else await loadProjectFiles();
   };
 
   useEffect(() => {
@@ -1962,6 +2009,11 @@ function ProjectView({ projectId, userId, onDeleted }: { projectId: string; user
         <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} maxLength={4000} rows={7} placeholder="Tell ZenixMind how it should work inside this project." className="w-full resize-y rounded-xl border border-white/[.08] bg-[#0d0d10] px-3 py-2.5 text-sm leading-6 text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-white/[.2]" />
         <span className="mt-1 block text-[10px] text-zinc-600">Saved to this project for future project-aware chat.</span>
       </label>
+      <section className="rounded-2xl border border-white/[.07] bg-[#0b0b0d] p-4">
+        <div className="mb-3"><h2 className="text-xs font-semibold text-zinc-200">Project files</h2><p className="mt-1 text-[10px] leading-4 text-zinc-500">Link files from My stuff. Attach a linked file to a chat when you want ZenixMind to read its contents.</p></div>
+        {availableFiles.length ? <div className="mb-4 flex flex-col gap-2 sm:flex-row"><select value={selectedLibraryItemId} onChange={(event) => setSelectedLibraryItemId(event.target.value)} className="min-w-0 flex-1 rounded-xl border border-white/[.08] bg-[#101013] px-3 py-2.5 text-xs text-zinc-200"><option value="">Choose a file from My stuff</option>{availableFiles.map((file) => <option key={file.id} value={file.id}>{file.file_name}</option>)}</select><button type="button" disabled={!selectedLibraryItemId || fileSaving} onClick={() => void addProjectFile()} className="rounded-xl border border-white/[.1] px-3 py-2.5 text-xs text-zinc-200 hover:bg-white/[.05] disabled:opacity-40">{fileSaving ? 'Adding…' : 'Add file'}</button></div> : <p className="mb-4 text-[10px] text-zinc-600">No unlinked files available. <Link to="/assistant?view=library" className="text-zinc-300 underline underline-offset-2">Open My stuff</Link></p>}
+        {projectFiles.length ? <div className="divide-y divide-white/[.06]">{projectFiles.map((file) => <div key={file.id} className="flex min-w-0 items-center gap-2 py-2.5"><FileText size={14} className="shrink-0 text-zinc-500"/><div className="min-w-0 flex-1"><p className="truncate text-xs text-zinc-300">{file.file_name}</p><p className="mt-0.5 text-[10px] text-zinc-600">{file.mime_type || 'File'}{file.size_bytes ? ` · ${Math.max(1, Math.round(file.size_bytes / 1024))} KB` : ''}</p></div><button type="button" onClick={() => void removeProjectFile(file.id)} className="shrink-0 rounded-lg px-2 py-1 text-[10px] text-zinc-600 hover:bg-white/[.06] hover:text-zinc-300">Remove</button></div>)}</div> : <p className="py-2 text-center text-[10px] text-zinc-600">No files linked to this project yet.</p>}
+      </section>
       <section className="rounded-2xl border border-white/[.07] bg-[#0b0b0d] p-4">
         <div className="mb-3 flex items-center justify-between"><h2 className="text-xs font-semibold text-zinc-200">Project chats</h2><span className="text-[10px] text-zinc-600">{projectChats.length}</span></div>
         {projectChats.length ? <div className="divide-y divide-white/[.06]">{projectChats.map((chat) => <div key={chat.id} className="flex items-center gap-2 py-2.5"><MessageSquare size={14} className="shrink-0 text-zinc-500"/><Link to={`/assistant?conversation=${encodeURIComponent(chat.id)}&projectChat=${encodeURIComponent(project.id)}`} className="min-w-0 flex-1 truncate text-xs text-zinc-300 hover:text-white">{chat.title || 'New conversation'}</Link><button type="button" onClick={() => void removeChat(chat.id)} className="shrink-0 rounded-lg px-2 py-1 text-[10px] text-zinc-600 hover:bg-white/[.06] hover:text-zinc-300">Remove</button></div>)}</div> : <p className="py-3 text-center text-[11px] text-zinc-600">Chats created in this project will appear here.</p>}
