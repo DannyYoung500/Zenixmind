@@ -41,8 +41,8 @@ test('advanced quick search selects Tavily advanced depth without changing citat
     const sources = await searchWeb('complex topic', 'tvly-test-key', { depth: 'advanced' });
     assert.equal(requestBody.search_depth, 'advanced');
     const messages = addWebSourcesToMessages([{ role: 'user', content: 'Explain this' }], sources);
-    assert.match(messages[0].content, /https:\/\/example\.org/);
-    assert.match(messages[0].content, /cite relevant sources inline/i);
+    assert.match(String(messages[0].content), /https:\/\/example\.org/);
+    assert.match(String(messages[0].content), /cite relevant sources inline/i);
   } finally {
     globalThis.fetch = originalFetch;
   }
