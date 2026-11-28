@@ -87,9 +87,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     typeof preferences.accent === 'string' ? `Accent color: ${preferences.accent}` : '',
     typeof preferences.onlineSearch === 'boolean' ? `Online Search preference: ${preferences.onlineSearch ? 'enabled' : 'disabled'}` : '',
     typeof preferences.memory === 'boolean' ? `Memory preference: ${preferences.memory ? 'enabled' : 'disabled'}` : '',
+    typeof preferences.language === 'string' ? `Preferred response language: ${preferences.language}` : '',
+    typeof preferences.activeView === 'string' ? `Current workspace view: ${preferences.activeView}` : '',
+    `Temporary Chat request: ${body.temporaryChat === true ? 'enabled' : 'disabled'}`,
     typeof body.model === 'string' ? `Selected model: ${body.model}` : ''
   ].filter(Boolean).join('; ');
   if (settingsContext) modelMessages = [...modelMessages, { role: 'system', content: `Current user-visible ZenixMind preferences for answering product-help questions: ${settingsContext}. These values are context only; do not change them or claim they were changed.` }];
+  const preferredLanguage = typeof preferences.language === 'string' ? preferences.language.trim() : '';
+  if (preferredLanguage && preferredLanguage !== 'Auto') {
+    modelMessages = [...modelMessages, { role: 'system', content: `Answer in ${preferredLanguage} by default unless the user asks for another language or the task requires exact original-language text.` }];
+  }
   const commandInstruction = getChatCommandInstruction(body.command);
   if (commandInstruction) modelMessages = [...modelMessages, { role: 'system', content: commandInstruction }];
   if ((webSearchRequested || researchRequested) && !searchKey?.trim()) {
