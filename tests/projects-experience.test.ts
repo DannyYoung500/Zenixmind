@@ -17,7 +17,7 @@ test('project management supports private creation, editing, and assigning exist
   assert.match(assistant, /function ProjectsView\(/);
   assert.match(assistant, /\.from\('projects'\)/);
   assert.match(assistant, /\.from\('conversations'\)/);
-  assert.match(assistant, /project_id: selectedProjectId/);
+  assert.match(assistant, /project_id: projectId/);
   assert.match(assistant, /Project instructions/);
 });
 
