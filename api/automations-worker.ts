@@ -81,6 +81,8 @@ export default queue.handleNodeCallback(async (message: AutomationQueueMessage |
     }
   }
 
+  if (!runId) throw new Error('Could not initialize automation run history.');
+
   try {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey?.trim()) throw new Error('GROQ_API_KEY is not configured.');
