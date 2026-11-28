@@ -1,3 +1,5 @@
+import type { GroqChatMessage } from './groq-client.ts';
+
 export interface WebSource {
   title: string;
   url: string;
@@ -186,19 +188,23 @@ export async function streamTavilyResearch(
 }
 
 export function addWebSourcesToMessages(
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  messages: GroqChatMessage[],
   sources: WebSource[]
-) {
+): GroqChatMessage[] {
   if (!sources.length) return messages;
   const sourceContext = sources.map((source, index) =>
     `[${index + 1}] ${source.title}\nURL: ${source.url}\nSummary: ${source.snippet || 'No summary provided.'}`
   ).join('\n\n');
   const groundedInstruction = `\n\nLIVE WEB SEARCH RESULTS (retrieved for this request):\n${sourceContext}\n\nUse these results to answer the user's question. Cite relevant sources inline using Markdown links with the exact URLs above. Do not claim you searched beyond these results, and clearly say when the sources do not establish a fact.`;
-  return messages.map((message, index) =>
-    index === messages.length - 1 && message.role === 'user'
+  const lastUserIndex = messages.map(message => message.role).lastIndexOf('user');
+  if (lastUserIndex < 0) return [...messages, { role: 'system', content: groundedInstruction.trim() }];
+  const lastUser = messages[lastUserIndex];
+  if (typeof lastUser.content === 'string') {
+    return messages.map((message, index) => index === lastUserIndex
       ? { ...message, content: message.content + groundedInstruction }
-      : message
-  );
+      : message);
+  }
+  return [...messages, { role: 'system', content: `The user attached an image. Apply these live web search results to their question:\n${sourceContext}\n\n${groundedInstruction.trim()}` }];
 }
 
 export function appendWebSourceReferences(content: string, sources: WebSource[]): string {
