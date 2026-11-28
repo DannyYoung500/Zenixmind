@@ -93,11 +93,12 @@ interface LibraryItem {
   deleted_at?: string | null;
 }
 
-function SettingsModal({ onClose, onClearChats, webSearch, onWebSearchChange }: { onClose: () => void; onClearChats: () => void; webSearch: boolean; onWebSearchChange: (enabled: boolean) => void }) {
+function SettingsModal({ onClose, onClearChats, webSearch, onWebSearchChange, deepThink, onDeepThinkChange, temporaryChat, onTemporaryChatChange }: { onClose: () => void; onClearChats: () => void; webSearch: boolean; onWebSearchChange: (enabled: boolean) => void; deepThink: boolean; onDeepThinkChange: (enabled: boolean) => void; temporaryChat: boolean; onTemporaryChatChange: (enabled: boolean) => void }) {
   const { user } = useAuth();
   const [memory, setMemory] = useState(() => localStorage.getItem('zenixmind-memory') !== 'off');
   const [length, setLength] = useState(() => localStorage.getItem('zenixmind-response-length') || 'Adaptive');
   const [style, setStyle] = useState(() => localStorage.getItem('zenixmind-personality') || 'Balanced');
+  const [language, setLanguage] = useState(() => localStorage.getItem('zenixmind-language') || 'Auto');
   const [customInstructions, setCustomInstructions] = useState(() => localStorage.getItem('zenixmind-custom-instructions') || '');
   const [memories, setMemories] = useState<Array<{ id: string; memory: string; category: string; source: string; created_at: string; updated_at: string }>>([]);
   const [memoryLoading, setMemoryLoading] = useState(true);
@@ -265,6 +266,18 @@ function SettingsModal({ onClose, onClearChats, webSearch, onWebSearchChange }: 
               <p className="mt-3 text-[10px] text-zinc-600">{webSearch ? 'Online Search is enabled for new messages.' : 'Online Search is off. You can still use explicit search commands.'}</p>
             </section>
 
+            <section id="settings-ai-defaults" className="scroll-mt-5 rounded-2xl border border-white/[.07] bg-[#111114] p-5">
+              <h3 className="text-sm font-semibold text-zinc-100">AI defaults</h3>
+              <div className="mt-3 flex items-center justify-between gap-4 border-b border-white/[.06] pb-3">
+                <div className="min-w-0"><p className="text-xs font-medium text-zinc-200">Default thinking mode</p><p className="mt-1 text-[11px] text-zinc-500">Choose whether new chats start in Quick mode or Think harder.</p></div>
+                <select value={deepThink ? 'deep' : 'quick'} onChange={(e) => onDeepThinkChange(e.target.value === 'deep')} className="shrink-0 rounded-xl border border-white/[.08] bg-[#17171a] px-3 py-2 text-xs text-zinc-200"><option value="quick">Quick</option><option value="deep">Think harder</option></select>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-4">
+                <div className="min-w-0"><p className="text-xs font-medium text-zinc-200">Temporary Chat</p><p className="mt-1 text-[11px] text-zinc-500">Do not save new messages to chat history while this is enabled.</p></div>
+                <button type="button" role="switch" aria-checked={temporaryChat} onClick={() => onTemporaryChatChange(!temporaryChat)} className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${temporaryChat ? 'bg-cyan-500' : 'bg-zinc-700'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${temporaryChat ? 'translate-x-[22px]' : 'translate-x-0.5'}`} /></button>
+              </div>
+            </section>
+
             <div id="settings-personalization" className="scroll-mt-5 divide-y divide-white/[.06] rounded-2xl border border-white/[.07] bg-[#111114] px-5">
               <div className="flex items-center justify-between py-4">
                 <div><div className="text-xs font-medium text-zinc-200">Continuous Context Memory</div><div className="text-[11px] text-zinc-500">Allow ZenixMind to use saved memories across conversations.</div></div>
@@ -306,6 +319,11 @@ function SettingsModal({ onClose, onClearChats, webSearch, onWebSearchChange }: 
               <div className="flex items-center justify-between py-4">
                 <div><div className="text-xs font-medium text-zinc-200">Response Detail</div><div className="text-[11px] text-zinc-500">Default answer length & depth.</div></div>
                 <select value={length} onChange={(e) => { setLength(e.target.value); savePref('zenixmind-response-length', e.target.value); }} className="rounded-xl border border-white/[.08] bg-[#17171a] px-3 py-1.5 text-xs text-zinc-200 outline-none"><option value="Adaptive">Adaptive</option><option value="Concise">Concise & Direct</option><option value="Detailed">Detailed</option><option value="Thorough">Thorough & Comprehensive</option></select>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 py-4">
+                <div><div className="text-xs font-medium text-zinc-200">Preferred language</div><div className="text-[11px] text-zinc-500">Choose the language ZenixMind should normally answer in.</div></div>
+                <select value={language} onChange={(e) => { setLanguage(e.target.value); savePref('zenixmind-language', e.target.value); }} className="max-w-[48%] rounded-xl border border-white/[.08] bg-[#17171a] px-3 py-1.5 text-xs text-zinc-200 outline-none"><option>Auto</option><option>English</option><option>Pidgin English</option><option>Yoruba</option><option>Igbo</option><option>Hausa</option><option>French</option><option>Spanish</option><option>Arabic</option></select>
               </div>
 
               <div className="flex items-center justify-between py-4">
@@ -1791,7 +1809,8 @@ export function AssistantPage() {
     return saved?.startsWith('zenix-') ? saved : 'zenix-auto';
   });
   const [webSearch, setWebSearch] = useState(() => localStorage.getItem('zenixmind-web-search') === 'on');
-  const [deepThink, setDeepThink] = useState(false);
+  const [deepThink, setDeepThink] = useState(() => localStorage.getItem('zenixmind-default-thinking') === 'deep');
+  const [temporaryChat, setTemporaryChat] = useState(() => localStorage.getItem('zenixmind-temporary-chat') === 'on');
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [thinkingStatus, setThinkingStatus] = useState<string | null>(null);
@@ -2288,6 +2307,7 @@ export function AssistantPage() {
           command: parsedCommand?.command || null,
           searchQuery: parsedCommand && ['search', 'research'].includes(parsedCommand.command) ? parsedCommand.prompt : undefined,
           deepThink,
+          temporaryChat,
           attachment: attachmentPayload,
           preferences: {
             memory: localStorage.getItem('zenixmind-memory') !== 'off',
@@ -2296,7 +2316,9 @@ export function AssistantPage() {
             customInstructions: localStorage.getItem('zenixmind-custom-instructions') || '',
             onlineSearch: webSearch,
             theme: localStorage.getItem('zenixmind-theme') || 'Dark',
-            accent: localStorage.getItem('zenixmind-accent') || 'Pink'
+            accent: localStorage.getItem('zenixmind-accent') || 'Pink',
+            language: localStorage.getItem('zenixmind-language') || 'Auto',
+            activeView: view
           }
         })
       });
@@ -2588,16 +2610,18 @@ export function AssistantPage() {
                           {thinkingStatus === 'searching'
                             ? 'Searching'
                             : thinkingStatus === 'preparing'
-                            ? 'Preparing a detailed answer'
+                            ? 'Planning a careful response'
                             : thinkingStatus === 'generating'
-                            ? 'Writing your answer'
+                            ? 'Drafting your answer'
                             : thinkingStatus === 'writing'
                             ? 'Writing'
                             : thinkingStatus === 'researching'
                             ? 'Researching'
                             : ['planning research', 'searching sources', 'investigating subtopics', 'writing research report'].includes(thinkingStatus)
                             ? thinkingStatus.charAt(0).toUpperCase() + thinkingStatus.slice(1)
-                            : 'Thinking'}
+                            : thinkingStatus === 'thinking'
+                            ? 'Thinking through your question'
+                            : 'Preparing your response'}
                         </span>
                       </div>
                     </div>
@@ -2682,6 +2706,10 @@ export function AssistantPage() {
         <SettingsModal
           webSearch={webSearch}
           onWebSearchChange={(enabled) => { setWebSearch(enabled); localStorage.setItem('zenixmind-web-search', enabled ? 'on' : 'off'); }}
+          deepThink={deepThink}
+          onDeepThinkChange={(enabled) => { setDeepThink(enabled); localStorage.setItem('zenixmind-default-thinking', enabled ? 'deep' : 'quick'); }}
+          temporaryChat={temporaryChat}
+          onTemporaryChatChange={(enabled) => { setTemporaryChat(enabled); localStorage.setItem('zenixmind-temporary-chat', enabled ? 'on' : 'off'); }}
           onClose={() => setSettingsOpen(false)}
           onClearChats={() => {
             setMessages([]);
