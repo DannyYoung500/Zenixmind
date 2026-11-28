@@ -4,14 +4,15 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { WORKSPACE_NAVIGATION } from '../src/lib/workspace-navigation.ts';
 
-test('workspace navigation contains only the four primary product destinations', () => {
+test('workspace navigation contains the five primary product destinations', () => {
   assert.deepEqual(
     WORKSPACE_NAVIGATION.map(({ id, label, to }) => ({ id, label, to })),
     [
       { id: 'chat', label: 'Chat', to: '/assistant' },
       { id: 'images', label: 'Imagine', to: '/assistant?view=images' },
       { id: 'library', label: 'My stuff', to: '/assistant?view=library' },
-      { id: 'automations', label: 'Automations', to: '/assistant?view=automations' }
+      { id: 'automations', label: 'Automations', to: '/assistant?view=automations' },
+      { id: 'projects', label: 'Projects', to: '/assistant?view=projects' }
     ]
   );
 });
@@ -28,13 +29,7 @@ test('profile menu does not expose the Voice Assistant destination', () => {
   assert.doesNotMatch(workspaceShell, />\s*Voice Assistant\s*</);
 });
 
-test('workspace shell does not expose project creation or project navigation', () => {
-  const workspaceShellPath = fileURLToPath(new URL('../src/components/workspace-shell.tsx', import.meta.url));
-  const workspaceShell = readFileSync(workspaceShellPath, 'utf8');
-  assert.doesNotMatch(workspaceShell, /Create New Project|Create your first project|title="Create project"/);
-  assert.doesNotMatch(workspaceShell, /\.from\(['"]projects['"]\)|showAddProjectModal|handleAddProject/);
-  assert.doesNotMatch(workspaceShell, /\/\* Projects Section \*\//);
-});
+
 
 test('assistant message reactions use restrained selected states', () => {
   const assistantPagePath = fileURLToPath(new URL('../src/pages/AssistantPage.tsx', import.meta.url));
