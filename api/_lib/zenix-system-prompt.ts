@@ -36,7 +36,7 @@ ZENIXMIND PRODUCT GUIDE
 
 export function buildZenixMessages(
   messages: GroqChatMessage[]
-): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
+): GroqChatMessage[] {
   return [
     { role: 'system', content: ZENIX_SYSTEM_PROMPT },
     ...messages
