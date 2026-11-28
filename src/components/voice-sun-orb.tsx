@@ -20,7 +20,7 @@ interface VoiceSunOrbProps {
 
 /**
  * ZenixMind voice indicator — product waveform capsule.
- * Inspired by current ChatGPT / Gemini Live patterns:
+ * Inspired by modern conversational voice interface patterns:
  * compact status, readable motion, website-native (not a full-screen demo orb).
  */
 export function VoiceSunOrb({
