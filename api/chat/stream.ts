@@ -51,6 +51,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const searchQuery = requestedQuery || messages[messages.length - 1].content;
   let sources: Awaited<ReturnType<typeof searchWeb>> = [];
   let modelMessages = buildZenixMessages(messages);
+  const attachment = body.attachment && typeof body.attachment === 'object' ? body.attachment : null;
+  let visionRequest = false;
+  if (attachment) {
+    const attachmentName = typeof attachment.name === 'string' ? attachment.name.slice(0, 180) : 'uploaded file';
+    const mimeType = typeof attachment.mimeType === 'string' ? attachment.mimeType.toLowerCase() : '';
+    const attachmentText = typeof attachment.text === 'string' ? attachment.text.slice(0, 200000) : '';
+    const imageData = typeof attachment.data === 'string' ? attachment.data : '';
+    let userMessageIndex = -1;
+    for (let index = modelMessages.length - 1; index >= 0; index -= 1) {
+      if (modelMessages[index].role === 'user') { userMessageIndex = index; break; }
+    }
+    if (userMessageIndex >= 0 && attachmentText.trim()) {
+      modelMessages[userMessageIndex].content = `${modelMessages[userMessageIndex].content}\n\n[Extracted content from ${attachmentName}]\n${attachmentText}`;
+    } else if (userMessageIndex >= 0 && mimeType.startsWith('image/') && /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(imageData) && imageData.length <= 12 * 1024 * 1024) {
+      modelMessages[userMessageIndex].content = [
+        { type: 'text', text: `${modelMessages[userMessageIndex].content}\n\nPlease inspect the attached image and answer the user's question about it. File: ${attachmentName}.` },
+        { type: 'image_url', image_url: { url: imageData } }
+      ];
+      visionRequest = true;
+    } else if (mimeType === 'application/pdf') {
+      return res.status(415).json({ error: 'PDF reading is not enabled yet. You can still keep the PDF in My stuff, or upload its text as a .txt or .md file for analysis.', code: 'PDF_TEXT_EXTRACTION_UNAVAILABLE' });
+    } else {
+      return res.status(415).json({ error: 'This attachment could not be read. Please upload a text document or a supported image.', code: 'ATTACHMENT_UNSUPPORTED' });
+    }
+  }
   if (deepThinkRequested) modelMessages = [...modelMessages, { role: 'system', content: 'For this response, use a deliberate problem-solving approach: identify the question, consider relevant alternatives and edge cases, verify calculations and assumptions, and produce a complete, well-structured answer with a concise conclusion. Do not reveal private chain-of-thought or claim to expose hidden reasoning; provide useful conclusions and a brief explanation of the approach.' }];
   const customInstructions = typeof preferences.customInstructions === 'string' ? preferences.customInstructions.trim().slice(0, 4000) : '';
   if (customInstructions) modelMessages = [...modelMessages, { role: 'system', content: `User response preferences (follow when compatible with safety and the request): ${customInstructions}` }];
@@ -90,9 +115,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { user, supabase } = context;
   const requestedConversationId = String(body.conversationId || '').trim();
-  let conversation: { id: string; title: string; model: string | null };
+  const temporaryChat = body.temporaryChat === true;
+  let conversation: { id: string; title: string; model: string | null } | null = null;
 
-  if (requestedConversationId) {
+  if (!temporaryChat && requestedConversationId) {
     const { data, error } = await supabase
       .from('conversations')
       .select('id,title,model')
@@ -102,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (error) return res.status(500).json({ error: 'Unable to open this conversation.', code: 'CONVERSATION_LOOKUP_FAILED' });
     if (!data) return res.status(404).json({ error: 'Conversation not found.', code: 'CONVERSATION_NOT_FOUND' });
     conversation = data;
-  } else {
+  } else if (!temporaryChat) {
     const firstPrompt = messages.find((message) => message.role === 'user')?.content || '';
     const { data, error } = await supabase
       .from('conversations')
@@ -117,15 +143,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const latestUserMessage = messages[messages.length - 1].content;
-  const { error: saveUserError } = await supabase.from('messages').insert({
-    conversation_id: conversation.id,
-    user_id: user.id,
-    role: 'user',
-    content: latestUserMessage
-  });
-  if (saveUserError) {
-    console.error('[chat/stream] user message save failed', saveUserError);
-    return res.status(500).json({ error: 'Unable to save your message.', code: 'MESSAGE_SAVE_FAILED' });
+  if (!temporaryChat && conversation) {
+    const { error: saveUserError } = await supabase.from('messages').insert({
+      conversation_id: conversation.id,
+      user_id: user.id,
+      role: 'user',
+      content: latestUserMessage
+    });
+    if (saveUserError) {
+      console.error('[chat/stream] user message save failed', saveUserError);
+      return res.status(500).json({ error: 'Unable to save your message.', code: 'MESSAGE_SAVE_FAILED' });
+    }
   }
 
   res.status(200);
@@ -133,7 +161,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
   sendEvent(res, { type: 'status', status: researchRequested ? 'researching' : webSearchRequested ? 'searching' : deepThinkRequested ? 'preparing' : 'thinking' });
-  sendEvent(res, { type: 'meta', conversationId: conversation.id, modelUsed: researchRequested ? 'Tavily Research' : selected.id, provider: researchRequested ? 'tavily' : 'groq', research: researchRequested, sources });
+  sendEvent(res, { type: 'meta', conversationId: conversation?.id ?? null, modelUsed: researchRequested ? 'Tavily Research' : visionRequest ? 'Zenix Vision' : selected.id, provider: researchRequested ? 'tavily' : 'groq', research: researchRequested, vision: visionRequest, temporaryChat, sources });
 
   let assistantText = '';
   try {
@@ -151,7 +179,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     } else {
       sendEvent(res, { type: 'status', status: 'generating' });
-      for await (const text of streamGroqChatCompletion(modelMessages, selected.providerModel, apiKey!)) {
+      const providerModel = visionRequest ? 'qwen/qwen3.8-27b' : selected.providerModel;
+      for await (const text of streamGroqChatCompletion(modelMessages, providerModel, apiKey!)) {
         assistantText += text;
         sendEvent(res, { type: 'delta', text });
       }
@@ -171,23 +200,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.end();
     }
 
-    const { error: saveAssistantError } = await supabase.from('messages').insert({
-      conversation_id: conversation.id,
-      user_id: user.id,
-      role: 'assistant',
-      content: assistantText
-    });
-    if (saveAssistantError) {
-      console.error('[chat/stream] assistant message save failed', saveAssistantError);
-      sendEvent(res, { type: 'error', error: 'The response was generated but could not be saved.' });
-      return res.end();
-    }
+    if (!temporaryChat && conversation) {
+      const { error: saveAssistantError } = await supabase.from('messages').insert({
+        conversation_id: conversation.id,
+        user_id: user.id,
+        role: 'assistant',
+        content: assistantText
+      });
+      if (saveAssistantError) {
+        console.error('[chat/stream] assistant message save failed', saveAssistantError);
+        sendEvent(res, { type: 'error', error: 'The response was generated but could not be saved.' });
+        return res.end();
+      }
 
-    await supabase
-      .from('conversations')
-      .update({ updated_at: new Date().toISOString(), model: selected.id })
-      .eq('id', conversation.id)
-      .eq('user_id', user.id);
+      await supabase
+        .from('conversations')
+        .update({ updated_at: new Date().toISOString(), model: selected.id })
+        .eq('id', conversation.id)
+        .eq('user_id', user.id);
+    }
 
     sendEvent(res, { type: 'done', text: assistantText });
     return res.end();
