@@ -8,6 +8,8 @@ ZenixMind is an AI workspace for authenticated conversations, model selection, i
 - Zenix model catalogue with free-tier model routing.
 - Groq-powered chat responses and streaming endpoints.
 - Tavily-powered quick web search and multi-step deep research with citations persisted in chat history.
+- Scheduled AI tasks with saved execution history.
+- Optional Connected tools integration for GitHub public repositories, using read-only commands and encrypted OAuth token storage.
 - Authenticated image generation through Pollinations, triggered with `/image`, `/imagine`, `/draw`, or `/create-image` in chat (natural-language image requests are also supported).
 - Shareable conversation links and owner-only provider diagnostics.
 - Responsive dark interface and an offline fallback page.
@@ -55,6 +57,9 @@ ZenixMind is an AI workspace for authenticated conversations, model selection, i
    | `GROQ_API_KEY` | Server-side Groq key for normal chat and streaming |
    | `TAVILY_API_KEY` | Server-side Tavily key for quick search and deep research |
    | `POLLINATIONS_API_KEY` | Server-side Pollinations key for image generation |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase key for trusted background jobs and integration storage |
+   | `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | Optional GitHub OAuth App credentials |
+   | `INTEGRATION_TOKEN_ENCRYPTION_KEY` | Server-only random secret (at least 32 characters) used to encrypt connected-provider tokens |
 
    Never expose provider secrets in browser code or commit a real `.env` file.
 
@@ -106,9 +111,26 @@ The chat composer supports a command palette. Type `/` to discover commands, use
 | `/translate` | Translate text while preserving meaning and tone |
 | `/explain` | Explain a topic step by step |
 | `/code` | Help write, review, or debug code |
+| `/github repos` | List public repositories owned by the connected GitHub account |
+| `/github search <query>` | Search public repositories owned by the connected account |
+| `/github read owner/repository [path]` | Read a public repository README, file, or directory |
 | `/analyze` | Analyze text or information supplied in chat |
 | `/build` | Plan and produce code for an app, website, or software feature |
 | `/help` | Display the command list |
+
+### Connected tools: GitHub
+
+GitHub is an optional, user-authorized integration available in **Settings → Connected tools**. Create a GitHub OAuth App and set its callback URL to:
+
+`https://zenixmind.vercel.app/api/connected-tools/callback`
+
+Add these variables to the Vercel Production environment:
+
+- `GITHUB_OAUTH_CLIENT_ID`
+- `GITHUB_OAUTH_CLIENT_SECRET`
+- `INTEGRATION_TOKEN_ENCRYPTION_KEY` — generate a random value with at least 32 characters (for example, `openssl rand -base64 48`).
+
+Redeploy after adding the variables. The OAuth request asks only for GitHub's `read:user` scope. ZenixMind can list, search and read public repositories; it cannot access private repositories, push commits, edit files, create issues, or change GitHub settings. OAuth state is short-lived and validated server-side. Provider tokens are encrypted with AES-256-GCM and stored separately from browser-readable connection metadata. Disconnecting GitHub deletes the stored credentials.
 
 Commands other than image generation use the selected ZenixMind chat model unless they are provider-native research actions. Command-specific instructions are selected from a server-side allowlist, so chat history retains the user's original command instead of storing hidden prompt text. `/search` uses Tavily's basic Search API and grounds the selected ZenixMind model with ranked sources. `/research` uses Tavily's streaming Research API (model auto, numbered citations) to create a multi-step report. Both routes require `TAVILY_API_KEY` on the server. Tavily source links are also appended to saved assistant messages so citations remain available after reloading chat history. `/build` provides architecture and code assistance but does not claim to deploy projects or modify external systems. Image generation remains authenticated through `POST /api/generate-image`; Pollinations credentials stay server-side, and generated images are saved to the signed-in user's private Supabase Library. Natural-language image requests remain supported. Puter frontend generation is intentionally not used because it would add a separate browser identity/provider flow.
 
