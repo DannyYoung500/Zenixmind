@@ -10,7 +10,7 @@
     },
     {
       "source": "/api/status",
-      "destination": "/api/status"
+      "destination": "/api/chat?action=status"
     },
     {
       "source": "/api/chat",
